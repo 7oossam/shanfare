@@ -63,7 +63,11 @@ function render() {
   }
 }
 
-const focus = q => root.querySelector(q)?.focus({ preventScroll: true });
+const focus = q => {
+  if (typeof window !== 'undefined' && window.innerWidth >= 900) {
+    root.querySelector(q)?.focus({ preventScroll: true });
+  }
+};
 
 function reset(seed = s.seed) {
   if (menu.open) menu.close();
@@ -193,7 +197,7 @@ function action(a) {
 }
 
 document.addEventListener('click', e => {
-  const b = e.target.closest('button');
+  const b = e.target.closest('button') || e.target.closest('[data-cell]');
   if (!b || b.disabled) return;
 
   if (b.dataset.action) {

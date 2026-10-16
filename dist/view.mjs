@@ -148,113 +148,131 @@ function renderTopBar(s) {
 // -------------------------------------------------------------
 // Left Side (55%): The Live Cinematic Arena
 // -------------------------------------------------------------
-function renderCinematicArena(s, projected) {
+// -------------------------------------------------------------
+// Left Side (55%): The Live Cinematic Arena (3-Tier Layered Gorge)
+// -------------------------------------------------------------
+function renderCinematicArena(s, projected, p = {}) {
   const enc = ENCOUNTERS[s.encounter - 1] || ENCOUNTERS[0];
   const threat = incoming(s);
 
   return `
     <section class="cinematic-arena">
-      <!-- Backdrop with Sarawat Crags, Moon and Embers -->
-      <div class="arena-backdrop ${enc.bg}">
-        <div class="night-sky">
-          <div class="crescent-moon"></div>
-          <div class="pleiades-stars"></div>
-        </div>
-        <div class="mountain-ridges"></div>
-        <div class="campfire-container">
-          <div class="campfire-flame"></div>
-          <div class="embers-particles"></div>
-        </div>
-      </div>
+      <!-- 3-Tier Layered Sarawat Gorge Battlefield -->
+      <div class="gorge-arena-content">
 
-      <!-- Encounter Header Banner -->
-      <div class="encounter-banner">
-        <h2>${enc.name} <small>· ${enc.tagline}</small></h2>
-        <div class="verse-quote">${enc.verse}</div>
-      </div>
-
-      <!-- Live Combat Stage (Characters & Enemies) -->
-      <div class="arena-stage">
-        <!-- Shanfara & Companions (Allies) -->
-        <div class="outlaw-formation">
-          <div class="hero-character shanfara-actor">
-            <div class="character-sprite shanfara-art">
-              ${icon('bow')}
+        <!-- Tier 1: The High Ridge (المرقبة) -->
+        <div class="gorge-tier tier-ridge">
+          <div class="tier-label">
+            <span class="tier-badge">${icon('bow')} مَرْقَبَةُ الصَّفَا</span>
+            <span class="verse-snip">${enc.verse}</span>
+          </div>
+          <div class="ridge-elements">
+            <div class="lookout-tag">
+              <span class="torch-fire">🔥</span>
+              <span>رماة الطليعة</span>
             </div>
-            <div class="actor-plate">
+            <div class="dawn-clock ${s.turn >= 30 ? 'danger' : ''}">
+              ${icon('moon')}
+              <span>الفجر: <b>${num(36 - s.turn)}</b> أدوار</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tier 2: The Valley Pass & Campfire (بطن الوادي) - ENEMIES & INTENTS -->
+        <div class="gorge-tier tier-valley">
+          <div class="valley-track-bar">
+            <span class="track-goal">${icon('foot')} المأمن: <b>${num(goal(s) - s.progress)}</b> خطوات</span>
+            <div class="track-pips" style="--track-steps:${goal(s) + 1}">
+              ${Array.from({ length: goal(s) + 1 }, (_, i) => `
+                <i class="track-pip ${i <= s.progress ? 'passed' : ''} ${i === s.progress ? 'hero' : ''}"></i>
+              `).join('')}
+            </div>
+            <span class="threat-summary">${icon('knife')} خطر الدور: <b>${num(threat)}</b></span>
+          </div>
+
+          <!-- Salaman Enemies Formation with Prominent Intent Badges -->
+          <div class="enemy-squad" aria-label="أعداء بني سلامان ونواياهم">
+            ${s.enemies.map((e, idx) => {
+              const living = s.enemies.filter(x => x.hp > 0);
+              const isSolo = living.length === 1;
+              const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
+              const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
+              return `
+                <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
+                  <div class="enemy-header">
+                    <span class="enemy-avatar">${e.isBoss ? icon('swords') : icon('knife')}</span>
+                    <strong class="enemy-title">${e.name}</strong>
+                  </div>
+                  <div class="enemy-hp-track">
+                    <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
+                    <span class="hp-num">${ratio(e.hp, e.maxHp)}</span>
+                  </div>
+                  <div class="enemy-intent-badge intent-${intent.intent}">
+                    ${e.hp > 0 ? `${icon(intentIcon)} <strong>${intent.desc}</strong>` : '<span class="dead">صريع</span>'}
+                  </div>
+                  ${(s.bleed > 0 || s.poison > 0) && e.hp > 0 ? `
+                    <div class="status-chips">
+                      ${s.bleed > 0 ? `<span class="chip bleed">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
+                      ${s.poison > 0 ? `<span class="chip poison">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Tier 3: Subterranean Caverns (مسارب الصفا) - BEAST ALLIES -->
+        <div class="gorge-tier tier-caverns">
+          <div class="beast-allies">
+            <div class="beast-chip wolf ${s.relics.includes('wolf_skin') ? 'active-relic' : ''}">
+              <span class="beast-avatar">${icon('wolf')}</span>
+              <div class="beast-meta">
+                <strong>السِّيد العَمَلَّس (الذئب)</strong>
+                <small>${s.relics.includes('wolf_skin') ? 'ضارٍ مساند (+٣ ضرر/نزف)' : 'متربص بالطريدة'}</small>
+              </div>
+            </div>
+            <div class="beast-chip leopard">
+              <span class="beast-avatar">🐆</span>
+              <div class="beast-meta">
+                <strong>الأَرْقَط الزُّهْلُول (النمر)</strong>
+                <small>كمين المرتفعات</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Theater Bottom Character & Turn Bar (matching concept artwork) -->
+        <div class="theater-bottom-bar">
+          <div class="actor-plate shanfara-plate">
+            <span class="portrait">${icon('bow')}</span>
+            <div class="plate-info">
               <strong>الشَّنْفَرَى</strong>
-              <div class="vital-bar">
-                <i style="width:${(s.hp / s.maxHp) * 100}%"></i>
-                <span>${ratio(s.hp, s.maxHp)}</span>
-              </div>
-              <div class="status-tags">
-                ${s.momentum > 0 ? `<span class="tag momentum-tag">${icon('fire')} زخم ${num(s.momentum)}</span>` : ''}
-              </div>
+              <div class="plate-hp"><i style="width:${(s.hp/s.maxHp)*100}%"></i><span>${ratio(s.hp, s.maxHp)}</span></div>
             </div>
+            ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} زخم ${num(s.momentum)}</span>` : ''}
           </div>
 
-          <!-- Faithful Wolf Companion -->
-          <div class="companion-character wolf-actor">
-            <div class="character-sprite wolf-art">
-              ${icon('wolf')}
+          <div class="center-turn-banner">
+            <span>${p.axis ? `تفعيل ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : p.card ? 'ضع البطاقة في الصخرة' : 'اختر فعلاً لتبدأ خطوتك'}</span>
+          </div>
+
+          <div class="actor-plate taabbata-plate">
+            <div class="plate-info">
+              <strong>تَأَبَّطَ شَرّاً</strong>
+              <small>كمين متربص</small>
             </div>
-            <div class="companion-plate">
-              <small>السِّيد العَمَلَّس (الذئب)</small>
-              <span class="beast-status">متربص بالطريدة</span>
-            </div>
+            <span class="portrait">${icon('knife')}</span>
           </div>
         </div>
 
-        <!-- Battlefield Clash Lane: Distance & Progress Meter -->
-        <div class="battlefield-lane">
-          <div class="lane-header">
-            <span>${icon('foot')} المأمن على بعد <b>${num(goal(s) - s.progress)}</b> خطوات</span>
-            <span class="threat-indicator">${icon('knife')} هجوم الأعداء القادم: <b>${num(threat)}</b></span>
-          </div>
-          <div class="lane-track" style="--track-steps: ${goal(s) + 1}">
-            ${Array.from({ length: goal(s) + 1 }, (_, i) => `
-              <span class="lane-node ${i <= s.progress ? 'passed' : ''} ${i === s.progress ? 'hero-here' : ''}">
-                ${i === s.progress ? icon('run') : i === goal(s) ? icon('cave') : '•'}
-              </span>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Enemy Squad Formation -->
-        <div class="enemy-formation">
-          ${s.enemies.map((e, idx) => {
-            const living = s.enemies.filter(x => x.hp > 0);
-            const isSolo = living.length === 1;
-            const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
-            const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
-            return `
-            <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
-              <div class="enemy-sprite">
-                ${e.isBoss ? icon('swords') : icon('knife')}
-              </div>
-              <div class="actor-plate">
-                <strong>${e.name}</strong>
-                <div class="vital-bar enemy-bar">
-                  <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
-                  <span>${ratio(e.hp, e.maxHp)}</span>
-                </div>
-                <div class="status-tags">
-                  ${e.hp > 0 ? `<span class="tag threat-tag intent-${intent.intent}">${icon(intentIcon)} ${intent.desc}</span>` : '<span class="tag dead-tag">صريع</span>'}
-                  ${s.bleed > 0 && e.hp > 0 ? `<span class="tag bleed-tag">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
-                  ${s.poison > 0 && e.hp > 0 ? `<span class="tag poison-tag">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
-                </div>
-              </div>
-            </div>
-            `;
-          }).join('')}
-        </div>
       </div>
     </section>
   `;
 }
 
 // -------------------------------------------------------------
-// Right Side (45%): 3x3 Basalt Nexus Altar
+// Right Side (45%): 3x3 Basalt Nexus Altar (شبكة التدبير)
 // -------------------------------------------------------------
 function renderNexusAltar(s, p, projected, model) {
   const prepared = p.axis ? stage(s, { card: p.card, cell: p.cell, axis: p.axis, face: p.face ?? 0 }) : null;
@@ -268,14 +286,15 @@ function renderNexusAltar(s, p, projected, model) {
     <section class="nexus-altar">
       <div class="altar-slab">
         <div class="slab-header">
-          <h3>صَخْرَةُ التَّدْبِير <small>٣×٣</small></h3>
+          <div class="crest-wings"></div>
+          <h3>شَبَكَةُ التَّدْبِير <small>٣×٣</small></h3>
           <span class="slab-instruction">
             ${!p.card ? 'اختر فعلاً من يدك' : p.cell === null ? 'المس خانة فارغة في الصخرة' : 'حدّد الصف أو العمود للتنفيذ'}
           </span>
         </div>
 
-        <!-- 3x3 Grid Matrix with Molten Gold Channels -->
-        <div class="matrix-grid">
+        <!-- 3x3 Grid Matrix with Molten Gold Channels & Golden Lightning Arcs -->
+        <div class="matrix-grid ${p.axis ? `axis-${p.axis}` : ''}">
           ${staged.map((uid, i) => {
             const c = uid ? def(uid, shown) : null;
             const b = c?.build || 'general';
@@ -286,10 +305,11 @@ function renderNexusAltar(s, p, projected, model) {
             const arch = ARCHETYPES[b] || ARCHETYPES.general;
 
             return `
-              <button
+              <div
                 data-cell="${i}"
+                role="button"
+                tabindex="${!uid && !p.card ? '-1' : '0'}"
                 class="matrix-cell ${uid ? `placed-card ${arch.class}` : 'empty-cell'} ${isStaged ? 'staged-cell' : ''} ${inLine ? 'active-line' : ''} ${isTrail ? 'trail-cell' : ''} ${isWard ? 'ward-cell' : ''}"
-                ${!uid && !p.card ? 'disabled' : ''}
                 aria-label="خانة ${num(i + 1)}"
               >
                 ${inLine ? `<span class="order-badge">${num(indices.indexOf(i) + 1)}</span>` : ''}
@@ -309,11 +329,11 @@ function renderNexusAltar(s, p, projected, model) {
 
                 ${isStaged ? `
                   <div class="spatial-axis-controls">
-                    <button data-axis="row" class="axis-btn ${p.axis === 'row' ? 'selected' : ''}" title="تفعيل الصف">↔ صف</button>
-                    <button data-axis="col" class="axis-btn ${p.axis === 'col' ? 'selected' : ''}" title="تفعيل العمود">↕ عمود</button>
+                    <button type="button" data-axis="row" class="axis-btn ${p.axis === 'row' ? 'selected' : ''}" title="تفعيل الصف">↔ صف</button>
+                    <button type="button" data-axis="col" class="axis-btn ${p.axis === 'col' ? 'selected' : ''}" title="تفعيل العمود">↕ عمود</button>
                   </div>
                 ` : ''}
-              </button>
+              </div>
             `;
           }).join('')}
         </div>
@@ -337,31 +357,6 @@ function renderNexusAltar(s, p, projected, model) {
 function renderBottomDock(s, p, projected) {
   return `
     <footer class="bottom-dock">
-      <!-- Outlaw Seals (The Brotherhood Trio) -->
-      <div class="outlaw-trio">
-        <div class="outlaw-seal shanfara selected">
-          <div class="seal-avatar">${icon('bow')}</div>
-          <div class="seal-info">
-            <strong>الشنفرى</strong>
-            <small>${icon('fire')} زخم ${num(s.momentum)}</small>
-          </div>
-        </div>
-        <div class="outlaw-seal taabbata">
-          <div class="seal-avatar">${icon('knife')}</div>
-          <div class="seal-info">
-            <strong>تأبّط شرّاً</strong>
-            <small>كمين متربص</small>
-          </div>
-        </div>
-        <div class="outlaw-seal amr">
-          <div class="seal-avatar">${icon('shield')}</div>
-          <div class="seal-info">
-            <strong>ابن برّاق</strong>
-            <small>حراسة الظهر</small>
-          </div>
-        </div>
-      </div>
-
       <!-- Hand Cards Fan -->
       <div class="hand-fan-tray" aria-label="أوراق التدبير في يدك">
         ${s.hand.map(uid => {
@@ -415,7 +410,7 @@ export function gameView(s, p, feedback = '') {
     <div class="shanfara-widescreen-app">
       ${renderTopBar(s)}
       <main class="widescreen-battlefield">
-        ${renderCinematicArena(s, projected)}
+        ${renderCinematicArena(s, projected, p)}
         ${renderNexusAltar(s, p, projected, model)}
       </main>
       ${renderBottomDock(s, p, projected)}

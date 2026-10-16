@@ -212,19 +212,20 @@ button:disabled {
 }
 
 /* ==========================================================================
-   The Dual-Theater Center Arena (Left 55% / Right 45%)
+   The Dual-Theater Center Arena (Left 58% / Right 42%)
    ========================================================================== */
 
 .widescreen-battlefield {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: 1.15fr 0.95fr;
+  grid-template-columns: 1.25fr 0.95fr;
   gap: 14px;
-  padding: 12px 20px;
+  padding: 8px 16px;
   overflow: hidden;
+  min-height: 0;
 }
 
-/* --- Left Screen: The Live Cinematic Arena (55%) --- */
+/* --- Left Screen: The Live Cinematic Arena (3-Tier Layered Gorge) --- */
 .cinematic-arena {
   position: relative;
   display: flex;
@@ -232,172 +233,211 @@ button:disabled {
   justify-content: space-between;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, #0a1419 0%, #111d23 100%);
+  background: 
+    linear-gradient(180deg, rgba(8, 16, 20, 0.4) 0%, rgba(13, 24, 30, 0.85) 100%),
+    url('assets/gorge_theater.jpg') left center / cover no-repeat,
+    #0a1419;
   overflow: hidden;
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.6);
+  min-height: 0;
 }
 
-.arena-backdrop {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
+.gorge-arena-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(6, 12, 16, 0.65);
 }
 
-.night-sky {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 75% 20%, #1a2f3b 0%, transparent 60%);
+/* --- Tier 1: The High Ridge (المرقبة) --- */
+.gorge-tier.tier-ridge {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(10, 18, 23, 0.78);
+  border-radius: 8px;
+  border: 1px solid rgba(239, 191, 117, 0.25);
 }
 
-.crescent-moon {
-  position: absolute;
-  top: 15px;
-  left: 30px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  box-shadow: -6px 6px 0 2px var(--gold);
-  filter: drop-shadow(0 0 12px var(--gold-glow));
+.tier-badge {
+  font-size: 0.82rem;
+  font-weight: bold;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.pleiades-stars {
-  position: absolute;
-  top: 30px;
-  right: 50px;
-  width: 120px;
-  height: 60px;
-  background-image: radial-gradient(1.5px 1.5px at 20px 30px, #fff, rgba(0, 0, 0, 0)),
-    radial-gradient(1.5px 1.5px at 40px 10px, #fff, rgba(0, 0, 0, 0)),
-    radial-gradient(1px 1px at 70px 45px, var(--gold), rgba(0, 0, 0, 0)),
-    radial-gradient(2px 2px at 90px 25px, #fff, rgba(0, 0, 0, 0));
+.verse-snip {
+  font-family: 'Amiri', serif;
+  font-size: 0.82rem;
+  color: #dfd2be;
+  margin-right: 12px;
+  opacity: 0.9;
 }
 
-.mountain-ridges {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 120px;
-  background: linear-gradient(175deg, transparent 40%, rgba(13, 22, 27, 0.9) 70%),
-    repeating-linear-gradient(45deg, #101c22 0 15px, #0b1419 15px 30px);
-  clip-path: polygon(0 100%, 0 55%, 25% 30%, 45% 60%, 70% 25%, 90% 50%, 100% 35%, 100% 100%);
-  opacity: 0.65;
+.ridge-elements {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.campfire-container {
-  position: absolute;
-  bottom: 12px;
-  left: 45%;
-  width: 30px;
-  height: 30px;
+.lookout-tag {
+  font-size: 0.74rem;
+  color: #ffaa5e;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.campfire-flame {
-  width: 12px;
-  height: 18px;
-  background: radial-gradient(ellipse at 50% 80%, #ffcf54 0%, #ff4b1f 70%, transparent 100%);
-  border-radius: 50% 50% 20% 20%;
-  animation: flicker 0.25s infinite alternate;
-  filter: drop-shadow(0 0 10px rgba(255, 120, 20, 0.8));
+.dawn-clock {
+  font-size: 0.74rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-@keyframes flicker {
-  0% { transform: scale(0.95) rotate(-2deg); }
-  100% { transform: scale(1.1) rotate(2deg); }
+.dawn-clock.danger {
+  color: var(--crimson);
+  font-weight: bold;
 }
 
-.encounter-banner {
-  position: relative;
-  z-index: 2;
-  padding: 12px 18px;
-  background: linear-gradient(180deg, rgba(8, 16, 20, 0.85) 0%, transparent 100%);
+/* --- Tier 2: The Valley Pass & Campfire (بطن الوادي) - ENEMIES & INTENTS --- */
+.gorge-tier.tier-valley {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(12, 20, 26, 0.85);
+  border: 1px solid rgba(230, 74, 56, 0.35);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
 }
 
-.encounter-banner h2 {
-  margin: 0;
-  font-size: 1.15rem;
+.valley-track-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.76rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.track-goal b {
   color: var(--gold);
 }
 
-.encounter-banner small {
-  font-size: 0.8rem;
-  color: var(--muted);
-  font-weight: normal;
-}
-
-.verse-quote {
-  font-family: 'Amiri', serif;
-  font-size: 0.95rem;
-  color: #e5d8c3;
-  margin-top: 4px;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-}
-
-.arena-stage {
-  position: relative;
-  z-index: 2;
+.track-pips {
+  flex: 1;
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr auto;
-  gap: 12px;
-  padding: 10px 18px;
-  flex: 1 1 auto;
+  grid-template-columns: repeat(var(--track-steps, 11), minmax(0, 1fr));
+  gap: 3px;
+  height: 6px;
+  max-width: 160px;
 }
 
-/* Outlaw Allies (Shanfara & Wolf) */
-.outlaw-formation {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+.track-pip {
+  background: #253840;
+  border-radius: 2px;
 }
 
-.hero-character, .companion-character {
+.track-pip.passed {
+  background: var(--gold);
+}
+
+.track-pip.hero {
+  background: #fff;
+  box-shadow: 0 0 6px var(--gold-glow);
+}
+
+.threat-summary {
+  color: var(--crimson);
+  font-weight: bold;
+}
+
+/* Enemy Formation */
+.enemy-squad {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.enemy-actor {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(18, 30, 36, 0.7);
-  padding: 6px 12px;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(26, 18, 18, 0.9);
+  border: 1px solid rgba(230, 74, 56, 0.45);
   border-radius: 8px;
-  border: 1px solid rgba(239, 191, 117, 0.3);
+  padding: 6px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.character-sprite {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #253942;
-  border: 2px solid var(--gold);
+.enemy-actor.boss-actor {
+  border-color: var(--gold);
+  background: rgba(38, 22, 18, 0.95);
+  box-shadow: 0 0 16px rgba(239, 191, 117, 0.3);
+}
+
+.enemy-actor.defeated {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.enemy-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.enemy-avatar {
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
+  border-radius: 50%;
+  background: #3a1c1c;
+  color: var(--crimson);
+}
+
+.boss-actor .enemy-avatar {
+  background: #4a3418;
   color: var(--gold);
-  box-shadow: 0 0 10px var(--gold-glow);
 }
 
-.wolf-art {
-  border-color: var(--amethyst);
-  color: var(--amethyst);
-}
-
-.vital-bar {
-  position: relative;
-  width: 140px;
-  height: 10px;
-  background: #18282e;
-  border-radius: 5px;
+.enemy-title {
+  font-size: 0.78rem;
+  font-weight: bold;
+  color: #ffd8d2;
+  white-space: nowrap;
   overflow: hidden;
-  margin-top: 4px;
+  text-overflow: ellipsis;
 }
 
-.vital-bar i {
+.enemy-hp-track {
+  position: relative;
+  height: 12px;
+  background: #181d20;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.enemy-hp-track i {
   position: absolute;
   inset-block: 0;
   right: 0;
-  background: linear-gradient(90deg, #ff4b1f, #ff7e5f);
-  border-radius: 5px;
+  background: linear-gradient(90deg, #ba2f24, #ff5742);
+  border-radius: 6px;
+  transition: width 0.3s ease;
 }
 
-.vital-bar span {
+.enemy-hp-track .hp-num {
   position: absolute;
   inset: 0;
   display: grid;
@@ -405,129 +445,206 @@ button:disabled {
   font-size: 0.65rem;
   font-weight: bold;
   color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-.enemy-bar i {
-  background: linear-gradient(90deg, #ba2f24, #e64a38);
-}
-
-/* Battlefield Clash Lane Track */
-.battlefield-lane {
-  background: rgba(14, 24, 29, 0.85);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 8px 14px;
-}
-
-.lane-header {
+/* Enemy Telegraphed Intent Badge */
+.enemy-intent-badge {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  margin-bottom: 6px;
-}
-
-.threat-indicator {
-  color: var(--crimson);
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 0.72rem;
   font-weight: bold;
+  padding: 3px 6px;
+  border-radius: 6px;
+  margin-top: 2px;
 }
 
-.lane-track {
-  display: grid;
-  grid-template-columns: repeat(var(--track-steps, 11), minmax(0, 1fr));
-  align-items: center;
-  gap: 2px;
+.enemy-intent-badge.intent-attack {
+  background: rgba(230, 74, 56, 0.35);
+  border: 1px solid rgba(230, 74, 56, 0.7);
+  color: #ffb4ab;
+  animation: intent-pulse 1.8s infinite ease-in-out;
 }
 
-.lane-node {
-  height: 24px;
-  display: grid;
-  place-items: center;
-  font-size: 0.75rem;
-  color: var(--panel-border);
-  border-radius: 4px;
+.enemy-intent-badge.intent-defend {
+  background: rgba(74, 174, 217, 0.25);
+  border: 1px solid rgba(74, 174, 217, 0.6);
+  color: #9fe2ff;
 }
 
-.lane-node.passed {
-  color: var(--gold);
+.enemy-intent-badge.intent-scheme {
+  background: rgba(186, 122, 232, 0.25);
+  border: 1px solid rgba(186, 122, 232, 0.6);
+  color: #e5bfff;
 }
 
-.lane-node.hero-here {
-  background: rgba(239, 191, 117, 0.2);
-  color: var(--gold);
+.enemy-intent-badge.intent-lunge {
+  background: rgba(255, 60, 40, 0.45);
   border: 1px solid var(--gold);
-  box-shadow: 0 0 8px var(--gold-glow);
+  color: #ffeedd;
+  box-shadow: 0 0 10px rgba(255, 75, 31, 0.5);
+  animation: intent-pulse 1s infinite alternate;
 }
 
-/* Enemies Squad */
-.enemy-formation {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+@keyframes intent-pulse {
+  from { opacity: 0.85; }
+  to { opacity: 1; transform: scale(1.02); }
 }
 
-.enemy-actor {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(26, 20, 20, 0.75);
-  border: 1px solid rgba(230, 74, 56, 0.35);
-  padding: 6px 12px;
-  border-radius: 8px;
-}
-
-.enemy-actor.boss-actor {
-  border-color: var(--gold);
-  background: rgba(36, 24, 20, 0.85);
-  box-shadow: 0 0 15px rgba(239, 191, 117, 0.25);
-}
-
-.enemy-actor.defeated {
-  opacity: 0.35;
-  filter: grayscale(1);
-}
-
-.enemy-sprite {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #381e1e;
-  border: 2px solid var(--crimson);
-  display: grid;
-  place-items: center;
-  color: var(--crimson);
-}
-
-.boss-actor .enemy-sprite {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-.status-tags {
+.status-chips {
   display: flex;
   gap: 4px;
-  margin-top: 4px;
-  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
-.tag {
+.chip {
   font-size: 0.65rem;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
 
-.threat-tag { background: rgba(230, 74, 56, 0.25); color: #ff9d91; }
-.bleed-tag { background: rgba(230, 74, 56, 0.35); color: #ff8575; }
-.poison-tag { background: rgba(62, 188, 116, 0.25); color: #7beaa6; }
-.momentum-tag { background: rgba(240, 184, 66, 0.25); color: #ffdc8b; }
-.dead-tag { background: #333; color: #888; }
+.chip.bleed { background: rgba(230, 74, 56, 0.35); color: #ff8575; }
+.chip.poison { background: rgba(62, 188, 116, 0.25); color: #7beaa6; }
+
+/* --- Tier 3: Subterranean Caverns (مسارب الصفا) --- */
+.gorge-tier.tier-caverns {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(11, 20, 26, 0.78);
+  border-radius: 8px;
+  border: 1px solid rgba(74, 174, 217, 0.25);
+}
+
+.beast-allies {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.beast-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(18, 30, 38, 0.8);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.beast-chip.active-relic {
+  border-color: var(--gold);
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+
+.beast-avatar {
+  font-size: 1rem;
+}
+
+.beast-meta strong {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--gold);
+}
+
+.beast-meta small {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+/* --- Theater Bottom Character Bar (Matching concept artwork) --- */
+.theater-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(9, 16, 21, 0.95);
+  border: 1px solid rgba(239, 191, 117, 0.35);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.actor-plate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actor-plate .portrait {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1c2e36;
+  border: 1.5px solid var(--gold);
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+}
+
+.plate-info strong {
+  display: block;
+  font-size: 0.76rem;
+  color: #fff;
+}
+
+.plate-hp {
+  position: relative;
+  width: 80px;
+  height: 8px;
+  background: #152227;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.plate-hp i {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  background: linear-gradient(90deg, #ff4b1f, #ff8c42);
+  border-radius: 4px;
+}
+
+.plate-hp span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.55rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.center-turn-banner {
+  flex: 1;
+  text-align: center;
+  font-size: 0.76rem;
+  font-weight: bold;
+  color: var(--gold);
+  background: rgba(239, 191, 117, 0.12);
+  border: 1px solid rgba(239, 191, 117, 0.3);
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin: 0 4px;
+}
+
+.taabbata-plate .portrait {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
 
 /* --- Right Screen: 3x3 Basalt Nexus Altar (45%) --- */
 .nexus-altar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .altar-slab {
@@ -540,6 +657,14 @@ button:disabled {
   border-radius: 12px;
   padding: 12px;
   box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.5);
+  min-height: 0;
+}
+
+.crest-wings {
+  width: 32px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 10' fill='%23efbf75'%3E%3Cpath d='M16 1L22 9H10L16 1Z' opacity='0.8'/%3E%3Cpath d='M2 9C6 9 12 6 16 2C20 6 26 9 30 9C24 7 18 4 16 0C14 4 8 7 2 9Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  margin: 0 auto 2px;
 }
 
 .slab-header {
@@ -564,11 +689,13 @@ button:disabled {
 
 /* Matrix 3x3 Grid */
 .matrix-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(3, minmax(80px, 1fr));
+  grid-template-rows: repeat(3, minmax(75px, 1fr));
   gap: 8px;
   margin-bottom: 8px;
+  min-height: 0;
 }
 
 .matrix-cell {
@@ -581,8 +708,9 @@ button:disabled {
   border: 1px solid #283940;
   border-radius: 8px;
   padding: 6px;
-  min-height: 80px;
+  min-height: 75px;
   overflow: hidden;
+  transition: all 0.2s ease;
 }
 
 .matrix-cell:hover:not(:disabled) {
@@ -606,15 +734,56 @@ button:disabled {
 .card-amethyst { border-color: var(--amethyst) !important; }
 .card-emerald { border-color: var(--emerald) !important; }
 
+/* Golden Lightning Arcs & Active Line */
 .matrix-cell.active-line {
-  background: #243a42 !important;
-  box-shadow: inset 0 0 12px rgba(239, 191, 117, 0.5);
-  border-color: var(--gold) !important;
+  position: relative;
+  background: linear-gradient(180deg, #233740 0%, #18282e 100%) !important;
+  box-shadow: 0 0 14px rgba(239, 191, 117, 0.6), inset 0 0 10px rgba(239, 191, 117, 0.4);
+  border-color: #ffd27d !important;
+  animation: golden-pulse 1.8s infinite ease-in-out;
+  z-index: 2;
+}
+
+.matrix-grid.axis-row .matrix-cell.active-line::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -8px;
+  right: -8px;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(255,215,0,0) 0%, rgba(255,215,0,0.85) 50%, rgba(255,215,0,0) 100%);
+  box-shadow: 0 0 8px #ffd700, 0 0 14px #ff9900;
+  pointer-events: none;
+  z-index: 10;
+  transform: translateY(-50%);
+}
+
+.matrix-grid.axis-col .matrix-cell.active-line::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  bottom: -8px;
+  width: 3px;
+  background: linear-gradient(180deg, rgba(255,215,0,0) 0%, rgba(255,215,0,0.85) 50%, rgba(255,215,0,0) 100%);
+  box-shadow: 0 0 8px #ffd700, 0 0 14px #ff9900;
+  pointer-events: none;
+  z-index: 10;
+  transform: translateX(-50%);
+}
+
+@keyframes golden-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5), inset 0 0 6px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.85), inset 0 0 12px rgba(255, 215, 0, 0.55);
+  }
 }
 
 .matrix-cell.staged-cell {
   border: 2px solid #fff !important;
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.7);
 }
 
 .order-badge {
@@ -654,7 +823,7 @@ button:disabled {
 .spatial-axis-controls {
   position: absolute;
   inset: 0;
-  background: rgba(10, 20, 25, 0.85);
+  background: rgba(10, 20, 25, 0.88);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
@@ -669,6 +838,7 @@ button:disabled {
   background: #1e333b;
   color: #fff;
   border: 1px solid var(--gold);
+  cursor: pointer;
 }
 
 .axis-btn.selected {
@@ -677,71 +847,30 @@ button:disabled {
 }
 
 .altar-preview {
-  min-height: 52px;
+  min-height: 48px;
 }
 
 .idle-prompt {
   text-align: center;
   color: var(--muted);
   font-size: 0.8rem;
-  padding: 10px;
+  padding: 8px;
 }
 
 /* ==========================================================================
-   Bottom Command Dock (Hand Fan, Trio, Blade Button)
+   Bottom Command Dock (Hand Fan, Blade Button)
    ========================================================================== */
 
 .bottom-dock {
-  flex: 0 0 135px;
+  flex: 0 0 115px;
   display: grid;
-  grid-template-columns: 240px 1fr 160px;
+  grid-template-columns: 1fr 180px;
   gap: 14px;
-  padding: 8px 20px 10px;
+  padding: 6px 18px 8px;
   background: rgba(9, 16, 20, 0.95);
   border-top: 1px solid var(--panel-border);
   align-items: center;
   z-index: 20;
-}
-
-.outlaw-trio {
-  display: flex;
-  gap: 8px;
-}
-
-.outlaw-seal {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(22, 34, 40, 0.8);
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  padding: 4px 6px;
-}
-
-.outlaw-seal.selected {
-  border-color: var(--gold);
-  box-shadow: 0 0 10px var(--gold-glow);
-}
-
-.seal-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #192a30;
-  display: grid;
-  place-items: center;
-  color: var(--gold);
-}
-
-.seal-info strong {
-  display: block;
-  font-size: 0.76rem;
-}
-
-.seal-info small {
-  font-size: 0.65rem;
-  color: var(--muted);
 }
 
 /* Hand Fan Tray */
@@ -1090,24 +1219,262 @@ dialog::backdrop {
   to { opacity: 1; filter: drop-shadow(0 0 6px var(--crimson)); }
 }
 
-/* Mobile & Portrait Fallback */
+/* Mobile & Portrait Fallback: Strict Zero-Scroll Architecture */
 @media (max-width: 950px) {
+  html, body {
+    overflow: hidden;
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
   .shanfara-widescreen-app {
     height: 100dvh;
-    overflow-y: auto;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
+
+  .top-bar {
+    flex: 0 0 38px;
+    padding: 2px 8px;
+    min-height: 0;
+  }
+
+  .top-bar .game-title {
+    font-size: 0.85rem;
+  }
+
+  .stat-pill {
+    padding: 1px 6px;
+    font-size: 0.72rem;
+  }
+
   .widescreen-battlefield {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    overflow-y: visible;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 6px;
+    overflow: hidden;
+    min-height: 0;
   }
-  .bottom-dock {
-    grid-template-columns: 1fr;
-    height: auto;
+
+  /* Upper arena (Enemies & Intents permanently visible!) */
+  .cinematic-arena {
+    flex: 0 0 40%;
+    min-height: 0;
+    max-height: 40%;
+    overflow: hidden;
   }
-  .hand-fan-tray {
+
+  .gorge-arena-content {
+    padding: 4px 6px;
+  }
+
+  .gorge-tier.tier-ridge {
+    padding: 2px 6px;
+  }
+
+  .tier-badge {
+    font-size: 0.72rem;
+  }
+
+  .verse-snip {
+    font-size: 0.72rem;
+  }
+
+  .gorge-tier.tier-valley {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .valley-track-bar {
+    font-size: 0.68rem;
+    padding-bottom: 2px;
+  }
+
+  .enemy-squad {
+    gap: 6px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .enemy-actor {
+    padding: 3px 6px;
+    gap: 2px;
+  }
+
+  .enemy-title {
+    font-size: 0.72rem;
+  }
+
+  .enemy-hp-track {
+    height: 10px;
+  }
+
+  .enemy-hp-track .hp-num {
+    font-size: 0.6rem;
+  }
+
+  .enemy-intent-badge {
+    font-size: 0.68rem;
+    padding: 2px 4px;
+    margin-top: 2px;
+  }
+
+  .gorge-tier.tier-caverns {
+    padding: 2px 6px;
+  }
+
+  .beast-chip {
+    padding: 2px 4px;
+    gap: 4px;
+  }
+
+  .beast-meta strong {
+    font-size: 0.66rem;
+  }
+
+  .beast-meta small {
+    display: none;
+  }
+
+  .theater-bottom-bar {
+    padding: 2px 6px;
+  }
+
+  .plate-info strong {
+    font-size: 0.68rem;
+  }
+
+  .plate-hp {
+    width: 50px;
+    height: 6px;
+  }
+
+  .plate-hp span {
+    font-size: 0.5rem;
+  }
+
+  .center-turn-banner {
+    font-size: 0.68rem;
+    padding: 2px 4px;
+  }
+
+  /* Lower Altar (3x3 Basalt Slab) */
+  .nexus-altar {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .altar-slab {
+    padding: 6px 8px;
+    height: 100%;
+    justify-content: space-between;
+    min-height: 0;
+  }
+
+  .slab-header {
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+  }
+
+  .slab-header h3 {
+    font-size: 0.85rem;
+  }
+
+  .slab-instruction {
+    font-size: 0.68rem;
+  }
+
+  .matrix-grid {
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 4px;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .matrix-cell {
+    min-height: 0;
+    padding: 3px 2px;
+  }
+
+  .card-title {
+    font-size: 0.72rem;
+  }
+
+  .card-effects-mini {
+    font-size: 0.6rem;
+    gap: 2px;
+  }
+
+  .altar-preview {
+    min-height: 38px;
+  }
+
+  .idle-prompt {
+    font-size: 0.68rem;
+    padding: 3px;
+  }
+
+  /* Bottom Dock: Zero-Scroll Compact */
+  .bottom-dock {
+    flex: 0 0 92px;
+    grid-template-columns: 1fr 105px;
+    gap: 6px;
+    padding: 4px 6px 6px;
+    height: 92px;
+    z-index: 20;
+  }
+
+  .hand-fan-tray {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .fan-card {
+    border-radius: 6px;
+  }
+
+  .card-archetype-badge {
+    font-size: 0.55rem;
+    padding: 0;
+  }
+
+  .face-toggle {
+    padding: 2px 1px;
+  }
+
+  .face-title strong {
+    font-size: 0.66rem;
+  }
+
+  .alt-pill {
+    font-size: 0.5rem;
+    padding: 0 2px;
+  }
+
+  .face-effects {
+    font-size: 0.58rem;
+  }
+
+  .dock-actions {
+    gap: 4px;
+  }
+
+  .end-turn-blade {
+    height: 52px;
+    font-size: 0.82rem;
+    padding: 0 6px;
+  }
+
+  .cancel-btn {
+    height: 26px;
+    font-size: 0.7rem;
+  }
+
   .draft-grid, .relics-grid {
     grid-template-columns: 1fr;
   }
