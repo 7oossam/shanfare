@@ -129,18 +129,35 @@ export function comboView(s, m) {
   `;
 }
 
-// One battlefield: actors occupy the board visually; cards occupy its action slots.
+// Planning desk: compact board, persistent axis comparison, and both card faces.
 function fighterArt(kind) {
   return `<span class="fighter-art fighter-${kind}" aria-hidden="true"></span>`;
 }
 
-function battleHeader(s) {
+function battleHeader(s, projected) {
+  const hp = projected?.state.hp ?? s.hp;
   const enc = ENCOUNTERS[s.encounter - 1];
-  return `<header class="battle-header">
-    <div class="battle-heading"><span class="battle-eyebrow">طريق السَّراة · ${num(s.encounter)} / ٤</span><h1>${esc(enc.name)}</h1></div>
-    <div class="battle-tools">${button('؟', 'help', 'battle-tool', false, 'كيف ألعب؟')}${button(icon(isMuted() ? 'mute' : 'sound'), 'toggle-audio', 'battle-tool', false, 'تبديل الصوت')}${button('⋯', 'menu', 'battle-tool', false, 'القائمة')}</div>
+  return `<header class="planner-header">
+    <div class="hero-identity"><span class="hero-portrait">${fighterArt('hero')}</span><span class="hero-vitals">${icon('heart')} ${ratio(hp, s.maxHp)}</span><span class="chapter-diamonds" aria-label="المعبر ${num(s.encounter)} من أربعة">${[1,2,3,4].map(i => `<i class="${i <= s.encounter ? 'complete' : ''}"></i>`).join('')}</span></div>
+    <div class="planner-tools">${button('؟', 'help', 'planner-tool', false, 'دليل اللعب')}${button(icon(isMuted() ? 'mute' : 'sound'), 'toggle-audio', 'planner-tool', false, 'تبديل الصوت')}${button('⋯', 'menu', 'planner-tool', false, 'القائمة')}</div>
   </header>
-  <div class="journey-strip"><span>${icon('moon')} للفجر <b>${num(Math.max(0, 37 - s.turn))}</b> دورًا</span><span class="journey-track"><i style="width:${Math.min(100, s.progress / goal(s) * 100)}%"></i></span><span>${icon('foot')} المأمن <b>${num(s.progress)} / ${num(goal(s))}</b></span></div>`;
+  <div class="planner-route"><span>${esc(enc.name)}</span><span>${icon('moon')} ${num(Math.max(0, 37 - s.turn))} دورًا <b>·</b> ${icon('foot')} ${num(s.progress)} / ${num(goal(s))}</span></div>`;
+}
+
+function enemyStrip(s, p, projected) {
+  const target = targetForAction(s, p);
+  const pool = attackTargets(s);
+  const living = s.enemies.filter(e => e.hp > 0);
+  return `<section class="enemy-strip" aria-label="الأعداء ونواياهم">${s.enemies.map((enemy, index) => {
+    const intent = getEnemyIntent(enemy, index, s.phaseTurn, living.length === 1);
+    const after = projected?.state.enemies[index]?.hp ?? enemy.hp;
+    const lost = Math.max(0, enemy.hp - after);
+    const locked = enemy.hp > 0 && !pool.some(e => e.id === enemy.id);
+    const kind = /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard';
+    return `<button type="button" class="enemy-summary ${target === enemy.id ? 'is-target' : ''} ${enemy.hp <= 0 ? 'is-fallen' : ''}" data-target="${enemy.id}" aria-pressed="${target === enemy.id}" ${enemy.hp <= 0 || locked ? 'disabled' : ''} aria-label="${esc(enemy.name)}، صحة ${num(enemy.hp)}، ${locked ? 'محمي بحاملي التراس' : esc(intent.desc)}">
+      ${fighterArt(kind)}<span class="enemy-summary-data"><span class="enemy-intent">${locked ? icon('shield') + ' محمي' : enemy.hp <= 0 ? 'صريع' : icon(intent.damage ? 'swords' : 'spark') + ' ' + (intent.damage ? num(intent.damage) : 'تأهّب')}${lost ? `<b class="forecast-hit">−${num(lost)}</b>` : ''}</span><span class="enemy-name">${esc(enemy.name.replace(/\s*\(.*\)/, ''))}</span><span class="fighter-health"><i class="health-before" style="width:${enemy.hp / enemy.maxHp * 100}%"></i><i style="width:${after / enemy.maxHp * 100}%"></i><b>${num(after)} / ${num(enemy.maxHp)}</b></span></span>
+    </button>`;
+  }).join('')}</section>`;
 }
 
 function renderBattleBoard(s, p, projected) {
@@ -149,89 +166,67 @@ function renderBattleBoard(s, p, projected) {
   const shown = { ...s, faces: { ...s.faces, ...prepared?.faces } };
   const line = p.cell !== null && p.axis ? lineIndices(p.cell, p.axis) : [];
   const target = targetForAction(s, p);
-  const pool = attackTargets(s);
-  const living = s.enemies.filter(e => e.hp > 0);
-  const targetIndex = s.enemies.findIndex(e => e.id === target);
-  const targetCell = enemyCell(targetIndex);
-  const originCell = p.cell === targetCell ? 7 : p.cell;
-  const point = cell => [((cell % 3) * 100) + 50, Math.floor(cell / 3) * 100 + 50];
-  const [tx, ty] = point(targetCell);
-  const [sx, sy] = point(originCell ?? 7);
-  const forecastHp = projected?.state.hp ?? s.hp;
   const collapse = collapseRow(s);
-
-  return `<section class="battle-stage" aria-label="ساحة المعركة وشبكة الأفعال">
-    <div class="battle-legend"><span>${icon('swords')} اضغط العدو لتحديد الهدف</span><span>شبكة القتال <b>٣ × ٣</b></span></div>
-    <div class="combat-grid" role="group" aria-label="رقعة المعركة، تسع خانات">
-      ${grid.map((uid, cell) => {
-        const c = uid ? def(uid, shown) : null;
-        const enemyIndex = s.enemies.findIndex((e, i) => enemyCell(i) === cell);
-        const enemy = s.enemies[enemyIndex];
-        const actor = enemy || cell === 7;
-        const staged = p.cell === cell;
-        let actorHtml = '';
-        if (enemy) {
-          const intent = getEnemyIntent(enemy, enemyIndex, s.phaseTurn, living.length === 1);
-          const after = projected?.state.enemies[enemyIndex]?.hp ?? enemy.hp;
-          const lost = Math.max(0, enemy.hp - after);
-          const locked = enemy.hp > 0 && !pool.some(e => e.id === enemy.id);
-          const kind = /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard';
-          actorHtml = `<button type="button" class="board-fighter enemy-fighter ${target === enemy.id ? 'is-target' : ''} ${enemy.hp <= 0 ? 'is-fallen' : ''} ${after <= 0 && enemy.hp > 0 ? 'will-fall' : ''}" data-target="${enemy.id}" ${enemy.hp <= 0 || locked ? 'disabled' : ''} aria-pressed="${target === enemy.id}" aria-label="${esc(enemy.name)}، صحة ${num(enemy.hp)}، ${locked ? 'يحميه حاملو التراس' : esc(intent.desc)}">
-            <span class="fighter-intent">${locked ? icon('shield') + ' محمي' : enemy.hp <= 0 ? 'صريع' : intent.damage ? icon('swords') + ' ' + num(intent.damage) : icon('spark') + ' تأهّب'}</span>
-            ${fighterArt(kind)}
-            <span class="fighter-name">${esc(enemy.name.replace(/\s*\(.*\)/, ''))}</span>
-            <span class="fighter-health"><i class="health-before" style="width:${enemy.hp / enemy.maxHp * 100}%"></i><i style="width:${after / enemy.maxHp * 100}%"></i><b>${num(after)} / ${num(enemy.maxHp)}</b></span>
-            ${lost ? `<span class="impact-number">−${num(lost)}</span>` : ''}
-            ${target === enemy.id && enemy.hp > 0 ? '<span class="target-mark">الهدف</span>' : ''}
-          </button>`;
-        } else if (cell === 7) {
-          actorHtml = `<div class="board-fighter hero-fighter">${fighterArt('hero')}<span class="fighter-name">الشَّنْفَرَى</span><span class="fighter-health"><i class="health-before" style="width:${s.hp / s.maxHp * 100}%"></i><i style="width:${forecastHp / s.maxHp * 100}%"></i><b>${num(forecastHp)} / ${num(s.maxHp)}</b></span>${projected?.summary.block ? `<span class="hero-block">${icon('shield')}${num(projected.summary.block)}</span>` : ''}</div>`;
-        }
-        return `<div class="battle-tile ${actor ? 'has-fighter' : ''} ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
-          <span class="tile-number" aria-hidden="true">${num(cell + 1)}</span>
-          <button type="button" data-cell="${cell}" class="tile-action ${c ? 'has-card ' + (ARCHETYPES[c.build]?.class || '') : ''}" aria-pressed="${staged}" aria-label="خانة ${num(cell + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}" ${!uid && !p.card ? 'disabled' : ''}>
-            ${c ? `<span class="action-token">${icon(c.icon)}<span>${esc(c.name)}</span><small>${esc(c.short)}</small>${staged ? '<b class="placement-tag">معاينة</b>' : ''}</span>` : `<span class="empty-action">${s.wards[cell] ? icon('cover') : trailCells.includes(cell) ? icon('foot') : '＋'}<small>${s.wards[cell] ? 'ساتر' : trailCells.includes(cell) ? 'درب +١' : p.card ? 'ضع هنا' : ''}</small></span>`}
-          </button>
-          ${actorHtml}
-          ${line.includes(cell) ? `<span class="path-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
-        </div>`;
-      }).join('')}
-      ${projected && (projected.summary.hits || 0) > 0 && targetIndex >= 0 ? `<svg class="attack-route" viewBox="0 0 300 300" aria-hidden="true"><defs><marker id="attack-tip" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="currentColor" stroke-width="1.5"/></marker></defs><path d="M${sx},${sy} Q${sx + (sx === tx ? 28 : 0)},${ty + 60} ${tx},${ty + 20}" marker-end="url(#attack-tip)"/></svg>` : ''}
-    </div>
-    <div class="board-context" role="status">${collapse !== null ? `<span class="collapse-note">${icon('stone')} صف ${num(collapse + 1)} ينهار بعد الدور</span>` : `<span>${icon('shield')} هجوم الأعداء القادم: <b>${num(incoming(s))}</b></span>`}<span>${s.relics.map(r => `<span title="${esc(RELICS[r]?.desc || '')}">${icon(RELICS[r]?.icon || 'spark')}</span>`).join('')}</span></div>
+  return `<section class="battle-stage" aria-label="شبكة التخطيط">
+    <div class="engraved-heading"><span>الشَّبَكَة</span></div>
+    <div class="combat-grid" role="group" aria-label="رقعة التخطيط، تسع خانات">
+    ${grid.map((uid, cell) => {
+      const c = uid ? def(uid, shown) : null;
+      const enemy = s.enemies.find((e, i) => enemyCell(i) === cell && e.hp > 0);
+      const staged = p.cell === cell;
+      const isHero = cell === 7;
+      const kind = enemy ? /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard' : 'hero';
+      return `<div class="battle-tile ${enemy || isHero ? 'has-fighter' : ''} ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
+        <button type="button" data-cell="${cell}" class="tile-action ${c ? 'has-card card-' + c.build : ''}" aria-pressed="${staged}" aria-label="خانة ${num(cell + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}" ${!uid && !p.card ? 'disabled' : ''}>
+          ${c ? `<span class="action-token token-${c.build}">${icon(c.icon)}<small>${esc(c.short)}</small></span>` : `<span class="empty-action">${s.wards[cell] ? icon('cover') : trailCells.includes(cell) ? icon('foot') : '◇'}<small>${s.wards[cell] ? 'ساتر' : trailCells.includes(cell) ? 'درب' : p.card ? '＋' : ''}</small></span>`}
+        </button>
+        ${enemy || isHero ? `<span class="board-fighter ${isHero ? 'hero-fighter' : 'enemy-fighter'} ${enemy?.id === target ? 'is-target' : ''}" aria-hidden="true">${fighterArt(kind)}${isHero ? `<span class="hero-mini-health"><i style="width:${(projected?.state.hp ?? s.hp) / s.maxHp * 100}%"></i></span>` : ''}</span>` : ''}
+        ${line.includes(cell) ? `<span class="path-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
+      </div>`;
+    }).join('')}</div>
+    <div class="board-context">${collapse !== null ? `${icon('stone')} الصف ${num(collapse + 1)} ينهار بعد الدور` : p.card ? 'اختر موضعًا، ثم قارن الصف والعمود' : 'اختر بطاقة أو أحد وجهيها للتخطيط'}</div>
   </section>`;
 }
 
 function axisChoices(s, p) {
-  if (!p.card || p.cell === null) return `<div class="planning-hint">${p.card ? `${esc(def(p.card, s, p.face ?? 0).name)} · اختر خانة لوضعها` : '١ اختر بطاقة · ٢ ضعها في الرقعة · ٣ فعّل خطّها'}</div>`;
-  return `<div class="axis-choices" aria-label="قارن الصف والعمود">${['row', 'col'].map(axis => {
-    const result = preview(s, p, axis);
-    if (!result) return '';
-    return `<button type="button" data-axis="${axis}" aria-pressed="${p.axis === axis}" class="axis-choice ${p.axis === axis ? 'is-selected' : ''}"><strong>${axis === 'row' ? '↔ الصف' : '↕ العمود'}</strong><span>${icon('swords')}${num(result.summary.hits || 0)} ${icon('shield')}${num(result.summary.block || 0)} ${icon('foot')}${num(result.summary.moves || 0)}</span>${result.state.hp < s.hp ? `<small class="axis-cost">−${num(s.hp - result.state.hp)} صحة</small>` : '<small>بلا خسارة صحة</small>'}</button>`;
-  }).join('')}</div>`;
+  const ready = p.card && p.cell !== null;
+  return `<section class="forecast-section" aria-label="توقع الضرر"><div class="engraved-heading"><span>تَوَقُّع الضَّرَر</span></div><div class="axis-choices">${['row', 'col'].map(axis => {
+    const result = ready ? preview(s, p, axis) : null;
+    return `<button type="button" data-axis="${axis}" aria-pressed="${!!result && p.axis === axis}" class="axis-choice ${result && p.axis === axis ? 'is-selected' : ''}" ${result ? '' : 'disabled'}>
+      <span class="axis-label"><b class="direction-arrow">${axis === 'row' ? '⟷' : '↑'}</b><strong>${axis === 'row' ? 'أفقي' : 'عمودي'}</strong></span>
+      <span class="axis-totals"><span>${icon('swords')} <b>${result ? num(result.summary.hits || 0) : '—'}</b></span><span>${icon('shield')} <b>${result ? num(result.summary.block || 0) : '—'}</b></span></span>
+      <small class="${result && result.state.hp < s.hp ? 'axis-cost' : ''}">${result ? result.state.hp < s.hp ? '−' + num(s.hp - result.state.hp) + ' صحة' : 'بلا خسارة صحة' : 'اختر موضع البطاقة'}</small>
+    </button>`;
+  }).join('')}</div></section>`;
 }
 
 function renderBattleHand(s, p, projected) {
-  const chosen = p.card ? def(p.card, s, p.face ?? 0) : null;
+  const uid = p.card || s.hand[0];
   const hpLoss = projected ? Math.max(0, s.hp - projected.state.hp) : 0;
-  return `<section class="battle-hand" aria-label="بطاقاتك وتخطيط الحركة">
-    ${axisChoices(s, p)}
-    <div class="hand-heading"><span>بطاقاتك <b>${num(s.hand.length)}</b></span>${chosen ? button('شرح البطاقة', 'card-info', 'card-info-button') : '<small>الدائم يبقى · الطارئ يُطرح</small>'}</div>
-    <div class="battle-cards">${s.hand.map(uid => {
-      const face = p.card === uid ? p.face ?? 0 : s.faces?.[uid] ?? 0;
-      const c = def(uid, s, face);
-      return `<div class="battle-card ${ARCHETYPES[c.build]?.class || ''} ${p.card === uid ? 'is-selected' : ''}" data-card-frame="${uid}">
-        <button type="button" class="card-face-toggle" data-action="flip-card" data-card="${uid}" aria-label="تبديل وجه ${esc(c.name)}" title="${esc(c.text)}">${face === 0 ? 'دائم' : 'طارئ'} ${icon('swap')}</button>
-        <button type="button" data-card="${uid}" data-face="${face}" aria-pressed="${p.card === uid}" class="hand-card-main" aria-label="${esc(c.name + '، ' + c.text)}"><span class="hand-card-icon">${icon(c.icon)}</span><strong>${esc(c.name)}</strong><span class="hand-card-effects">${cardEffects(uid, s, face)}</span></button>
-      </div>`;
+  return `<section class="battle-hand" aria-label="البطاقات ووجها البطاقة المختارة">
+    <div class="hand-title"><div class="engraved-heading"><span>البِطَاقَات</span></div><div class="hand-controls">${p.card ? button('×', 'cancel', 'cancel-selection', false, 'إلغاء الاختيار') + button('ⓘ', 'card-info', 'card-info-button', false, 'شرح وجهي البطاقة') : ''}</div></div>
+    <div class="card-tabs" role="group" aria-label="اختر بطاقة من يدك">${s.hand.map(card => {
+      const face = p.card === card ? p.face ?? 0 : s.faces?.[card] ?? 0;
+      const c = def(card, s, face);
+      return `<button type="button" data-card="${card}" data-face="${face}" class="card-tab tab-${c.build} ${card === uid ? 'is-selected' : ''}" aria-pressed="${p.card === card}" aria-label="${esc(c.name)}"><span class="tab-art">${icon(c.icon)}</span><small>${esc(c.name)}</small></button>`;
     }).join('')}</div>
-    <div class="battle-commit"><div class="commit-result" role="status">${projected ? projected.state.hp <= 0 ? '<b class="danger-text">هذه الحركة تنهي رحلتك</b>' : hpLoss ? `<b class="danger-text">−${num(hpLoss)} صحة</b>` : `<b>${projected.state.hp > s.hp ? '+' + num(projected.state.hp - s.hp) + ' صحة' : 'صحتك آمنة'}</b>` : '<b>خطّط حركتك</b>'}<small>${projected ? 'النتيجة معروضة على الشخصيات' : 'المس الشخصية لاختيار الهدف'}</small></div>${button(p.card ? 'إلغاء' : '؟', p.card ? 'cancel' : 'help', 'battle-cancel', false, p.card ? 'إلغاء الاختيار' : 'دليل اللعب')}${button(projected ? 'نفّذ ' + (p.axis === 'row' ? 'الصف ↔' : 'العمود ↕') : p.card ? 'اختر خانة' : 'اختر بطاقة', 'activate', 'battle-execute', !projected)}</div>
+    <div class="expanded-card" aria-label="وجها البطاقة">${uid ? [0, 1].map(face => {
+      const c = def(uid, s, face);
+      const active = p.card === uid && p.face === face;
+      return `<button type="button" class="card-face-panel face-${face} ${active ? 'is-active' : ''}" data-card="${uid}" data-face="${face}" aria-pressed="${active}" aria-label="${face === 0 ? 'تأثير دائم' : 'تأثير فوري'}: ${esc(c.name + '، ' + c.text)}">
+        <span class="face-heading">${face === 0 ? 'تأثير دائم' : 'تأثير فوري'}${active ? '<b>✓</b>' : ''}</span>
+        <span class="face-content"><span class="face-large-icon">${icon(c.icon)}</span><span class="face-content-text"><strong>${esc(c.name)}</strong><span class="face-effect-summary">${cardEffects(uid, s, face)}</span></span></span>
+        <span class="face-description">${esc(c.short)}</span>
+      </button>`;
+    }).join('') : '<p>لا بطاقات في اليد</p>'}</div>
+    <div class="sr" role="status">${projected ? projected.state.hp <= 0 ? 'هذه الحركة تنهي رحلتك' : hpLoss ? `ستفقد ${num(hpLoss)} صحة` : 'صحتك آمنة هذا الدور' : 'اختر وجه البطاقة ثم موضعًا في الشبكة'}</div>
+    ${button(projected ? '▶︎ نَفِّذ ' + (p.axis === 'row' ? 'الصف' : 'العمود') : '▶︎ نَفِّذ', 'activate', 'planner-execute', !projected)}
   </section>`;
 }
 
 export function gameView(s, p, feedback = '') {
   const projected = preview(s, p);
-  return `<div class="battlefield-app">${battleHeader(s)}${renderBattleBoard(s, p, projected)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
+  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${enemyStrip(s, p, projected)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
 }
 
 // -------------------------------------------------------------
@@ -383,7 +378,7 @@ export function titleView() {
   return `
     <main class="hero title-screen widescreen-modal">
       <div class="modal-card title-card">
-        <p class="gold-subtitle">ساحة واحدة · تسع خانات · قرارك يصنع النصر</p>
+        <p class="gold-subtitle">رقعة التدبير · وجها القرار</p>
         <h1>طَرِيقُ السَّرَاة <small>· مَلْحَمَةُ الشَّنْفَرَى</small></h1>
         <div class="hero-art-widescreen">
           <div class="hero-silhouette"></div>
