@@ -2,6 +2,10 @@
 
 One complete Arabic, mobile-responsive tactical deckbuilder encounter. Version 4 adds an opt-in, fixed-seed lure encounter to test committed attacks and card sacrifice while retaining the previous encounter and saves.
 
+## Documentation
+- [وثيقة تصميم اللعبة — لاميّة الشنفرى (Game Design Document)](docs/GDD_LAMIYAT_AL_SHANFARA.md): تفاصيل الرؤية، أطر MDA، آليات التعفف والإيثار، تآزر القافية، ومواثيق الصحراء.
+- [بنية التفاعل: تحليل شامل لتصميم الألعاب وعلم النفس وديناميكيات الأنظمة](docs/INTERACTION_ARCHITECTURE.md): دراسة تفصيلية لنظريات التفاعل النفسي (SDT, Quantic Foundry)، حلقات التغذية الراجعة، والتناغم السردي واللعبي.
+
 ## Run
 Serve `dist/` from any static HTTP host. There are no runtime JavaScript dependencies. Optional Google Fonts have Arabic system-font fallbacks.
 
