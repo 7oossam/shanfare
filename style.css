@@ -1492,6 +1492,34 @@ dialog::backdrop {
   to { opacity: 1; filter: drop-shadow(0 0 6px var(--crimson)); }
 }
 
+/* Accessible controls and explicit turn consequences. */
+button:focus-visible, [data-cell]:focus-visible {
+  outline: 3px solid #ffe2a6;
+  outline-offset: 3px;
+}
+
+.health-forecast {
+  color: #b2d5b2;
+  font-size: 0.78rem;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.end-turn-blade .health-forecast { color: #153025; font-weight: 700; }
+.end-turn-blade .health-forecast.at-risk { color: #661d15; }
+.health-forecast.at-risk { color: #ffb89d; }
+.altar-preview .idle-prompt { line-height: 1.6; }
+.modal-card { max-height: calc(100dvh - 40px); overflow-y: auto; }
+dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Mobile & Portrait Layout: Clean Ergonomic Fit (Zero Box-Salad) */
 @media (max-width: 950px) {
   html, body {
@@ -1966,4 +1994,13 @@ dialog::backdrop {
   .draft-grid, .relics-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+@media (max-width: 950px) {
+  .end-turn-blade .blade-content { flex-wrap: wrap; gap: 2px 6px; }
+  .health-forecast { flex-basis: 100%; font-size: 0.64rem; line-height: 1.15; }
+  .altar-preview { max-height: 64px; }
+  .flip-face-btn { min-height: 24px; }
+  .card-header-bar { height: 26px; flex-shrink: 0; }
 }
