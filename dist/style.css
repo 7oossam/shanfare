@@ -554,6 +554,25 @@ button:disabled {
   animation: ghost-pulse 0.8s infinite alternate ease-in-out;
 }
 
+.mom-convert {
+  font-size: 0.62rem;
+  color: #bfe7fc;
+  font-weight: 800;
+  margin-right: 2px;
+}
+
+.wolf-empowered {
+  background: linear-gradient(135deg, rgba(186, 122, 232, 0.6) 0%, rgba(230, 74, 56, 0.6) 100%) !important;
+  border-color: #ff5252 !important;
+  box-shadow: 0 0 10px rgba(255, 82, 82, 0.7) !important;
+  animation: ghost-pulse 0.8s infinite alternate ease-in-out;
+}
+
+.bow-boosted {
+  border-color: #ffd700 !important;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6) !important;
+}
+
 .center-turn-banner {
   flex: 1;
   text-align: center;
@@ -1543,19 +1562,70 @@ dialog::backdrop {
 
   /* Upper Arena: 185px fixed height (Scenic Gorge + Floating Target Crests) */
   .cinematic-arena {
-    flex: 0 0 185px;
-    height: 185px;
-    min-height: 185px;
-    max-height: 185px;
-    padding: 4px 8px 4px;
+    flex: 0 0 190px;
+    height: 190px;
+    min-height: 190px;
+    max-height: 190px;
+    padding: 4px 6px 4px;
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
     justify-content: space-between;
   }
 
   .enemy-squad {
+    gap: 8px;
+    margin: 8px 2px 2px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    align-items: start;
+    width: 100%;
+  }
+
+  .enemy-squad.squad-size-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .enemy-squad.squad-size-3 .enemy-actor {
+    padding: 0;
+  }
+
+  .enemy-squad.squad-size-3 .enemy-crest-body {
+    max-width: 96px;
+    padding: 2px 3px 3px;
+    gap: 1px;
+  }
+
+  .enemy-squad.squad-size-3 .enemy-name {
+    font-size: 0.58rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+  }
+
+  .enemy-squad.squad-size-3 .enemy-hp-track {
+    height: 9px;
+  }
+
+  .enemy-squad.squad-size-3 .enemy-hp-track .hp-num {
+    font-size: 0.5rem;
+    line-height: 9px;
+  }
+
+  .enemy-squad.squad-size-3 .enemy-intent-crest {
+    height: 22px;
+    min-width: 26px;
+    font-size: 0.76rem;
+    padding: 0 5px;
+    margin-bottom: 1px;
+  }
+
+  .enemy-squad.squad-size-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px;
-    margin: 18px 2px 2px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .enemy-actor {
