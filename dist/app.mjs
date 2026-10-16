@@ -9,6 +9,7 @@ import {
   relicView,
   interludeView,
   comboView,
+  cardEffects,
   bestAxis,
   button as btn,
   esc,
@@ -117,13 +118,18 @@ function commit(chosen = selection) {
   selection = { card: null, cell: null, axis: null, face: null };
 
   if (result.summary.kind === 'reward') {
-    feedback = result.summary.choice === 'purge' ? 'تطهرت رزمتك من بطاقة زائدة.' : 'ظفرتَ ببطاقة جديدة للمسير!';
+    feedback = result.summary.choice === 'purge' ? '✨ تطهرت رزمتك من بطاقة زائدة.' : '✨ ظفرتَ ببطاقة جديدة للمسير!';
   } else if (result.summary.kind === 'relic') {
-    feedback = 'اكتسبتَ أثراً صعلوكياً جديداً!';
+    feedback = '🏆 اكتسبتَ أثراً صعلوكياً جديداً!';
   } else if (result.summary.kind === 'transition') {
-    feedback = 'اقتحمتَ المعبر التالي.';
+    feedback = '⚔️ اقتحمتَ المعبر التالي.';
   } else {
-    feedback = `تقدّمت ${num(result.summary.moves || 0)} · أصبت ${num(result.summary.hits || 0)} · صدَدت ${num(result.summary.block || 0)} · ضرر ${num(result.summary.enemyDamage || 0)}`;
+    const hits = result.summary.hits || 0;
+    const block = result.summary.block || 0;
+    const moves = result.summary.moves || 0;
+    const dmg = result.summary.enemyDamage || 0;
+    const cleared = result.summary.cleared?.length === 3;
+    feedback = `${hits ? `💥 ضربت ${num(hits)} ضرر` : 'لم تضرب'} • ${block ? `🛡️ صدَدت ${num(block)}` : 'بلا درع'} • ${moves ? `👟 تقدّمت ${num(moves)}` : 'ثابت'}${dmg ? ` • 💔 خسرت ${num(dmg)} صحة` : ' • 🛡️ لم تصبك جراح'}${cleared ? ' • ⚡ فرّغت الخط!' : ''}`;
   }
 
   persist();
@@ -180,6 +186,45 @@ function action(a) {
     commit({ kind: 'relic', choice: relicId });
   } else if (a === 'rules') {
     rules();
+  } else if (a === 'help') {
+    show(
+      'كيف تُلعب ملحمة الشَّنْفَرَى؟ (في ٤ خطوات بسيطة)',
+      `
+      <div class="quick-guide-dialog">
+        <div class="guide-card">
+          <div class="guide-num">١</div>
+          <div class="guide-body">
+            <strong>اختر بطاقة من يدك بالأسفل:</strong>
+            <p>لكل بطاقة وجهان: (أصيل 🔄 طارئ). بدّل بينهما بزر 🔄 لاختيار الأثر الأنسب لخطتك.</p>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-num">٢</div>
+          <div class="guide-body">
+            <strong>ضعها في خانة فارغة (＋) في الصخرة (٣×٣):</strong>
+            <p>البطاقة ستثبت في الصخرة. يمكنك لمس أي بطاقة في الصخرة لقراءة تفاصيلها وقوتها.</p>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-num">٣</div>
+          <div class="guide-body">
+            <strong>اختر تفعيل الصف (↔) أو العمود (↕):</strong>
+            <p>تفعيل الخط يجمع قوى كل البطاقات الموجودة في ذلك الخط وينفّذها بتسلسل وتآزر هجومي ودفاعي!</p>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-num">٤</div>
+          <div class="guide-body">
+            <strong>اضغط زر (نفّذ) بالسيف بالأسفل:</strong>
+            <p>قبل الضغط، راقب التوقعات بالأعلى: الضرر الذي سينال العدو، والدروع التي ستصد هجومه القادم!</p>
+          </div>
+        </div>
+        <div class="guide-footer-tip">
+          💡 <b>سر الصعاليك:</b> عندما يكتمل الخط بـ ٣ بطاقات ينفّذ ضربات قاضية ثم يُفرَّغ لتضع فيه بطاقات جديدة!
+        </div>
+      </div>
+      `
+    );
   } else if (a === 'menu') {
     show(
       'ملحمة الشَّنْفَرَى',
@@ -254,15 +299,26 @@ document.addEventListener('click', e => {
     return;
   }
 
-  // Grid cell select
+  // Grid cell select: inspecting placed cards or placing selected card
   if (b.dataset.cell !== undefined) {
     const i = Number(b.dataset.cell);
-    if (!selection.card) return;
     if (s.grid[i]) {
       const c = def(s.grid[i], s);
-      show(c.name, `<p>${c.text}</p>`);
+      show(
+        `«${c.name}»`,
+        `
+        <div class="card-inspect-dialog" style="text-align:right;direction:rtl;">
+          <p style="font-size:0.9rem;line-height:1.4;margin:4px 0 8px;">${esc(c.text)}</p>
+          <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;">${cardEffects(s.grid[i], s)}</div>
+          <p style="color:#efbf75;font-size:0.8rem;border-top:1px dashed #33444d;padding-top:6px;margin:8px 0 0;">
+            💡 هذه البطاقة مستقرة في الصخرة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
+          </p>
+        </div>
+        `
+      );
       return;
     }
+    if (!selection.card) return;
     const face = selection.face ?? 0;
     const axis = bestAxis(s, selection.card, i, face);
     selection = { card: selection.card, face, cell: i, axis };

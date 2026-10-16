@@ -1381,18 +1381,29 @@ function cardEffects(uid, s, face) {
 }
 
 function comboView(s, m) {
+  const hits = m.totals.hits || 0;
+  const block = m.totals.block || 0;
+  const moves = m.totals.moves || 0;
+  const isFull = (m.totals.cleared && m.totals.cleared.length === 3);
+
   return `
-    <section class="combo-panel" aria-label="ترتيب الأفعال">
+    <section class="combo-panel" aria-label="حصاد خط التدبير">
       <div class="combo-title">
-        <span>الترتيب: ${m.steps.map((x, i) => `<b>${num(i + 1)}</b> ${esc(x.name)}`).join(' ← ')}</span>
-        <span class="combo-totals">
-          ${m.totals.moves ? stsStat('foot', '+' + num(m.totals.moves), '', 'stat-move') : ''}
-          ${m.totals.hits ? stsStat('swords', num(m.totals.hits), '', 'stat-attack') : ''}
-          ${m.totals.block ? stsStat('shield', num(m.totals.block), '', 'stat-guard') : ''}
-        </span>
+        <span class="combo-flow">المسار: ${m.steps.map((x, i) => `<b>${num(i + 1)}</b> ${esc(x.name)}`).join(' ➔ ')}</span>
+        <div class="combo-totals">
+          ${hits ? `<span class="stat-badge hit">💥 ${num(hits)} ضرر</span>` : ''}
+          ${block ? `<span class="stat-badge block">🛡️ ${num(block)} درع</span>` : ''}
+          ${moves ? `<span class="stat-badge move">👟 ${num(moves)} خطوة</span>` : ''}
+        </div>
       </div>
-      ${m.links.map(l => `<div class="combo-link good">${esc(l.sources.map(x => (x.name || def(x.uid, s).name)).join(' + '))} ← ${esc((l.targetName || def(l.target, s).name))}: +${num(l.boost)} تقوية</div>`).join('')}
-      ${m.expired.map(l => `<div class="combo-warning">${esc((l.name || def(l.uid, s).name))}: لا هجوم بعدها (+${num(l.amount)} تضيع)</div>`).join('')}
+      ${m.links.length ? `
+        <div class="combo-synergy-pill">
+          ⚡ تآزر: ${m.links.map(l => `${esc(l.sources.map(x => (x.name || def(x.uid, s).name)).join('+'))} تمنح ${esc(l.targetName)} +${num(l.boost)} ضرر!`).join(' • ')}
+        </div>
+      ` : ''}
+      ${isFull ? `
+        <div class="combo-clear-pill">✨ اكتمال الخط: تفريغ الخانات الثلاث وتوجيه ضربات قاضية!</div>
+      ` : ''}
     </section>
   `;
 }
@@ -1424,6 +1435,7 @@ function renderTopBar(s) {
           const r = RELICS[rKey];
           return `<span class="relic-chip" title="${esc(r?.title || '')}">${icon(r?.icon || 'spark')}</span>`;
         }).join('')}
+        ${button('؟', 'help', 'icon-btn help-btn', false, 'دليل اللعب السريع')}
         ${button(isMuted() ? icon('mute') : icon('sound'), 'toggle-audio', 'icon-btn', false, 'الصوت')}
         ${button('⋯', 'menu', 'icon-btn menu-btn', false, 'القائمة')}
       </div>
@@ -1446,8 +1458,14 @@ function renderCinematicArena(s, projected, p = {}) {
           const intentIcon = intent.intent === 'defend' ? 'shield' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
           const isDead = e.hp <= 0;
 
+          // Projected Impact
+          const projEnemy = projected?.state?.enemies?.[idx];
+          const projHp = projEnemy !== undefined ? projEnemy.hp : e.hp;
+          const dmgTaken = Math.max(0, e.hp - projHp);
+          const willDie = !isDead && projHp <= 0;
+
           return `
-            <div class="enemy-actor ${isDead ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
+            <div class="enemy-actor ${isDead ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''} ${dmgTaken > 0 ? 'taking-preview-hit' : ''}">
               <!-- STS Floating Intent Icon -->
               <div class="enemy-intent-crest enemy-intent-badge intent-${intent.intent}" title="${intent.desc}">
                 ${!isDead ? (intent.damage > 0 
@@ -1456,14 +1474,16 @@ function renderCinematicArena(s, projected, p = {}) {
                 ) : '<span class="dead">صريع</span>'}
               </div>
 
-              <!-- Enemy Plate: Name + HP Bar -->
+              <!-- Enemy Plate: Name + HP Bar + Ghost Damage Forecast -->
               <div class="enemy-crest-body">
                 <div class="enemy-head">
                   <span class="enemy-name">${e.name}</span>
+                  ${dmgTaken > 0 ? `<b class="preview-dmg-tag">-${num(dmgTaken)} 💥</b>` : ''}
                 </div>
                 <div class="enemy-hp-track">
-                  <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
-                  <span class="hp-num">${ratio(e.hp, e.maxHp)}</span>
+                  <i class="hp-fill" style="width:${(projHp / e.maxHp) * 100}%"></i>
+                  ${dmgTaken > 0 ? `<i class="hp-ghost" style="width:${(e.hp / e.maxHp) * 100}%"></i>` : ''}
+                  <span class="hp-num">${willDie ? '<b class="kill-tag">صريع!</b>' : ratio(projHp, e.maxHp)}</span>
                 </div>
                 ${(s.bleed > 0 || s.poison > 0) && !isDead ? `
                   <div class="status-chips">
@@ -1477,24 +1497,40 @@ function renderCinematicArena(s, projected, p = {}) {
         }).join('')}
       </div>
 
-      <!-- 2. Ambient Outlaw Line: Sleek footer strip for Shanfara -->
+      <!-- 2. Ambient Outlaw Line: Sleek footer strip for Shanfara with Real-Time Defense Forecast -->
       <div class="hero-vanguard-bar">
         <div class="hero-plate">
           <span class="hero-ico">${icon('bow')}</span>
           <div class="hero-hp-wrap">
             <span class="hero-name">الشَّنْفَرَى</span>
-            <div class="hero-hp-bar"><i style="width:${(s.hp/s.maxHp)*100}%"></i><span>${ratio(s.hp, s.maxHp)}</span></div>
+            <div class="hero-hp-bar">
+              <i style="width:${((projected ? projected.state.hp : s.hp) / s.maxHp) * 100}%"></i>
+              <span>${ratio(projected ? projected.state.hp : s.hp, s.maxHp)}</span>
+            </div>
           </div>
+          ${projected?.summary?.block ? `<span class="proj-block-tag">${icon('shield')} <b>+${num(projected.summary.block)}</b></span>` : ''}
           ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} <b>${num(s.momentum)}</b></span>` : ''}
         </div>
 
         <div class="center-turn-banner">
-          <span>${p.axis ? `نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : p.card ? 'المس خانة بالصخرة' : 'طور التدبير'}</span>
+          ${p.axis ? `
+            <span class="staged-action-banner">
+              نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'} 
+              <small>(${projected?.summary?.hits ? `💥 ${num(projected.summary.hits)}` : ''} ${projected?.summary?.block ? `🛡️ ${num(projected.summary.block)}` : ''} ${projected?.summary?.moves ? `👟 ${num(projected.summary.moves)}` : ''})</small>
+            </span>
+          ` : p.cell !== null ? `
+            <span class="guide-step">الخطوة ٣: حدّد الصف (↔) أو العمود (↕) للتنفيذ</span>
+          ` : p.card ? `
+            <span class="guide-step">الخطوة ٢: المس خانة فارغة (＋) في الصخرة</span>
+          ` : `
+            <span class="guide-step">الخطوة ١: اختر بطاقة من يدك للبدء</span>
+          `}
         </div>
 
         <div class="haven-mini-tag">
           <small>المأمن</small>
-          <b>${num(goal(s) - s.progress)}</b>
+          <b>${num(goal(s) - (projected ? projected.state.progress : s.progress))}</b>
+          ${projected?.summary?.moves ? `<small class="haven-gain">+${num(projected.summary.moves)}</small>` : ''}
         </div>
       </div>
     </section>
@@ -1618,12 +1654,22 @@ function renderBottomDock(s, p, projected) {
         }).join('')}
       </div>
 
-      <!-- End Turn / Commit Blade Button -->
+      <!-- End Turn / Commit Blade Button with Dynamic Live Metrics -->
       <div class="dock-actions">
         ${button(
-          `<span>${p.axis ? `نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : 'اختر فعلاً'}</span><i class="blade-gem"></i>`,
+          p.axis && projected ? `
+            <div class="blade-content">
+              <span class="blade-main-text">نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}</span>
+              <span class="blade-stats-preview">
+                ${projected.summary.hits ? `<b>💥 ${num(projected.summary.hits)}</b>` : ''}
+                ${projected.summary.block ? `<b>🛡️ ${num(projected.summary.block)}</b>` : ''}
+                ${projected.summary.moves ? `<b>👟 ${num(projected.summary.moves)}</b>` : ''}
+              </span>
+            </div>
+            <i class="blade-gem"></i>
+          ` : `<span>${p.cell !== null ? 'حدّد الصف أو العمود' : p.card ? 'المس خانة بالصخرة' : 'اختر فعلاً'}</span><i class="blade-gem"></i>`,
           'activate',
-          'end-turn-blade',
+          `end-turn-blade ${p.axis && projected ? 'blade-ready-pulse' : ''}`,
           !projected
         )}
         ${button('إلغاء', 'cancel', 'cancel-btn', !p.card)}
@@ -1932,13 +1978,18 @@ function commit(chosen = selection) {
   selection = { card: null, cell: null, axis: null, face: null };
 
   if (result.summary.kind === 'reward') {
-    feedback = result.summary.choice === 'purge' ? 'تطهرت رزمتك من بطاقة زائدة.' : 'ظفرتَ ببطاقة جديدة للمسير!';
+    feedback = result.summary.choice === 'purge' ? '✨ تطهرت رزمتك من بطاقة زائدة.' : '✨ ظفرتَ ببطاقة جديدة للمسير!';
   } else if (result.summary.kind === 'relic') {
-    feedback = 'اكتسبتَ أثراً صعلوكياً جديداً!';
+    feedback = '🏆 اكتسبتَ أثراً صعلوكياً جديداً!';
   } else if (result.summary.kind === 'transition') {
-    feedback = 'اقتحمتَ المعبر التالي.';
+    feedback = '⚔️ اقتحمتَ المعبر التالي.';
   } else {
-    feedback = `تقدّمت ${num(result.summary.moves || 0)} · أصبت ${num(result.summary.hits || 0)} · صدَدت ${num(result.summary.block || 0)} · ضرر ${num(result.summary.enemyDamage || 0)}`;
+    const hits = result.summary.hits || 0;
+    const block = result.summary.block || 0;
+    const moves = result.summary.moves || 0;
+    const dmg = result.summary.enemyDamage || 0;
+    const cleared = result.summary.cleared?.length === 3;
+    feedback = `${hits ? `💥 ضربت ${num(hits)} ضرر` : 'لم تضرب'} • ${block ? `🛡️ صدَدت ${num(block)}` : 'بلا درع'} • ${moves ? `👟 تقدّمت ${num(moves)}` : 'ثابت'}${dmg ? ` • 💔 خسرت ${num(dmg)} صحة` : ' • 🛡️ لم تصبك جراح'}${cleared ? ' • ⚡ فرّغت الخط!' : ''}`;
   }
 
   persist();
@@ -1995,6 +2046,45 @@ function action(a) {
     commit({ kind: 'relic', choice: relicId });
   } else if (a === 'rules') {
     rules();
+  } else if (a === 'help') {
+    show(
+      'كيف تُلعب ملحمة الشَّنْفَرَى؟ (في ٤ خطوات بسيطة)',
+      `
+      <div class="quick-guide-dialog">
+        <div class="guide-card">
+          <div class="guide-num">١</div>
+          <div class="guide-body">
+            <strong>اختر بطاقة من يدك بالأسفل:</strong>
+            <p>لكل بطاقة وجهان: (أصيل 🔄 طارئ). بدّل بينهما بزر 🔄 لاختيار الأثر الأنسب لخطتك.</p>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-num">٢</div>
+          <div class="guide-body">
+            <strong>ضعها في خانة فارغة (＋) في الصخرة (٣×٣):</strong>
+            <p>البطاقة ستثبت في الصخرة. يمكنك لمس أي بطاقة في الصخرة لقراءة تفاصيلها وقوتها.</p>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-num">٣</div>
+          <div class="guide-body">
+            <strong>اختر تفعيل الصف (↔) أو العمود (↕):</strong>
+            <p>تفعيل الخط يجمع قوى كل البطاقات الموجودة في ذلك الخط وينفّذها بتسلسل وتآزر هجومي ودفاعي!</p>
+          </div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-num">٤</div>
+          <div class="guide-body">
+            <strong>اضغط زر (نفّذ) بالسيف بالأسفل:</strong>
+            <p>قبل الضغط، راقب التوقعات بالأعلى: الضرر الذي سينال العدو، والدروع التي ستصد هجومه القادم!</p>
+          </div>
+        </div>
+        <div class="guide-footer-tip">
+          💡 <b>سر الصعاليك:</b> عندما يكتمل الخط بـ ٣ بطاقات ينفّذ ضربات قاضية ثم يُفرَّغ لتضع فيه بطاقات جديدة!
+        </div>
+      </div>
+      `
+    );
   } else if (a === 'menu') {
     show(
       'ملحمة الشَّنْفَرَى',
@@ -2069,15 +2159,26 @@ document.addEventListener('click', e => {
     return;
   }
 
-  // Grid cell select
+  // Grid cell select: inspecting placed cards or placing selected card
   if (b.dataset.cell !== undefined) {
     const i = Number(b.dataset.cell);
-    if (!selection.card) return;
     if (s.grid[i]) {
       const c = def(s.grid[i], s);
-      show(c.name, `<p>${c.text}</p>`);
+      show(
+        `«${c.name}»`,
+        `
+        <div class="card-inspect-dialog" style="text-align:right;direction:rtl;">
+          <p style="font-size:0.9rem;line-height:1.4;margin:4px 0 8px;">${esc(c.text)}</p>
+          <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;">${cardEffects(s.grid[i], s)}</div>
+          <p style="color:#efbf75;font-size:0.8rem;border-top:1px dashed #33444d;padding-top:6px;margin:8px 0 0;">
+            💡 هذه البطاقة مستقرة في الصخرة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
+          </p>
+        </div>
+        `
+      );
       return;
     }
+    if (!selection.card) return;
     const face = selection.face ?? 0;
     const axis = bestAxis(s, selection.card, i, face);
     selection = { card: selection.card, face, cell: i, axis };
