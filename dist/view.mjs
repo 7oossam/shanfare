@@ -14,7 +14,8 @@ import {
   collapseRow,
   ARCHETYPES,
   RELICS,
-  ENCOUNTERS
+  ENCOUNTERS,
+  getEnemyIntent
 } from './engine.mjs?v=8';
 import { icon } from './icons.mjs?v=8';
 import { isMuted } from './audio.mjs?v=8';
@@ -221,7 +222,12 @@ function renderCinematicArena(s, projected) {
 
         <!-- Enemy Squad Formation -->
         <div class="enemy-formation">
-          ${s.enemies.map(e => `
+          ${s.enemies.map((e, idx) => {
+            const living = s.enemies.filter(x => x.hp > 0);
+            const isSolo = living.length === 1;
+            const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
+            const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
+            return `
             <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
               <div class="enemy-sprite">
                 ${e.isBoss ? icon('swords') : icon('knife')}
@@ -233,13 +239,14 @@ function renderCinematicArena(s, projected) {
                   <span>${ratio(e.hp, e.maxHp)}</span>
                 </div>
                 <div class="status-tags">
-                  ${e.hp > 0 ? `<span class="tag threat-tag">${icon('knife')} يضرب ${num(e.attack)}</span>` : '<span class="tag dead-tag">صريع</span>'}
+                  ${e.hp > 0 ? `<span class="tag threat-tag intent-${intent.intent}">${icon(intentIcon)} ${intent.desc}</span>` : '<span class="tag dead-tag">صريع</span>'}
                   ${s.bleed > 0 && e.hp > 0 ? `<span class="tag bleed-tag">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
                   ${s.poison > 0 && e.hp > 0 ? `<span class="tag poison-tag">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
                 </div>
               </div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       </div>
     </section>
