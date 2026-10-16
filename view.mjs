@@ -50,27 +50,28 @@ export function bestAxis(s, card, cell, face = 0) {
   return sc(colRes) > sc(rowRes) ? 'col' : 'row';
 }
 
-const pill = (ico, label, cls = '') => `<span class="effect ${cls}">${icon(ico)}<span>${label}</span></span>`;
+const stsStat = (ico, val, extra = '', cls = '') =>
+  `<span class="sts-stat ${cls}">${icon(ico)}<b>${val}</b>${extra ? `<small>${extra}</small>` : ''}</span>`;
 
 function cardEffects(uid, s, face) {
   const c = def(uid, s, face);
   const bits = [];
   for (const f of c.effects) {
-    if (f.op === 'move') bits.push(pill('foot', 'تقدّم ' + num(f.n), 'move'));
-    if (f.op === 'momentum') bits.push(pill('fire', 'زخم ' + num(f.n), 'momentum'));
-    if (f.op === 'hit') bits.push(pill('knife', 'أصب ' + num(f.n), 'attack'));
-    if (f.op === 'sniper') bits.push(pill('bow', 'قوس ' + num(f.n) + '+زخم', 'attack'));
-    if (f.op === 'cyclone_shot') bits.push(pill('bow', 'إعصار ' + num(f.n) + '+كامل الزخم', 'attack'));
-    if (f.op === 'hurt') bits.push(pill('heart', 'جرح ' + num(f.n), 'danger'));
-    if (f.op === 'block') bits.push(pill('shield', 'صدّ ' + num(f.n), 'guard'));
-    if (f.op === 'prime') bits.push(pill('spark', 'بعدي +' + num(f.n), 'setup'));
-    if (f.op === 'bleed') bits.push(pill('bleed', 'نزف ' + num(f.n), 'bleed'));
-    if (f.op === 'poison') bits.push(pill('poison', 'سم ' + num(f.n), 'poison'));
-    if (f.op === 'double_bleed') bits.push(pill('bleed', 'مضاعفة النزف', 'bleed'));
-    if (f.op === 'explode_bleed') bits.push(pill('bleed', 'تفجير النزف ×٢', 'attack'));
-    if (f.op === 'wolf_pounce') bits.push(pill('wolf', 'نهش ' + num(f.n), 'beast'));
-    if (f.op === 'ward') bits.push(pill('cover', 'ساتر لاحقاً', 'guard'));
-    if (f.op === 'vanish') bits.push('<small class="vanish-badge">تُطرح</small>');
+    if (f.op === 'move') bits.push(stsStat('foot', num(f.n), '', 'stat-move'));
+    if (f.op === 'momentum') bits.push(stsStat('fire', num(f.n), '', 'stat-momentum'));
+    if (f.op === 'hit') bits.push(stsStat('knife', num(f.n), '', 'stat-attack'));
+    if (f.op === 'sniper') bits.push(stsStat('bow', num(f.n), '+🔥', 'stat-attack'));
+    if (f.op === 'cyclone_shot') bits.push(stsStat('bow', num(f.n), '+🔥🔥', 'stat-attack'));
+    if (f.op === 'hurt') bits.push(stsStat('heart', num(f.n), '', 'stat-danger'));
+    if (f.op === 'block') bits.push(stsStat('shield', num(f.n), '', 'stat-guard'));
+    if (f.op === 'prime') bits.push(stsStat('spark', '+' + num(f.n), '', 'stat-setup'));
+    if (f.op === 'bleed') bits.push(stsStat('bleed', num(f.n), '', 'stat-bleed'));
+    if (f.op === 'poison') bits.push(stsStat('poison', num(f.n), '', 'stat-poison'));
+    if (f.op === 'double_bleed') bits.push(stsStat('bleed', '×٢', '', 'stat-bleed'));
+    if (f.op === 'explode_bleed') bits.push(stsStat('bleed', '💥×٢', '', 'stat-attack'));
+    if (f.op === 'wolf_pounce') bits.push(stsStat('wolf', num(f.n), '', 'stat-beast'));
+    if (f.op === 'ward') bits.push(stsStat('cover', 'ساتر', '', 'stat-guard'));
+    if (f.op === 'vanish') bits.push('<span class="vanish-badge">تُطرح</span>');
   }
   return bits.join('');
 }
@@ -81,9 +82,9 @@ export function comboView(s, m) {
       <div class="combo-title">
         <span>الترتيب: ${m.steps.map((x, i) => `<b>${num(i + 1)}</b> ${esc(x.name)}`).join(' ← ')}</span>
         <span class="combo-totals">
-          ${m.totals.moves ? pill('foot', '+' + num(m.totals.moves), 'move') : ''}
-          ${m.totals.hits ? pill('swords', num(m.totals.hits) + ' ضرر', 'attack') : ''}
-          ${m.totals.block ? pill('shield', num(m.totals.block) + ' صد', 'guard') : ''}
+          ${m.totals.moves ? stsStat('foot', '+' + num(m.totals.moves), '', 'stat-move') : ''}
+          ${m.totals.hits ? stsStat('swords', num(m.totals.hits), '', 'stat-attack') : ''}
+          ${m.totals.block ? stsStat('shield', num(m.totals.block), '', 'stat-guard') : ''}
         </span>
       </div>
       ${m.links.map(l => `<div class="combo-link good">${esc(l.sources.map(x => (x.name || def(x.uid, s).name)).join(' + '))} ← ${esc((l.targetName || def(l.target, s).name))}: +${num(l.boost)} تقوية</div>`).join('')}
@@ -93,52 +94,33 @@ export function comboView(s, m) {
 }
 
 // -------------------------------------------------------------
-// Top Navigation & Journey Bar
+// Top Navigation & Journey Bar (Unified HUD)
 // -------------------------------------------------------------
 function renderTopBar(s) {
-  const encIdx = s.encounter;
+  const enc = ENCOUNTERS[s.encounter - 1] || ENCOUNTERS[0];
+  const threat = incoming(s);
+
   return `
     <header class="top-bar">
-      <!-- 1. Relics Tray -->
-      <div class="relics-tray" aria-label="مواثيق الصحراء والآثار">
-        ${['sandals', 'wolf_skin', 'crag_salaman', 'taabbata_bracer'].map(rKey => {
-          const has = s.relics.includes(rKey);
-          const r = RELICS[rKey];
-          return `
-            <div class="relic-socket ${has ? 'active' : 'empty'}" title="${esc(r.title)}: ${esc(r.desc)}">
-              ${has ? `${icon(r.icon)}<span class="relic-label">${r.name}</span>` : `<span class="empty-socket">+</span>`}
-            </div>
-          `;
-        }).join('')}
+      <!-- 1. Encounter Badge -->
+      <div class="encounter-badge">
+        <span class="enc-dot"></span>
+        <strong>المعبر ${num(enc.index)}: ${enc.name}</strong>
       </div>
 
-      <!-- 2. Journey Waypoints Track (4 Encounters) -->
-      <div class="journey-track" aria-label="مسار الرحلة في شِعاب السَّراة">
-        ${ENCOUNTERS.map(enc => {
-          const isPassed = enc.index < encIdx;
-          const isCurrent = enc.index === encIdx;
-          return `
-            <div class="waypoint ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}">
-              <span class="waypoint-node">${isPassed ? '✓' : num(enc.index)}</span>
-              <span class="waypoint-name">${enc.name}</span>
-            </div>
-          `;
-        }).join('<div class="journey-connector"></div>')}
+      <!-- 2. Dawn & Threat Center HUD -->
+      <div class="top-center-hud">
+        <span class="dawn-tag dawn-dial ${s.turn >= 30 ? 'danger' : ''}">${icon('moon')} <b>${num(36 - s.turn)} دوراً</b></span>
+        ${threat > 0 ? `<span class="threat-tag">${icon('swords')} <b>${num(threat)}</b></span>` : ''}
       </div>
 
-      <!-- 3. Dawn Dial (ساعة الفجر) -->
-      <div class="dawn-dial ${s.turn >= 30 ? 'danger' : ''}">
-        ${icon('moon')}
-        <div class="dawn-text">
-          <small>حتى الفجر</small>
-          <b>${num(36 - s.turn)} أدوار</b>
-        </div>
-      </div>
-
-      <!-- 4. Top Quick Actions -->
+      <!-- 3. Top Quick Actions & Relics -->
       <div class="top-actions">
+        ${s.relics.map(rKey => {
+          const r = RELICS[rKey];
+          return `<span class="relic-chip" title="${esc(r?.title || '')}">${icon(r?.icon || 'spark')}</span>`;
+        }).join('')}
         ${button(isMuted() ? icon('mute') : icon('sound'), 'toggle-audio', 'icon-btn', false, 'الصوت')}
-        ${button(icon('spark'), 'rules', 'icon-btn', false, 'القواعد')}
         ${button('⋯', 'menu', 'icon-btn menu-btn', false, 'القائمة')}
       </div>
     </header>
@@ -146,68 +128,52 @@ function renderTopBar(s) {
 }
 
 // -------------------------------------------------------------
-// Left Side (55%): The Live Cinematic Arena
-// -------------------------------------------------------------
-// -------------------------------------------------------------
-// Left Side (55%): The Live Cinematic Arena (3-Tier Layered Gorge)
+// Left Side (55%): The Live Cinematic Arena (Pure Scenic Landscape)
 // -------------------------------------------------------------
 function renderCinematicArena(s, projected, p = {}) {
-  const enc = ENCOUNTERS[s.encounter - 1] || ENCOUNTERS[0];
-  const threat = incoming(s);
-
   return `
     <section class="cinematic-arena">
-      <!-- 1. Ambient Scenic Topline Strip -->
-      <div class="arena-topline">
-        <div class="encounter-badge">
-          <span class="enc-dot"></span>
-          <strong>المعبر ${num(enc.index)}: ${enc.name}</strong>
-        </div>
-        <div class="haven-tracker">
-          <span>المأمن: <b>${num(goal(s) - s.progress)}</b> خطوات</span>
-          <div class="track-pips" style="--track-steps:${goal(s) + 1}">
-            ${Array.from({ length: goal(s) + 1 }, (_, i) => `
-              <i class="track-pip ${i <= s.progress ? 'passed' : ''} ${i === s.progress ? 'hero' : ''}"></i>
-            `).join('')}
-          </div>
-        </div>
-        <div class="threat-tag">
-          ${icon('knife')} <span>خطر الدور: <b>${num(threat)}</b></span>
-        </div>
-      </div>
-
-      <!-- 2. The Living Gorge Field: Enemies Standing Openly in the Terrain -->
+      <!-- 1. The Living Gorge Field: Enemies Standing Openly in the Terrain -->
       <div class="enemy-squad" aria-label="أعداء بني سلامان ونواياهم">
         ${s.enemies.map((e, idx) => {
           const living = s.enemies.filter(x => x.hp > 0);
           const isSolo = living.length === 1;
           const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
-          const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
+          const intentIcon = intent.intent === 'defend' ? 'shield' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
+          const isDead = e.hp <= 0;
+
           return `
-            <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
-              <div class="enemy-head">
-                <span class="enemy-avatar">${e.isBoss ? icon('swords') : icon('knife')}</span>
-                <strong class="enemy-title">${e.name}</strong>
+            <div class="enemy-actor ${isDead ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
+              <!-- STS Floating Intent Icon -->
+              <div class="enemy-intent-crest enemy-intent-badge intent-${intent.intent}" title="${intent.desc}">
+                ${!isDead ? (intent.damage > 0 
+                  ? `${icon(intentIcon)}<b>${num(intent.damage)}</b>` 
+                  : `${icon(intentIcon)}<b>${intent.intent === 'defend' ? 'درع' : 'مكر'}</b>`
+                ) : '<span class="dead">صريع</span>'}
               </div>
-              <div class="enemy-hp-track">
-                <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
-                <span class="hp-num">${ratio(e.hp, e.maxHp)}</span>
-              </div>
-              <div class="enemy-intent-badge intent-${intent.intent}">
-                ${e.hp > 0 ? `${icon(intentIcon)} <strong>${intent.desc}</strong>` : '<span class="dead">صريع</span>'}
-              </div>
-              ${(s.bleed > 0 || s.poison > 0) && e.hp > 0 ? `
-                <div class="status-chips">
-                  ${s.bleed > 0 ? `<span class="chip bleed">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
-                  ${s.poison > 0 ? `<span class="chip poison">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
+
+              <!-- Enemy Plate: Name + HP Bar -->
+              <div class="enemy-crest-body">
+                <div class="enemy-head">
+                  <span class="enemy-name">${e.name}</span>
                 </div>
-              ` : ''}
+                <div class="enemy-hp-track">
+                  <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
+                  <span class="hp-num">${ratio(e.hp, e.maxHp)}</span>
+                </div>
+                ${(s.bleed > 0 || s.poison > 0) && !isDead ? `
+                  <div class="status-chips">
+                    ${s.bleed > 0 ? `<span class="chip bleed">${icon('bleed')} <b>${num(s.bleed)}</b></span>` : ''}
+                    ${s.poison > 0 ? `<span class="chip poison">${icon('poison')} <b>${num(s.poison)}</b></span>` : ''}
+                  </div>
+                ` : ''}
+              </div>
             </div>
           `;
         }).join('')}
       </div>
 
-      <!-- 3. Ambient Outlaw Line: Sleek footer strip for Shanfara & Allies -->
+      <!-- 2. Ambient Outlaw Line: Sleek footer strip for Shanfara -->
       <div class="hero-vanguard-bar">
         <div class="hero-plate">
           <span class="hero-ico">${icon('bow')}</span>
@@ -215,16 +181,16 @@ function renderCinematicArena(s, projected, p = {}) {
             <span class="hero-name">الشَّنْفَرَى</span>
             <div class="hero-hp-bar"><i style="width:${(s.hp/s.maxHp)*100}%"></i><span>${ratio(s.hp, s.maxHp)}</span></div>
           </div>
-          ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} ${num(s.momentum)}</span>` : ''}
+          ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} <b>${num(s.momentum)}</b></span>` : ''}
         </div>
 
         <div class="center-turn-banner">
-          <span>${p.axis ? `نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : p.card ? 'المس خانة بالصخرة' : 'اختر بطاقة لتبدأ'}</span>
+          <span>${p.axis ? `نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : p.card ? 'المس خانة بالصخرة' : 'طور التدبير'}</span>
         </div>
 
-        <div class="allies-mini-tag">
-          <span class="ally-ico" title="الذئب العَمَلَّس">${icon('wolf')}</span>
-          <span class="ally-ico" title="تأبط شراً">${icon('knife')}</span>
+        <div class="haven-mini-tag">
+          <small>المأمن</small>
+          <b>${num(goal(s) - s.progress)}</b>
         </div>
       </div>
     </section>
