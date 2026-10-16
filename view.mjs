@@ -317,26 +317,31 @@ function renderNexusAltar(s, p, projected, model) {
 function renderBottomDock(s, p, projected) {
   return `
     <footer class="bottom-dock">
-      <!-- Hand Cards Fan -->
+      <!-- Hand Cards Fan: Single Active Face with Quick Flip -->
       <div class="hand-fan-tray" aria-label="أوراق التدبير في يدك">
         ${s.hand.map(uid => {
-          const c0 = def(uid, s, 0);
-          const c1 = def(uid, s, 1);
+          const curFace = (p.card === uid && p.face !== undefined) ? p.face : (s.faces?.[uid] ?? 0);
+          const c = def(uid, s, curFace);
+          const altFace = curFace === 0 ? 1 : 0;
+          const altC = def(uid, s, altFace);
           const isSel = p.card === uid;
-          const isF0 = isSel && p.face === 0;
-          const isF1 = isSel && p.face === 1;
-          const arch = ARCHETYPES[c0.build] || ARCHETYPES.general;
+          const arch = ARCHETYPES[c.build] || ARCHETYPES.general;
 
           return `
-            <div class="fan-card ${arch.class} ${isSel ? 'selected' : ''}">
-              <div class="card-archetype-badge">${arch.name}</div>
-              <button data-card="${uid}" data-face="0" class="face-toggle ${isF0 ? 'active' : ''}">
-                <div class="face-title">${icon(c0.icon)}<strong>${c0.name}</strong></div>
-                <div class="face-effects">${cardEffects(uid, s, 0)}</div>
-              </button>
-              <button data-card="${uid}" data-face="1" class="face-toggle ${isF1 ? 'active' : ''}">
-                <div class="face-title"><small class="alt-pill">طارئ</small><strong>${c1.name}</strong></div>
-                <div class="face-effects">${cardEffects(uid, s, 1)}</div>
+            <div class="fan-card ${arch.class} ${isSel ? 'selected' : ''}" data-card-frame="${uid}">
+              <div class="card-header-bar">
+                <span class="card-archetype-badge">${arch.tag || arch.name}</span>
+                <button type="button" class="flip-face-btn" data-action="flip-card" data-card="${uid}" title="تبديل إلى: ${altC.name}">
+                  ${curFace === 0 ? '🔄 طارئ' : '🔄 أصيل'}
+                </button>
+              </div>
+              <button type="button" data-card="${uid}" data-face="${curFace}" class="card-main-body ${isSel ? 'active' : ''}">
+                <div class="face-title">
+                  <span class="face-ico">${icon(c.icon)}</span>
+                  <strong class="card-title-text">${c.name}</strong>
+                  ${curFace === 1 ? '<span class="alt-pill">طارئ</span>' : ''}
+                </div>
+                <div class="face-effects">${cardEffects(uid, s, curFace)}</div>
               </button>
             </div>
           `;
