@@ -225,163 +225,96 @@ button:disabled {
   min-height: 0;
 }
 
-/* --- Left Screen: The Live Cinematic Arena (3-Tier Layered Gorge) --- */
+/* --- Left Screen: The Live Cinematic Arena (Sarawat Gorge Battlefield) --- */
 .cinematic-arena {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   border-radius: 12px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid rgba(239, 191, 117, 0.3);
   background: 
-    linear-gradient(180deg, rgba(8, 16, 20, 0.4) 0%, rgba(13, 24, 30, 0.85) 100%),
-    url('assets/gorge_theater.jpg') left center / cover no-repeat,
+    linear-gradient(180deg, rgba(8, 14, 18, 0.35) 0%, rgba(9, 16, 20, 0.9) 100%),
+    url('assets/gorge_theater.jpg') center / cover no-repeat,
     #0a1419;
   overflow: hidden;
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.6);
   min-height: 0;
-}
-
-.gorge-arena-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  justify-content: space-between;
   padding: 8px 12px;
-  background: rgba(6, 12, 16, 0.65);
 }
 
-/* --- Tier 1: The High Ridge (المرقبة) --- */
-.gorge-tier.tier-ridge {
+/* 1. Ambient Scenic Topline Strip */
+.arena-topline {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 4px 10px;
-  background: rgba(10, 18, 23, 0.78);
-  border-radius: 8px;
-  border: 1px solid rgba(239, 191, 117, 0.25);
+  background: rgba(8, 15, 19, 0.88);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  gap: 8px;
 }
 
-.tier-badge {
-  font-size: 0.82rem;
-  font-weight: bold;
-  color: var(--gold);
+.encounter-badge {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.verse-snip {
-  font-family: 'Amiri', serif;
-  font-size: 0.82rem;
-  color: #dfd2be;
-  margin-right: 12px;
-  opacity: 0.9;
-}
-
-.ridge-elements {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.lookout-tag {
-  font-size: 0.74rem;
-  color: #ffaa5e;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.dawn-clock {
-  font-size: 0.74rem;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.dawn-clock.danger {
-  color: var(--crimson);
-  font-weight: bold;
-}
-
-/* --- Tier 2: The Valley Pass & Campfire (بطن الوادي) - ENEMIES & INTENTS --- */
-.gorge-tier.tier-valley {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 10px;
-  background: rgba(12, 20, 26, 0.85);
-  border: 1px solid rgba(230, 74, 56, 0.35);
-  border-radius: 10px;
-  backdrop-filter: blur(4px);
-}
-
-.valley-track-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.76rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 4px;
-}
-
-.track-goal b {
   color: var(--gold);
 }
 
-.track-pips {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(var(--track-steps, 11), minmax(0, 1fr));
-  gap: 3px;
+.encounter-badge .enc-dot {
+  width: 6px;
   height: 6px;
-  max-width: 160px;
-}
-
-.track-pip {
-  background: #253840;
-  border-radius: 2px;
-}
-
-.track-pip.passed {
+  border-radius: 50%;
   background: var(--gold);
-}
-
-.track-pip.hero {
-  background: #fff;
   box-shadow: 0 0 6px var(--gold-glow);
 }
 
-.threat-summary {
-  color: var(--crimson);
-  font-weight: bold;
+.haven-tracker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dfd2be;
 }
 
-/* Enemy Formation */
+.haven-tracker b {
+  color: var(--gold);
+}
+
+.threat-tag {
+  color: var(--crimson);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 2. Living Enemy Formation in the Canyon */
 .enemy-squad {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 8px;
+  gap: 12px;
+  margin: 8px 0;
 }
 
 .enemy-actor {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: rgba(26, 18, 18, 0.9);
-  border: 1px solid rgba(230, 74, 56, 0.45);
+  background: rgba(20, 14, 14, 0.9);
+  border: 1.5px solid rgba(230, 74, 56, 0.5);
   border-radius: 8px;
   padding: 6px 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
 }
 
 .enemy-actor.boss-actor {
   border-color: var(--gold);
-  background: rgba(38, 22, 18, 0.95);
-  box-shadow: 0 0 16px rgba(239, 191, 117, 0.3);
+  background: rgba(35, 20, 16, 0.94);
+  box-shadow: 0 0 16px rgba(239, 191, 117, 0.35);
 }
 
 .enemy-actor.defeated {
@@ -389,20 +322,21 @@ button:disabled {
   filter: grayscale(1);
 }
 
-.enemy-header {
+.enemy-head {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .enemy-avatar {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: #3a1c1c;
   color: var(--crimson);
+  font-size: 0.8rem;
 }
 
 .boss-actor .enemy-avatar {
@@ -411,7 +345,7 @@ button:disabled {
 }
 
 .enemy-title {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: bold;
   color: #ffd8d2;
   white-space: nowrap;
@@ -422,7 +356,7 @@ button:disabled {
 .enemy-hp-track {
   position: relative;
   height: 12px;
-  background: #181d20;
+  background: #151b1e;
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -454,9 +388,9 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: bold;
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-radius: 6px;
   margin-top: 2px;
 }
@@ -511,100 +445,51 @@ button:disabled {
 .chip.bleed { background: rgba(230, 74, 56, 0.35); color: #ff8575; }
 .chip.poison { background: rgba(62, 188, 116, 0.25); color: #7beaa6; }
 
-/* --- Tier 3: Subterranean Caverns (مسارب الصفا) --- */
-.gorge-tier.tier-caverns {
+/* 3. Ambient Outlaw Line */
+.hero-vanguard-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 4px 10px;
-  background: rgba(11, 20, 26, 0.78);
-  border-radius: 8px;
-  border: 1px solid rgba(74, 174, 217, 0.25);
+  background: rgba(8, 15, 19, 0.92);
+  border: 1px solid rgba(239, 191, 117, 0.25);
+  border-radius: 6px;
 }
 
-.beast-allies {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-}
-
-.beast-chip {
-  flex: 1;
+.hero-plate {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(18, 30, 38, 0.8);
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  padding: 3px 6px;
 }
 
-.beast-chip.active-relic {
-  border-color: var(--gold);
-  box-shadow: 0 0 8px var(--gold-glow);
+.hero-ico {
+  font-size: 0.9rem;
+  color: var(--gold);
 }
 
-.beast-avatar {
-  font-size: 1rem;
+.hero-hp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-.beast-meta strong {
-  display: block;
+.hero-name {
   font-size: 0.72rem;
-  color: var(--gold);
-}
-
-.beast-meta small {
-  display: block;
-  font-size: 0.62rem;
-  color: var(--muted);
-}
-
-/* --- Theater Bottom Character Bar (Matching concept artwork) --- */
-.theater-bottom-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  background: rgba(9, 16, 21, 0.95);
-  border: 1px solid rgba(239, 191, 117, 0.35);
-  border-radius: 8px;
-  padding: 4px 10px;
-}
-
-.actor-plate {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.actor-plate .portrait {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #1c2e36;
-  border: 1.5px solid var(--gold);
-  display: grid;
-  place-items: center;
-  color: var(--gold);
-}
-
-.plate-info strong {
-  display: block;
-  font-size: 0.76rem;
+  font-weight: bold;
   color: #fff;
 }
 
-.plate-hp {
+.hero-hp-bar {
   position: relative;
-  width: 80px;
+  width: 70px;
   height: 8px;
-  background: #152227;
+  background: #141f23;
   border-radius: 4px;
   overflow: hidden;
 }
 
-.plate-hp i {
+.hero-hp-bar i {
   position: absolute;
   inset-block: 0;
   right: 0;
@@ -612,7 +497,7 @@ button:disabled {
   border-radius: 4px;
 }
 
-.plate-hp span {
+.hero-hp-bar span {
   position: absolute;
   inset: 0;
   display: grid;
@@ -629,15 +514,21 @@ button:disabled {
   font-weight: bold;
   color: var(--gold);
   background: rgba(239, 191, 117, 0.12);
-  border: 1px solid rgba(239, 191, 117, 0.3);
-  padding: 4px 8px;
-  border-radius: 6px;
+  border: 1px solid rgba(239, 191, 117, 0.25);
+  padding: 3px 6px;
+  border-radius: 4px;
   margin: 0 4px;
 }
 
-.taabbata-plate .portrait {
-  border-color: var(--crimson);
-  color: var(--crimson);
+.allies-mini-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.allies-mini-tag .ally-ico {
+  font-size: 0.85rem;
+  opacity: 0.9;
 }
 
 /* --- Right Screen: 3x3 Basalt Nexus Altar (45%) --- */
@@ -1219,93 +1110,106 @@ dialog::backdrop {
   to { opacity: 1; filter: drop-shadow(0 0 6px var(--crimson)); }
 }
 
-/* Mobile & Portrait Fallback: Strict Zero-Scroll Architecture */
+/* Mobile & Portrait Layout: Clean Ergonomic Fit (Zero Box-Salad) */
 @media (max-width: 950px) {
   html, body {
-    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    width: 100%;
     height: 100dvh;
-    max-height: 100dvh;
+    overflow: hidden;
+    background: #080f12;
   }
 
   .shanfara-widescreen-app {
+    display: flex;
+    flex-direction: column;
     height: 100dvh;
     max-height: 100dvh;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
   }
 
+  /* 1. Compact 38px Top Bar: Hide redundant desktop tracks to prevent wrapping */
   .top-bar {
     flex: 0 0 38px;
-    padding: 2px 8px;
-    min-height: 0;
+    height: 38px;
+    min-height: 38px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(8, 14, 18, 0.98);
+    border-bottom: 1px solid var(--panel-border);
+    z-index: 30;
   }
 
-  .top-bar .game-title {
-    font-size: 0.85rem;
+  .top-bar .journey-track {
+    display: none; /* Active encounter is clearly displayed in the arena topline */
   }
 
-  .stat-pill {
-    padding: 1px 6px;
+  .top-bar .relic-socket.empty {
+    display: none; /* Only show unlocked active relics */
+  }
+
+  .top-bar .relic-socket {
+    padding: 2px 6px;
     font-size: 0.72rem;
   }
 
+  .top-bar .game-title {
+    font-size: 0.8rem;
+  }
+
+  .stat-pill {
+    padding: 1px 5px;
+    font-size: 0.7rem;
+  }
+
+  /* 2. Battlefield Container */
   .widescreen-battlefield {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 4px 6px;
-    overflow: hidden;
+    padding: 6px 8px 4px;
     min-height: 0;
+    overflow: hidden;
   }
 
-  /* Upper arena (Enemies & Intents permanently visible!) */
+  /* Upper Arena: 180px fixed height (Enemies & Intents cleanly visible) */
   .cinematic-arena {
-    flex: 0 0 40%;
-    min-height: 0;
-    max-height: 40%;
-    overflow: hidden;
+    flex: 0 0 180px;
+    height: 180px;
+    min-height: 180px;
+    max-height: 180px;
+    padding: 6px 8px;
+    border-radius: 8px;
   }
 
-  .gorge-arena-content {
-    padding: 4px 6px;
-  }
-
-  .gorge-tier.tier-ridge {
+  .arena-topline {
     padding: 2px 6px;
-  }
-
-  .tier-badge {
     font-size: 0.72rem;
-  }
-
-  .verse-snip {
-    font-size: 0.72rem;
-  }
-
-  .gorge-tier.tier-valley {
-    padding: 4px 6px;
-    gap: 4px;
-  }
-
-  .valley-track-bar {
-    font-size: 0.68rem;
-    padding-bottom: 2px;
   }
 
   .enemy-squad {
-    gap: 6px;
+    gap: 8px;
+    margin: 4px 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .enemy-actor {
-    padding: 3px 6px;
-    gap: 2px;
+    padding: 4px 6px;
+    gap: 3px;
+  }
+
+  .enemy-avatar {
+    width: 20px;
+    height: 20px;
+    font-size: 0.75rem;
   }
 
   .enemy-title {
-    font-size: 0.72rem;
+    font-size: 0.74rem;
   }
 
   .enemy-hp-track {
@@ -1313,47 +1217,26 @@ dialog::backdrop {
   }
 
   .enemy-hp-track .hp-num {
-    font-size: 0.6rem;
+    font-size: 0.58rem;
   }
 
   .enemy-intent-badge {
-    font-size: 0.68rem;
-    padding: 2px 4px;
-    margin-top: 2px;
+    font-size: 0.7rem;
+    padding: 3px 4px;
+    margin-top: 1px;
   }
 
-  .gorge-tier.tier-caverns {
+  .hero-vanguard-bar {
     padding: 2px 6px;
   }
 
-  .beast-chip {
-    padding: 2px 4px;
-    gap: 4px;
-  }
-
-  .beast-meta strong {
-    font-size: 0.66rem;
-  }
-
-  .beast-meta small {
-    display: none;
-  }
-
-  .theater-bottom-bar {
-    padding: 2px 6px;
-  }
-
-  .plate-info strong {
+  .hero-name {
     font-size: 0.68rem;
   }
 
-  .plate-hp {
-    width: 50px;
+  .hero-hp-bar {
+    width: 55px;
     height: 6px;
-  }
-
-  .plate-hp span {
-    font-size: 0.5rem;
   }
 
   .center-turn-banner {
@@ -1361,10 +1244,12 @@ dialog::backdrop {
     padding: 2px 4px;
   }
 
-  /* Lower Altar (3x3 Basalt Slab) */
+  /* 3. Lower Altar: Central 3x3 Basalt Slab */
   .nexus-altar {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 
@@ -1376,23 +1261,19 @@ dialog::backdrop {
   }
 
   .slab-header {
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     padding-bottom: 2px;
   }
 
   .slab-header h3 {
-    font-size: 0.85rem;
-  }
-
-  .slab-instruction {
-    font-size: 0.68rem;
+    font-size: 0.82rem;
   }
 
   .matrix-grid {
+    flex: 1 1 auto;
     grid-template-rows: repeat(3, minmax(0, 1fr));
     gap: 5px;
-    margin-bottom: 4px;
-    flex: 1 1 auto;
+    margin-bottom: 2px;
     min-height: 0;
   }
 
@@ -1411,40 +1292,62 @@ dialog::backdrop {
   }
 
   .altar-preview {
-    min-height: 38px;
+    min-height: 28px;
+    max-height: 32px;
   }
 
   .idle-prompt {
-    font-size: 0.68rem;
-    padding: 3px;
+    font-size: 0.66rem;
+    padding: 2px;
   }
 
-  /* Bottom Dock: Zero-Scroll Compact */
+  /* 4. Bottom Dock: Explicit two-tier layout (Cards on top, Action buttons below) */
   .bottom-dock {
-    flex: 0 0 92px;
-    grid-template-columns: 1fr 105px;
+    flex: 0 0 145px;
+    height: 145px;
+    min-height: 145px;
+    max-height: 145px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
     gap: 6px;
-    padding: 4px 6px 6px;
-    height: 92px;
-    z-index: 20;
+    padding: 6px 8px 8px;
+    background: rgba(7, 13, 16, 0.98);
+    border-top: 1.5px solid rgba(239, 191, 117, 0.35);
+    z-index: 30;
+    box-sizing: border-box;
   }
 
   .hand-fan-tray {
+    display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px;
+    gap: 6px;
+    height: 85px;
+    min-height: 85px;
+    max-height: 85px;
+    width: 100%;
   }
 
   .fan-card {
+    display: flex;
+    flex-direction: column;
+    height: 85px;
     border-radius: 6px;
+    background: #142127;
+    border: 1px solid #283940;
+    overflow: hidden;
   }
 
   .card-archetype-badge {
-    font-size: 0.55rem;
-    padding: 0;
+    font-size: 0.54rem;
+    padding: 1px 0;
   }
 
   .face-toggle {
+    flex: 1;
     padding: 2px 1px;
+    border: 0;
   }
 
   .face-title strong {
@@ -1452,27 +1355,51 @@ dialog::backdrop {
   }
 
   .alt-pill {
-    font-size: 0.5rem;
+    font-size: 0.48rem;
     padding: 0 2px;
   }
 
   .face-effects {
-    font-size: 0.58rem;
+    font-size: 0.56rem;
   }
 
+  /* Horizontal Action Row below cards */
   .dock-actions {
-    gap: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    height: 38px;
+    min-height: 38px;
+    width: 100%;
+    align-items: stretch;
   }
 
   .end-turn-blade {
-    height: 52px;
-    font-size: 0.82rem;
-    padding: 0 6px;
+    flex: 1 1 auto;
+    width: auto;
+    height: 38px;
+    min-height: 38px;
+    font-size: 0.88rem;
+    font-weight: bold;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #efbf75 0%, #b88636 100%);
+    color: #0b1418;
+    padding: 0 8px;
   }
 
   .cancel-btn {
-    height: 26px;
-    font-size: 0.7rem;
+    flex: 0 0 70px;
+    height: 38px;
+    min-height: 38px;
+    font-size: 0.74rem;
+    border-radius: 6px;
+    background: #241c1c;
+    color: #ffb89d;
+    border: 1px solid rgba(230, 74, 56, 0.5);
   }
 
   .draft-grid, .relics-grid {
