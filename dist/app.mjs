@@ -28,6 +28,8 @@ let report = null;
 let activeReport = null;
 let selection = { card: null, cell: null, axis: null, face: null };
 let feedback = '';
+let feedbackTimer = null;
+let displayedFeedback = '';
 
 try {
   const save = JSON.parse(localStorage.getItem(KEY));
@@ -48,6 +50,17 @@ function persist() {
 }
 
 function render() {
+  if (feedback !== displayedFeedback) {
+    clearTimeout(feedbackTimer);
+    displayedFeedback = feedback;
+    if (feedback) {
+      feedbackTimer = setTimeout(() => {
+        feedback = '';
+        displayedFeedback = '';
+        root.querySelector('.tactical-toast')?.remove();
+      }, 3500);
+    }
+  }
   document.body.dataset.screen = s.screen;
   if (s.screen === 'title') {
     root.innerHTML = titleView();
