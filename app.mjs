@@ -219,8 +219,32 @@ function action(a) {
             <p>قبل الضغط، راقب التوقعات بالأعلى: الضرر الذي سينال العدو، والدروع التي ستصد هجومه القادم!</p>
           </div>
         </div>
-        <div class="guide-footer-tip">
+        <div class="guide-footer-tip" style="margin-top:6px;">
           💡 <b>سر الصعاليك:</b> عندما يكتمل الخط بـ ٣ بطاقات ينفّذ ضربات قاضية ثم يُفرَّغ لتضع فيه بطاقات جديدة!
+        </div>
+
+        <div class="mechanics-breakdown-box" style="margin-top:10px;background:rgba(8,16,20,0.85);border:1px solid #ffd488;border-radius:8px;padding:10px;">
+          <h3 style="color:#efbf75;margin:0 0 8px;font-size:0.95rem;">⚡ كيف تستغل الزَّخَم والنَّهْش في معاركك؟</h3>
+          <ul style="margin:0;padding-right:18px;font-size:0.8rem;line-height:1.5;color:#e8ded1;">
+            <li style="margin-bottom:6px;">
+              <b style="color:#f0b842;">🔥 الزَّخَم (Momentum):</b> طاقة سرعة تتراكم.
+              <br>• <b>حماية تلقائية:</b> أي زخم يتبقى بنهاية الدور <b>يتحول تلقائياً إلى دروع (+١ درع لكل زخم)</b> تحميك من الأعداء!
+              <br>• <b>تقوية القوس:</b> رمية القوس 🏹 تضيف نصف رصيدك من الزخم كضرر إضافي مباشر!
+            </li>
+            <li style="margin-bottom:6px;">
+              <b style="color:#ba7ae8;">🐺 النَّهْش وانقضاض الذئب (Beast Pounce):</b>
+              <br>• الذئب يضرب ضرراً أساسياً.
+              <br>• <b>التآزر القاتل:</b> إذا ضربت العدو أولاً بـ <b>النَّزْف 🩸</b> أو <b>السُّم 🧪</b>، يشم الذئب الدم ويكسب <b>+٢ ضرر إضافي فوراً!</b>
+            </li>
+            <li style="margin-bottom:6px;">
+              <b style="color:#e64a38;">🩸 النَّزْف (Bleed):</b>
+              <br>• يُمكّن الذئب من النهش المضاعف، وتفجيره ببطاقة النصل يضاعف ضرره مرتين 💥!
+            </li>
+            <li>
+              <b style="color:#4aaed9;">🛡️ الصَّخْر والسَّواتر (Rock):</b>
+              <br>• تغرس سواتر في خانات الصخرة؛ تفعيلها يمنحك دروعاً صلبة ويصد هجمات العدو.
+            </li>
+          </ul>
         </div>
       </div>
       `

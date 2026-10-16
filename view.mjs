@@ -60,8 +60,22 @@ export function cardEffects(uid, s, face) {
     if (f.op === 'move') bits.push(stsStat('foot', num(f.n), '', 'stat-move'));
     if (f.op === 'momentum') bits.push(stsStat('fire', num(f.n), '', 'stat-momentum'));
     if (f.op === 'hit') bits.push(stsStat('knife', num(f.n), '', 'stat-attack'));
-    if (f.op === 'sniper') bits.push(stsStat('bow', num(f.n), '+🔥', 'stat-attack'));
-    if (f.op === 'cyclone_shot') bits.push(stsStat('bow', num(f.n), '+🔥🔥', 'stat-attack'));
+    if (f.op === 'sniper') {
+      const bonus = s ? Math.floor(s.momentum / 2) : 0;
+      if (bonus > 0) {
+        bits.push(stsStat('bow', num(f.n + bonus), `+${num(bonus)}🔥`, 'stat-attack bow-boosted'));
+      } else {
+        bits.push(stsStat('bow', num(f.n), '+🔥', 'stat-attack'));
+      }
+    }
+    if (f.op === 'cyclone_shot') {
+      const bonus = s ? s.momentum : 0;
+      if (bonus > 0) {
+        bits.push(stsStat('bow', num(f.n + bonus), `+${num(bonus)}🔥🔥`, 'stat-attack bow-boosted'));
+      } else {
+        bits.push(stsStat('bow', num(f.n), '+🔥🔥', 'stat-attack'));
+      }
+    }
     if (f.op === 'hurt') bits.push(stsStat('heart', num(f.n), '', 'stat-danger'));
     if (f.op === 'block') bits.push(stsStat('shield', num(f.n), '', 'stat-guard'));
     if (f.op === 'prime') bits.push(stsStat('spark', '+' + num(f.n), '', 'stat-setup'));
@@ -69,7 +83,14 @@ export function cardEffects(uid, s, face) {
     if (f.op === 'poison') bits.push(stsStat('poison', num(f.n), '', 'stat-poison'));
     if (f.op === 'double_bleed') bits.push(stsStat('bleed', '×٢', '', 'stat-bleed'));
     if (f.op === 'explode_bleed') bits.push(stsStat('bleed', '💥×٢', '', 'stat-attack'));
-    if (f.op === 'wolf_pounce') bits.push(stsStat('wolf', num(f.n), '', 'stat-beast'));
+    if (f.op === 'wolf_pounce') {
+      const bonus = (s && (s.bleed > 0 || s.poison > 0)) ? 2 : 0;
+      if (bonus > 0) {
+        bits.push(stsStat('wolf', num(f.n + bonus), '🩸نشط', 'stat-beast wolf-empowered'));
+      } else {
+        bits.push(stsStat('wolf', num(f.n), '+🩸', 'stat-beast'));
+      }
+    }
     if (f.op === 'ward') bits.push(stsStat('cover', 'ساتر', '', 'stat-guard'));
     if (f.op === 'vanish') bits.push('<span class="vanish-badge">تُطرح</span>');
   }
@@ -146,7 +167,7 @@ function renderCinematicArena(s, projected, p = {}) {
   return `
     <section class="cinematic-arena">
       <!-- 1. The Living Gorge Field: Enemies Standing Openly in the Terrain -->
-      <div class="enemy-squad" aria-label="أعداء بني سلامان ونواياهم">
+      <div class="enemy-squad squad-size-${s.enemies.length}" aria-label="أعداء بني سلامان ونواياهم">
         ${s.enemies.map((e, idx) => {
           const living = s.enemies.filter(x => x.hp > 0);
           const isSolo = living.length === 1;
@@ -205,7 +226,11 @@ function renderCinematicArena(s, projected, p = {}) {
             </div>
           </div>
           ${projected?.summary?.block ? `<span class="proj-block-tag">${icon('shield')} <b>+${num(projected.summary.block)}</b></span>` : ''}
-          ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} <b>${num(s.momentum)}</b></span>` : ''}
+          ${s.momentum > 0 ? `
+            <span class="momentum-tag" title="زخم حركي: يتحول إلى دروع نهاية الدور أو يضاعف رميات القوس">
+              ${icon('fire')} <b>${num(s.momentum)}</b> <small class="mom-convert">➔ +${num(s.momentum * (s.relics.includes('sandals') ? 2 : 1))}🛡️</small>
+            </span>
+          ` : ''}
         </div>
 
         <div class="center-turn-banner">
