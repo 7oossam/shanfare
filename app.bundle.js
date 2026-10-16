@@ -286,9 +286,42 @@ function collapseRow(s) {
   return s.encounter === 2 ? [2, 1, 0][(s.phaseTurn - 1) % 3] : null;
 }
 
+function getEnemyIntent(enemy, index, phaseTurn, isSolo) {
+  if (enemy.hp <= 0) return { intent: 'dead', damage: 0, desc: 'صريع' };
+
+  if (isSolo) {
+    const dmg = enemy.isBoss ? (enemy.hp <= 20 ? 7 : 5) : Math.min(enemy.attack, 4);
+    return { intent: 'attack', damage: dmg, desc: `يضرب ${dmg}` };
+  }
+
+  if (enemy.isBoss) {
+    if (enemy.hp <= 20) {
+      return { intent: 'lunge', damage: 7, desc: 'اندفاع هائج ٧' };
+    }
+    const isAttacking = phaseTurn % 2 === 1;
+    return isAttacking
+      ? { intent: 'attack', damage: enemy.attack, desc: `يضرب ${enemy.attack}` }
+      : { intent: 'defend', damage: 0, desc: 'تحصين بالدرع' };
+  }
+
+  const isAttacking = (index % 2 === 1) ? (phaseTurn % 2 === 0) : (phaseTurn % 2 === 1);
+  return isAttacking
+    ? { intent: 'attack', damage: enemy.attack, desc: `يضرب ${enemy.attack}` }
+    : { intent: 'scheme', damage: 0, desc: index === 1 ? 'مباغتة وتتبع' : 'تأهب ودفاع' };
+}
+
 function incoming(s) {
   if (!s.enemies || !s.enemies.length) return s.enemy > 0 ? 3 : 0;
-  return s.enemies.reduce((acc, e) => (e.hp > 0 ? acc + e.attack : acc), 0);
+  const living = s.enemies.filter(e => e.hp > 0);
+  const isSolo = living.length === 1;
+
+  let totalThreat = 0;
+  for (let i = 0; i < s.enemies.length; i++) {
+    const e = s.enemies[i];
+    const { damage } = getEnemyIntent(e, i, s.phaseTurn, isSolo);
+    totalThreat += damage;
+  }
+  return totalThreat;
 }
 
 function setupEncounter(s, encIdx) {
@@ -355,6 +388,7 @@ function fresh(seed = 20261016) {
     rewardClaimed: false,
     draftChoices: [],
     relicChosen: false,
+    cardSeq: 10,
     outcome: null,
     last: null
   };
@@ -508,7 +542,8 @@ function activate(state, a) {
   // Transition screen: Reward / Draft
   if (s.screen === 'reward') {
     if (a.kind === 'draft' && a.choice) {
-      const uid = `${a.choice}.${s.deck.length}`;
+      s.cardSeq = (s.cardSeq || 10) + 1;
+      const uid = `${a.choice}.${s.cardSeq}`;
       s.deck.push(uid);
       s.discard.push(uid);
       s.rewardClaimed = true;
@@ -524,6 +559,7 @@ function activate(state, a) {
         s.hand = s.hand.filter(u => u !== removed);
         s.draw = s.draw.filter(u => u !== removed);
         s.discard = s.discard.filter(u => u !== removed);
+        s.grid = s.grid.map(u => u === removed ? null : u);
       }
       s.rewardClaimed = true;
       s.screen = 'interlude';
@@ -1490,7 +1526,12 @@ function renderCinematicArena(s, projected) {
 
         <!-- Enemy Squad Formation -->
         <div class="enemy-formation">
-          ${s.enemies.map(e => `
+          ${s.enemies.map((e, idx) => {
+            const living = s.enemies.filter(x => x.hp > 0);
+            const isSolo = living.length === 1;
+            const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
+            const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
+            return `
             <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
               <div class="enemy-sprite">
                 ${e.isBoss ? icon('swords') : icon('knife')}
@@ -1502,13 +1543,14 @@ function renderCinematicArena(s, projected) {
                   <span>${ratio(e.hp, e.maxHp)}</span>
                 </div>
                 <div class="status-tags">
-                  ${e.hp > 0 ? `<span class="tag threat-tag">${icon('knife')} يضرب ${num(e.attack)}</span>` : '<span class="tag dead-tag">صريع</span>'}
+                  ${e.hp > 0 ? `<span class="tag threat-tag intent-${intent.intent}">${icon(intentIcon)} ${intent.desc}</span>` : '<span class="tag dead-tag">صريع</span>'}
                   ${s.bleed > 0 && e.hp > 0 ? `<span class="tag bleed-tag">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
                   ${s.poison > 0 && e.hp > 0 ? `<span class="tag poison-tag">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
                 </div>
               </div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       </div>
     </section>

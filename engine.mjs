@@ -245,9 +245,42 @@ export function collapseRow(s) {
   return s.encounter === 2 ? [2, 1, 0][(s.phaseTurn - 1) % 3] : null;
 }
 
+export function getEnemyIntent(enemy, index, phaseTurn, isSolo) {
+  if (enemy.hp <= 0) return { intent: 'dead', damage: 0, desc: 'صريع' };
+
+  if (isSolo) {
+    const dmg = enemy.isBoss ? (enemy.hp <= 20 ? 7 : 5) : Math.min(enemy.attack, 4);
+    return { intent: 'attack', damage: dmg, desc: `يضرب ${dmg}` };
+  }
+
+  if (enemy.isBoss) {
+    if (enemy.hp <= 20) {
+      return { intent: 'lunge', damage: 7, desc: 'اندفاع هائج ٧' };
+    }
+    const isAttacking = phaseTurn % 2 === 1;
+    return isAttacking
+      ? { intent: 'attack', damage: enemy.attack, desc: `يضرب ${enemy.attack}` }
+      : { intent: 'defend', damage: 0, desc: 'تحصين بالدرع' };
+  }
+
+  const isAttacking = (index % 2 === 1) ? (phaseTurn % 2 === 0) : (phaseTurn % 2 === 1);
+  return isAttacking
+    ? { intent: 'attack', damage: enemy.attack, desc: `يضرب ${enemy.attack}` }
+    : { intent: 'scheme', damage: 0, desc: index === 1 ? 'مباغتة وتتبع' : 'تأهب ودفاع' };
+}
+
 export function incoming(s) {
   if (!s.enemies || !s.enemies.length) return s.enemy > 0 ? 3 : 0;
-  return s.enemies.reduce((acc, e) => (e.hp > 0 ? acc + e.attack : acc), 0);
+  const living = s.enemies.filter(e => e.hp > 0);
+  const isSolo = living.length === 1;
+
+  let totalThreat = 0;
+  for (let i = 0; i < s.enemies.length; i++) {
+    const e = s.enemies[i];
+    const { damage } = getEnemyIntent(e, i, s.phaseTurn, isSolo);
+    totalThreat += damage;
+  }
+  return totalThreat;
 }
 
 export function setupEncounter(s, encIdx) {
@@ -314,6 +347,7 @@ export function fresh(seed = 20261016) {
     rewardClaimed: false,
     draftChoices: [],
     relicChosen: false,
+    cardSeq: 10,
     outcome: null,
     last: null
   };
@@ -467,7 +501,8 @@ export function activate(state, a) {
   // Transition screen: Reward / Draft
   if (s.screen === 'reward') {
     if (a.kind === 'draft' && a.choice) {
-      const uid = `${a.choice}.${s.deck.length}`;
+      s.cardSeq = (s.cardSeq || 10) + 1;
+      const uid = `${a.choice}.${s.cardSeq}`;
       s.deck.push(uid);
       s.discard.push(uid);
       s.rewardClaimed = true;
@@ -483,6 +518,7 @@ export function activate(state, a) {
         s.hand = s.hand.filter(u => u !== removed);
         s.draw = s.draw.filter(u => u !== removed);
         s.discard = s.discard.filter(u => u !== removed);
+        s.grid = s.grid.map(u => u === removed ? null : u);
       }
       s.rewardClaimed = true;
       s.screen = 'interlude';
