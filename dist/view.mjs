@@ -1,27 +1,586 @@
-import {comboModel,comboHints} from './combos.mjs?v=7';
-import {def,cards,alternates,cardType,rewards,activate,incoming,lineIndices,trailCells,stage,goal,collapseRow} from './engine.mjs?v=7';
-import {icon} from './icons.mjs?v=7';
-import {isMuted} from './audio.mjs?v=7';
-export const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const num=n=>new Intl.NumberFormat('ar-SA',{useGrouping:false}).format(n);
-export const ratio=(a,b)=>`<bdi dir="ltr" class="num">${num(a)} / ${num(b)}</bdi>`;
-export const button=(label,action,cls='',disabled=false,aria='')=>`<button data-action="${action}" class="${cls}" ${disabled?'disabled':''} ${aria?`aria-label="${esc(aria)}"`:''}>${label}</button>`;
-export function preview(s,p,axis=p.axis){if(!p.card||p.cell===null||!axis||p.face===null)return null;return activate(s,{card:p.card,cell:p.cell,axis,face:p.face??0});}
-export function bestAxis(s,card,cell,face=0){if(!card||cell===null)return 'row';const rowRes=activate(s,{card,cell,axis:'row',face:face??0}),colRes=activate(s,{card,cell,axis:'col',face:face??0});if(!rowRes.valid)return 'col';if(!colRes.valid)return 'row';const rClr=(rowRes.summary.cleared||[]).length===3,cClr=(colRes.summary.cleared||[]).length===3;if(rClr&&!cClr)return 'row';if(cClr&&!rClr)return 'col';if(rowRes.state.hp>colRes.state.hp)return 'row';if(colRes.state.hp>rowRes.state.hp)return 'col';if((rowRes.state.screen==='interlude'||rowRes.state.screen==='end')&&rowRes.state.outcome!=='dead'&&rowRes.state.outcome!=='caught')return 'row';if((colRes.state.screen==='interlude'||colRes.state.screen==='end')&&colRes.state.outcome!=='dead'&&colRes.state.outcome!=='caught')return 'col';const sc=r=>(r.summary.hits||0)*3+(r.summary.moves||0)*2+(r.summary.block||0)*1.5+(r.state.friend>s.friend?4:0);return sc(colRes)>sc(rowRes)?'col':'row';}
-const tone=(uid,s)=>{const ops=def(uid,s).effects.map(e=>e.op);return ops.some(o=>o==='hit'||o==='ambush')?'attack':ops.includes('move')?'move':ops.includes('friend')?'ally':ops.includes('prime')?'setup':'guard';};
-const pill=(ico,label,cls='')=>`<span class="effect ${cls}">${icon(ico)}<span>${label}</span></span>`;
-function cardEffects(uid,s,face){const c=def(uid,s,face),bits=[];for(const f of c.effects){if(f.op==='move')bits.push(pill('foot','تقدّم '+num(f.n),'move'));if(f.op==='hit'||f.op==='ambush')bits.push(pill('bow',f.op==='ambush'?'٤ قبل فراغ؛ وإلا ١':'أصب '+num(f.n),'attack'));if(f.op==='hurt')bits.push(pill('heart','جرح '+num(f.n),'danger'));if(f.op==='block')bits.push(pill('cover','صدّ '+num(f.n),'guard'));if(f.op==='prime')bits.push(pill('bow','بعدي +'+num(f.n),'attack'));if(f.op==='friend')bits.push(s.friend===3?pill('cover','صدّ ٢','guard'):pill('chain','فكّ قيدًا','ally'));if(f.op==='ward')bits.push(pill('cover','ساتر لاحقًا ١','guard'));if(f.op==='vanish')bits.push('<small>تُطرح وحدها</small>');}if(cardType(uid,s)==='shift'&&(face??s.faces?.[uid]??0)===0)bits.unshift(pill('swap','بدّل الخانتين','setup'));return bits.join('');}
-function facePicker(s,p){return `<section class="face-picker" aria-label="اختر أحد فعلي البطاقة"><small>اختيارك يثبت حتى تُطرح البطاقة</small><div>${[0,1].map(face=>{const c=def(p.card,s,face),temporary=c.effects.some(e=>e.op==='vanish');return `<button data-face="${face}" class="face-option ${p.face===face?'selected':''}" aria-pressed="${p.face===face}">${icon(c.icon)}<strong>${c.name}</strong><span class="card-effects">${cardEffects(p.card,s,face)}</span><small>${temporary?'تُطرح بعد التفعيل':'يبقى لتفعيل لاحق'}</small></button>`;}).join('')}</div></section>`;}
-export function comboView(s,m){const op={move:'خطوة',trail:'خطوة',hit:'ضرر',ambush:'ضرر',block:'صدّ',ward:'صدّ',prime:'تقوية',friend:'رفيق',hurt:'جرح',vanish:'تُطرح',shelter:'ساتر',reposition:'تموضع'};
-return `<section class="combo-panel" aria-label="ترتيب الأفعال وعلاقاتها"><div class="combo-title"><span>الترتيب: ${m.steps.map((x,i)=>`<b>${num(i+1)}</b> ${esc(x.name)}`).join(' ← ')}</span><span class="combo-totals">${m.totals.moves?pill('foot','+'+num(m.totals.moves),'move'):''}${m.totals.hits?pill('bow',num(m.totals.hits),'attack'):''}${m.totals.block?pill('cover',num(m.totals.block),'guard'):''}</span></div>${m.links.map(l=>`<div class="combo-link good">${esc(l.sources.map(x=>(x.name||def(x.uid,s).name)).join(' + '))} ← ${esc((l.targetName||def(l.target,s).name))}: +${num(l.boost)} تقوية</div>`).join('')}${m.expired.map(l=>`<div class="combo-warning">${esc((l.name||def(l.uid,s).name))}: لا هجوم بعدها (+${num(l.amount)} تضيع)</div>`).join('')}</section>`;}
-function hud(s,n,projected){const damage=incoming(s),hpLoss=s.hp-n.hp;return `<section class="encounter" aria-label="الموقف"><div class="actors"><button data-action="health-info" class="actor hero-actor" aria-label="الشنفرى: ${num(s.hp)} صحة من ١٨${projected?'؛ بعد التفعيل '+num(n.hp):''}"><span class="portrait shanfara" aria-hidden="true"></span><span class="actor-info"><strong>الشنفرى</strong><span class="health-value">${icon('heart')}${num(s.hp)}${hpLoss?`<small>← ${num(n.hp)}</small>`:''}</span><span class="meter hp-meter"><i style="width:${s.hp/18*100}%"></i></span></span></button><button data-action="friend-info" class="companion ${s.friend===3?'rescued':''}">${icon(s.friend===3?'friend':'chain')}<strong>${s.friend===3?'رفيقك معك':s.encounter===2?'الرفيق في الوادي':'فكّ القيود'}</strong><span class="chains" aria-hidden="true">${[0,1,2].map(i=>`<i class="${i<s.friend?'broken':''}">${icon(i<s.friend?'friend':'chain')}</i>`).join('')}</span>${projected&&n.friend>s.friend?`<small>← ${n.friend===3?'حرّ':num(n.friend)}</small>`:''}</button><button data-action="enemy-info" class="actor enemy-actor" aria-label="${s.encounter===2?'رماة الشِّعب':'الحارس'}: ${num(s.enemy)} صحة؛ خطر الدور ${num(damage)}"><span class="portrait guard-portrait ${s.enemy?'':'defeated'}" aria-hidden="true"></span><span class="actor-info"><strong>${s.encounter===2?(s.enemy?'رماة الشِّعب':'سقط الرماة'):(s.enemy?'الحارس':'هُزم')}</strong><span class="enemy-value">${icon('knife')}${s.encounter===2?`خطر ${num(damage)}`:s.enemy?`يضرب ${num(damage)}`:'آمن'}</span><span class="meter enemy-meter"><i style="width:${s.enemy/(s.encounter===2?6:12)*100}%"></i>${projected?`<b style="width:${n.enemy/(s.encounter===2?6:12)*100}%"></b>`:''}</span></span></button></div><div class="route" aria-label="المأمن على بعد ${num(goal(s)-s.progress)} خطوة؛ ${s.loot?'الزاد معك':'الزاد عند الخطوة الرابعة'}"><div class="route-caption"><span>${icon('bag')}${s.loot?'الزاد معك':'اجمع الزاد'}</span><strong>${icon('cave')}${projected&&n.progress>s.progress?`${s.encounter===2?'العبور':'المَنْأَى'}: ${num(goal(s)-n.progress)} بعد التفعيل`:`${s.encounter===2?'العبور':'المَنْأَى'}: ${num(goal(s)-s.progress)} خطوات`}</strong></div><div class="route-stones" style="--stones:${goal(s)+1}" aria-hidden="true">${Array.from({length:goal(s)+1},(_,i)=>`<span class="stone ${i<=s.progress?'passed':''} ${i>s.progress&&i<=n.progress?'projected':''} ${i===s.progress?'you':''}">${i===s.progress?icon('run'):i===4&&s.encounter===1?icon('bag'):i===goal(s)?icon('cave'):'<i></i>'}</span>`).join('')}</div></div></section>`;}
-export function gameView(s,p,feedback=''){const projected=preview(s,p),n=projected?.state||s,indices=p.cell!==null&&p.axis?lineIndices(p.cell,p.axis):[],prepared=p.axis?stage(s,{card:p.card,cell:p.cell,axis:p.axis,face:p.face??0}):null,staged=prepared?.grid||s.grid.slice();if(!prepared&&p.cell!==null&&p.card)staged[p.cell]=p.card;const shown={...s,faces:{...s.faces,...prepared?.faces,...(p.card?{[p.card]:p.face??0}:{})}};const populated=indices.filter(i=>staged[i]),full=populated.length===3;
- const guide=!p.card?'اختر فعلاً وضعه في الشبكة':p.cell===null?'المس خانة فارغة في الشبكة':'المس الخانة للتنفيذ، أو صفها/عمودها لتبديل الخط';
- const lineButton=axis=>{const x=preview(s,p,axis),v=x?.summary||{},a={card:p.card,cell:p.cell,axis,face:p.face??0},m=x?comboModel(s,a,x):{links:[],expired:[]},isSel=p.axis===axis;return `<button data-axis="${axis}" class="line-button ${isSel?'selected':''}" aria-pressed="${isSel}"><strong>${isSel?'نفّذ ':'بدّل لـ'}${axis==='row'?'الصف ↔':'العمود ↕'}</strong><span class="line-result">${v.moves?pill('foot',`+${num(v.moves)}`,'move'):''}${v.hits?pill('bow',`${num(v.hits)}`,'attack'):''}${v.block?pill('cover',`${num(v.block)}`,'guard'):''}</span><small class="${(x?.state?.hp??s.hp)<s.hp?'danger':'good'}">${x?.state?.screen==='interlude'?'انقضاء الغارة':x?.state?.screen==='end'?x.state.outcome==='dead'?'ستسقط':x.state.outcome==='caught'?'سيدركك الفجر':'المأمن':(v.enemyDamage||0)+(v.selfDamage||0)?`ضرر ${num((v.enemyDamage||0)+(v.selfDamage||0))}`:'آمن'}${v.cleared?.length?' · تفريغ':''}</small></button>`;};
- const model=projected?comboModel(s,{card:p.card,cell:p.cell,axis:p.axis,face:p.face??0},projected):null,hints=p.card&&p.cell===null&&p.face!==null?comboHints(s,p.card,p.face??0):{};
- return `<main class="game"><header class="top"><h1>الشنفرى <small>· ${s.encounter===2?'الشِّعب المنهار':'غارة الوادي'}</small></h1><div class="dawn ${s.turn>=17?'danger':''}">${icon('moon')}<span>حتى الفجر <b>${num(21-s.turn)}</b> أدوار</span></div><div class="top-actions">${button(isMuted()?icon('mute'):icon('sound'),'toggle-audio','icon-button',false,isMuted()?'تشغيل المؤثرات الصوتية':'كتم الصوت')}${button('⋯','menu','menu-button',false,'القائمة')}</div></header>${hud(s,n,!!projected)}<div class="guide"><span>${s.encounter===2?(projected?.state.outcome==='full'||projected?.state.outcome==='supplies'?'تعبر قبل انهيار الصف':`الصف ${['العلوي','الأوسط','السفلي'][collapseRow(s)]} ينهار بنهاية الدور`):guide}</span>${p.card&&p.cell!==null?button('غيّر الفعل','change-face'):p.card?button('تفاصيل الوجهين','card-info'):button('القواعد','rules')}</div><section class="grid" aria-label="شبكة التدبير؛ ثلاثة صفوف وثلاثة أعمدة">${staged.map((uid,i)=>{const c=uid?def(uid,shown):null,terrain=!uid&&(trailCells.includes(i)||s.wards[i]),active=indices.includes(i)&&(uid||terrain),ordinal=indices.indexOf(i)+1,isSameR=p.cell!==null&&Math.floor(i/3)===Math.floor(p.cell/3),isSameC=p.cell!==null&&(i%3)===(p.cell%3);return `<button data-cell="${i}" class="cell ${uid?tone(uid,shown):'empty'} ${!uid&&trailCells.includes(i)?'trail-cell':''} ${!uid&&s.wards[i]?'ward-cell':''} ${!s.grid[i]&&p.card?'placeable':''} ${p.cell===i?'staged':''} ${active?'active-line':''} ${active&&full&&uid?'will-clear':''}  ${s.encounter===2&&Math.floor(i/3)===collapseRow(s)?'collapse-cell':''} ${model?.links.some(l=>l.target===uid&&uid)?'combo-target':''} ${model?.links.some(l=>l.sources.some(q=>q.uid===uid&&uid))?'combo-source':''} ${model?.expired.some(l=>l.uid===uid&&uid)?'combo-expiring':''}" aria-label="${s.encounter===2&&Math.floor(i/3)===collapseRow(s)?'ينهار بنهاية الدور. ':''}صف ${num(Math.floor(i/3)+1)} عمود ${num(i%3+1)}: ${c?c.name:terrain?(trailCells.includes(i)?'درب: تقدّم ١ ':'')+(s.wards[i]?'ساتر: صدّ ١':''):'فارغة'}" ${!uid&&!p.card?'disabled':''}>${hints[i]?.length?`<span class="combo-hint">${hints[i].map(h=>`${h.axis==='row'?'↔':'↕'} +${num(h.boost)}`).join(' · ')}</span>`:''}${model?.expired.some(l=>l.uid===uid&&uid)?'<span class="expiry-badge">+٢ تضيع</span>':''}${active?`<span class="order">${num(ordinal)}</span>`:''}${active&&full&&uid?`<span class="burn">تُطرح</span>`:''}${p.cell===i?'<span class="confirm-badge">انقر للتنفيذ</span>':isSameR&&p.axis!=='row'?'<span class="axis-cue">صف ↔</span>':isSameC&&p.axis!=='col'?'<span class="axis-cue">عمود ↕</span>':''}${c?`${icon(c.icon)}<strong>${c.name}</strong>${projected?.summary.effects.some(e=>e.uid===uid&&e.boost)?`<span class="boost-badge">+${num(projected.summary.effects.find(e=>e.uid===uid&&e.boost).boost)}</span>`:''}<span class="card-effects">${cardEffects(uid,shown)}</span>`:terrain?`${trailCells.includes(i)?icon('foot')+'<small>تقدّم ١</small>':''}${s.wards[i]?`<span class="ward-mark">${icon('cover')}<strong>ساتر</strong><small>صدّ ١</small></span>`:''}`:'<span class="plus" aria-hidden="true">＋</span>'}</button>`;}).join('')}</section><section class="hand-section" aria-label="أفعالك"><div class="section-title"><strong>أفعالك</strong><small>اختر فعلاً وضعه في الشبكة</small></div><div class="hand">${s.hand.map(uid=>{const c0=def(uid,s,0),c1=def(uid,s,1),isSel=p.card===uid,isF0=isSel&&p.face===0,isF1=isSel&&p.face===1;return `<div class="hand-card ${tone(uid,s)} ${isSel?'selected':''}"><button data-card="${uid}" data-face="0" class="face-btn face-0 ${isF0?'active':''}" aria-label="${c0.name}: ${c0.text}"><span class="face-header">${icon(c0.icon)}<strong class="face-name">${c0.name}</strong></span><span class="face-summary">${cardEffects(uid,s,0)}</span></button><button data-card="${uid}" data-face="1" class="face-btn face-1 ${isF1?'active':''}" aria-label="${c1.name}: ${c1.text}"><span class="face-header"><small class="alt-tag">${c1.effects.some(e=>e.op==='vanish')?'طارئ':'بديل'}</small><strong class="face-name">${c1.name}</strong></span><span class="face-summary">${cardEffects(uid,s,1)}</span></button></div>`;}).join('')}</div></section><section class="activation" aria-label="نتيجة اختيارك"><div class="line-options">${p.cell!==null&&p.face!==null?lineButton('row')+lineButton('col'):`<div class="empty-preview">${p.card?'المس خانة فارغة في الشبكة لوضع الفعل':'اختر فعلاً لتبني خطوتك القادمة'}</div>`}</div>${model?comboView(s,model):''}${projected?`<div class="line-consequence">${prepared?.erasedWards.length?'⚠ يمحو ساترًا · ':''}${prepared?.swaps.length?'تبادل الخانتين أولًا · ':''}${projected.summary.collapsed?.length?`طرح ${num(projected.summary.collapsed.length)} بطاقة بالانهيار · `:''}${full?'تُطرح بطاقات الخط للتفريغ.':projected.summary.vanished.length?'تُطرح البطاقة المؤقتة وحدها.':'تبقى البطاقات في أماكنها.'}</div>`:''}<div class="footer-actions">${button(p.axis?`نفّذ ${p.axis==='row'?'الصف ↔':'العمود ↕'}`:'المس خانة فارغة','activate','primary',!projected)}${button('إلغاء','cancel','cancel',!p.card)}</div></section><div class="feedback" role="status">${feedback?button(esc(feedback),'last-result'):'الصف: يمين لليسار · العمود: أعلى للأسفل'}</div></main>`;
+import { comboModel, comboHints } from './combos.mjs?v=8';
+import {
+  def,
+  cards,
+  alternates,
+  cardType,
+  rewards,
+  activate,
+  incoming,
+  lineIndices,
+  trailCells,
+  stage,
+  goal,
+  collapseRow,
+  ARCHETYPES,
+  RELICS,
+  ENCOUNTERS
+} from './engine.mjs?v=8';
+import { icon } from './icons.mjs?v=8';
+import { isMuted } from './audio.mjs?v=8';
+
+export const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const num = n => new Intl.NumberFormat('ar-SA', { useGrouping: false }).format(n);
+export const ratio = (a, b) => `<bdi dir="ltr" class="num">${num(a)} / ${num(b)}</bdi>`;
+export const button = (label, action, cls = '', disabled = false, aria = '') =>
+  `<button data-action="${action}" class="${cls}" ${disabled ? 'disabled' : ''} ${aria ? `aria-label="${esc(aria)}"` : ''}>${label}</button>`;
+
+export function preview(s, p, axis = p.axis) {
+  if (!p.card || p.cell === null || !axis || p.face === null) return null;
+  return activate(s, { card: p.card, cell: p.cell, axis, face: p.face ?? 0 });
 }
-export function rewardView(s,pick=null){const chosen=pick&&cards[pick];return `<main class="hero reward-screen"><p class="gold">«وإن مُدّت الأيدي إلى الزاد»</p><h1>${chosen?'أيّ مهارةٍ تستبدل؟':'اختر أسلوب عودتك'}</h1>${chosen?`<div class="reward-selected">${icon(chosen.icon)}<strong>${chosen.name} / ${alternates[pick].name}</strong><p>${chosen.text}</p><p>${alternates[pick].text}</p></div><p>المهارة الجديدة تدخل يدك الآن، وتبقى في مجموعتك لبقية المسير.</p><div class="reward-options">${s.hand.map(uid=>{const c=def(uid,s);return `<button data-replace="${uid}" class="reward-card">${icon(c.icon)}<span><strong>استبدل «${c.name}»</strong><small>${c.short}</small></span></button>`;}).join('')}</div>${button('الرجوع لخيارات المهارات','reward-back')}`:`<p>تختار بعدها بطاقة من يدك لتستبدلها بأسلوبٍ من أساليب الصعاليك.</p><div class="reward-options">${['ambush','erase','shelter'].map(k=>{const c=cards[k];return `<button data-reward="${k}" class="reward-card">${icon(c.icon)}<span><strong>${c.name} / ${alternates[k].name}</strong><small>${c.text}</small><small>${alternates[k].text}</small></span></button>`;}).join('')}</div><button data-reward="keep">ثباتٌ على التدبير الحالي</button>`}<small>التدبير لا يستهلك دوراً. حتى الفجر ${num(s.firstResult&&s.encounter===1?20-s.turn:21-s.turn)} أدوار.</small></main>`;}
-export function interludeView(s){const f=s.firstResult;return `<main class="hero"><p class="gold">انقضاء الغارة الأولى</p><h1>${f.route==='clear'?'حسمتَ غارة الوادي':'أفلتَّ من قبضة الحارس'}</h1><div class="result-stats"><span>${icon('heart')} ${num(s.hp)} صحة للمسير</span><span>${icon('moon')} بقي ${num(20-s.turn)} دورًا قبل الفجر</span><span>${icon('friend')} ${s.friend===3?'رفيقك طليقٌ معك':'بقي رفيقك في قيود الوادي'}</span></div><p>${f.enemy>0?'الحارس يتعقّب أثرك في العتمة: يزيد خطر كل دور في الشِّعب بضرر واحد.':'سقط الحارس في الوادي: دروب الشِّعب آمن من الملاحقة المباشرة.'}</p><div class="next-encounter"><h2>٢ · الشِّعب المنهار</h2><p>جدار الشِّعب يتداعى صخراً بعد كل دور؛ استثمر بطاقات الصف قبل انهياره أو بدّل موضعها. اعبر ٨ خُطى؛ إصابة الرماة تخفف نبلهم، والردى يتربص بمن تباطأ.</p></div>${button(s.rewardClaimed?'ادخل الشِّعب':'اختر أسلوبك ثم ادخل الشِّعب','continue','primary')}${button('سجلّ الرحلة حتى الآن','report')}<small>صحتك ورزمتك ووقت الفجر مستمرة. تُطرح بطاقات الشبكة، وتبقى سواتر الوادي خلفك.</small></main>`;}
-export function endView(s){const r={full:['وفاءُ الرَّهْطِ والظَّفَر','«كأنما نفضتُ غبار الريح عن جيدِ أجدل».. عبرتما الشِّعبَ معاً والزاد في أيديكما؛ وفيتَ بعهد الصاحب ولم تخذل الجاني بما جرّ.'],supplies:['نَجَاةُ المُنْفَرِد','«ولي دونكم أهلون».. أفلتَّ بالزادِ وحدك وبقي رفيقك مقيداً في الوادي؛ مضيتَ مستغنياً وفي النفس شجى الأسر.'],dead:['ثَوَى البَاسِل','«غير أعزل».. سقطتَ في بطن السَّراة مضرجاً بكبرياء الصعاليك؛ طويتَ على الخمصِ الحوايا ولقيتَ المنية مقبلاً.'],caught:['انْصِدَاعُ الفَجْر','«فقد حُمّت الحاجات».. أسفر الصبحُ وانكشفت الدروب قبل بلوغ المأمن؛ حاصرتك خيلُ القوم وأنت على شرف المنازلة.']}[s.outcome];return `<main class="hero"><p class="gold">خاتمة الغارة</p><h1>${r[0]}</h1><p>${r[1]}</p><div class="result-stats"><span>${icon('heart')} بقيت ${num(s.hp)} صحة</span><span>${icon('moon')} ${num(s.turn)} أدوار</span><span>${icon('friend')} ${s.friend===3?'رفيقك معك':'رفيقك خلفك'}</span></div><div class="end-actions">${button('سجلّ الغارة','report','primary')}${button('أعد نفس الغارة','restart')}${button('غارة بتوزيع جديد','new-seed')}</div><a href="raid/">النموذج السابق</a></main>`;}
-export function titleView(){return `<main class="hero"><p class="gold">الشنفرى · طريق العودة</p><h1>شبكة التدبير</h1><div class="hero-art" aria-hidden="true">${icon('grid')}</div><p>«أقيموا بني أمي صدورَ مطيكم».. اجمع الزاد، وفكّ قيد رفيقك، واعبر شِعاب السَّراة قبل انصداع الفجر.</p>${button('ابدأ الرحلة','start','primary')}${button('قوانين الغارة','rules')}<small>ضع فعلاً في خانة فارغة، ثم فعّل صفه أو عموده لبناء طريق نجاتك.</small></main>`;}
+
+export function bestAxis(s, card, cell, face = 0) {
+  if (!card || cell === null) return 'row';
+  const rowRes = activate(s, { card, cell, axis: 'row', face: face ?? 0 });
+  const colRes = activate(s, { card, cell, axis: 'col', face: face ?? 0 });
+  if (!rowRes.valid) return 'col';
+  if (!colRes.valid) return 'row';
+
+  const rClr = (rowRes.summary.cleared || []).length === 3;
+  const cClr = (colRes.summary.cleared || []).length === 3;
+  if (rClr && !cClr) return 'row';
+  if (cClr && !rClr) return 'col';
+
+  if (rowRes.state.hp > colRes.state.hp) return 'row';
+  if (colRes.state.hp > rowRes.state.hp) return 'col';
+
+  const sc = r => (r.summary.hits || 0) * 3 + (r.summary.moves || 0) * 2 + (r.summary.block || 0) * 1.5;
+  return sc(colRes) > sc(rowRes) ? 'col' : 'row';
+}
+
+const pill = (ico, label, cls = '') => `<span class="effect ${cls}">${icon(ico)}<span>${label}</span></span>`;
+
+function cardEffects(uid, s, face) {
+  const c = def(uid, s, face);
+  const bits = [];
+  for (const f of c.effects) {
+    if (f.op === 'move') bits.push(pill('foot', 'تقدّم ' + num(f.n), 'move'));
+    if (f.op === 'momentum') bits.push(pill('fire', 'زخم ' + num(f.n), 'momentum'));
+    if (f.op === 'hit') bits.push(pill('knife', 'أصب ' + num(f.n), 'attack'));
+    if (f.op === 'sniper') bits.push(pill('bow', 'قوس ' + num(f.n) + '+زخم', 'attack'));
+    if (f.op === 'cyclone_shot') bits.push(pill('bow', 'إعصار ' + num(f.n) + '+كامل الزخم', 'attack'));
+    if (f.op === 'hurt') bits.push(pill('heart', 'جرح ' + num(f.n), 'danger'));
+    if (f.op === 'block') bits.push(pill('shield', 'صدّ ' + num(f.n), 'guard'));
+    if (f.op === 'prime') bits.push(pill('spark', 'بعدي +' + num(f.n), 'setup'));
+    if (f.op === 'bleed') bits.push(pill('bleed', 'نزف ' + num(f.n), 'bleed'));
+    if (f.op === 'poison') bits.push(pill('poison', 'سم ' + num(f.n), 'poison'));
+    if (f.op === 'double_bleed') bits.push(pill('bleed', 'مضاعفة النزف', 'bleed'));
+    if (f.op === 'explode_bleed') bits.push(pill('bleed', 'تفجير النزف ×٢', 'attack'));
+    if (f.op === 'wolf_pounce') bits.push(pill('wolf', 'نهش ' + num(f.n), 'beast'));
+    if (f.op === 'ward') bits.push(pill('cover', 'ساتر لاحقاً', 'guard'));
+    if (f.op === 'vanish') bits.push('<small class="vanish-badge">تُطرح</small>');
+  }
+  return bits.join('');
+}
+
+export function comboView(s, m) {
+  return `
+    <section class="combo-panel" aria-label="ترتيب الأفعال">
+      <div class="combo-title">
+        <span>الترتيب: ${m.steps.map((x, i) => `<b>${num(i + 1)}</b> ${esc(x.name)}`).join(' ← ')}</span>
+        <span class="combo-totals">
+          ${m.totals.moves ? pill('foot', '+' + num(m.totals.moves), 'move') : ''}
+          ${m.totals.hits ? pill('swords', num(m.totals.hits) + ' ضرر', 'attack') : ''}
+          ${m.totals.block ? pill('shield', num(m.totals.block) + ' صد', 'guard') : ''}
+        </span>
+      </div>
+      ${m.links.map(l => `<div class="combo-link good">${esc(l.sources.map(x => (x.name || def(x.uid, s).name)).join(' + '))} ← ${esc((l.targetName || def(l.target, s).name))}: +${num(l.boost)} تقوية</div>`).join('')}
+      ${m.expired.map(l => `<div class="combo-warning">${esc((l.name || def(l.uid, s).name))}: لا هجوم بعدها (+${num(l.amount)} تضيع)</div>`).join('')}
+    </section>
+  `;
+}
+
+// -------------------------------------------------------------
+// Top Navigation & Journey Bar
+// -------------------------------------------------------------
+function renderTopBar(s) {
+  const encIdx = s.encounter;
+  return `
+    <header class="top-bar">
+      <!-- 1. Relics Tray -->
+      <div class="relics-tray" aria-label="مواثيق الصحراء والآثار">
+        ${['sandals', 'wolf_skin', 'crag_salaman', 'taabbata_bracer'].map(rKey => {
+          const has = s.relics.includes(rKey);
+          const r = RELICS[rKey];
+          return `
+            <div class="relic-socket ${has ? 'active' : 'empty'}" title="${esc(r.title)}: ${esc(r.desc)}">
+              ${has ? `${icon(r.icon)}<span class="relic-label">${r.name}</span>` : `<span class="empty-socket">+</span>`}
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- 2. Journey Waypoints Track (4 Encounters) -->
+      <div class="journey-track" aria-label="مسار الرحلة في شِعاب السَّراة">
+        ${ENCOUNTERS.map(enc => {
+          const isPassed = enc.index < encIdx;
+          const isCurrent = enc.index === encIdx;
+          return `
+            <div class="waypoint ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}">
+              <span class="waypoint-node">${isPassed ? '✓' : num(enc.index)}</span>
+              <span class="waypoint-name">${enc.name}</span>
+            </div>
+          `;
+        }).join('<div class="journey-connector"></div>')}
+      </div>
+
+      <!-- 3. Dawn Dial (ساعة الفجر) -->
+      <div class="dawn-dial ${s.turn >= 30 ? 'danger' : ''}">
+        ${icon('moon')}
+        <div class="dawn-text">
+          <small>حتى الفجر</small>
+          <b>${num(36 - s.turn)} أدوار</b>
+        </div>
+      </div>
+
+      <!-- 4. Top Quick Actions -->
+      <div class="top-actions">
+        ${button(isMuted() ? icon('mute') : icon('sound'), 'toggle-audio', 'icon-btn', false, 'الصوت')}
+        ${button(icon('spark'), 'rules', 'icon-btn', false, 'القواعد')}
+        ${button('⋯', 'menu', 'icon-btn menu-btn', false, 'القائمة')}
+      </div>
+    </header>
+  `;
+}
+
+// -------------------------------------------------------------
+// Left Side (55%): The Live Cinematic Arena
+// -------------------------------------------------------------
+function renderCinematicArena(s, projected) {
+  const enc = ENCOUNTERS[s.encounter - 1] || ENCOUNTERS[0];
+  const threat = incoming(s);
+
+  return `
+    <section class="cinematic-arena">
+      <!-- Backdrop with Sarawat Crags, Moon and Embers -->
+      <div class="arena-backdrop ${enc.bg}">
+        <div class="night-sky">
+          <div class="crescent-moon"></div>
+          <div class="pleiades-stars"></div>
+        </div>
+        <div class="mountain-ridges"></div>
+        <div class="campfire-container">
+          <div class="campfire-flame"></div>
+          <div class="embers-particles"></div>
+        </div>
+      </div>
+
+      <!-- Encounter Header Banner -->
+      <div class="encounter-banner">
+        <h2>${enc.name} <small>· ${enc.tagline}</small></h2>
+        <div class="verse-quote">${enc.verse}</div>
+      </div>
+
+      <!-- Live Combat Stage (Characters & Enemies) -->
+      <div class="arena-stage">
+        <!-- Shanfara & Companions (Allies) -->
+        <div class="outlaw-formation">
+          <div class="hero-character shanfara-actor">
+            <div class="character-sprite shanfara-art">
+              ${icon('bow')}
+            </div>
+            <div class="actor-plate">
+              <strong>الشَّنْفَرَى</strong>
+              <div class="vital-bar">
+                <i style="width:${(s.hp / s.maxHp) * 100}%"></i>
+                <span>${ratio(s.hp, s.maxHp)}</span>
+              </div>
+              <div class="status-tags">
+                ${s.momentum > 0 ? `<span class="tag momentum-tag">${icon('fire')} زخم ${num(s.momentum)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <!-- Faithful Wolf Companion -->
+          <div class="companion-character wolf-actor">
+            <div class="character-sprite wolf-art">
+              ${icon('wolf')}
+            </div>
+            <div class="companion-plate">
+              <small>السِّيد العَمَلَّس (الذئب)</small>
+              <span class="beast-status">متربص بالطريدة</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Battlefield Clash Lane: Distance & Progress Meter -->
+        <div class="battlefield-lane">
+          <div class="lane-header">
+            <span>${icon('foot')} المأمن على بعد <b>${num(goal(s) - s.progress)}</b> خطوات</span>
+            <span class="threat-indicator">${icon('knife')} هجوم الأعداء القادم: <b>${num(threat)}</b></span>
+          </div>
+          <div class="lane-track" style="--track-steps: ${goal(s) + 1}">
+            ${Array.from({ length: goal(s) + 1 }, (_, i) => `
+              <span class="lane-node ${i <= s.progress ? 'passed' : ''} ${i === s.progress ? 'hero-here' : ''}">
+                ${i === s.progress ? icon('run') : i === goal(s) ? icon('cave') : '•'}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Enemy Squad Formation -->
+        <div class="enemy-formation">
+          ${s.enemies.map(e => `
+            <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
+              <div class="enemy-sprite">
+                ${e.isBoss ? icon('swords') : icon('knife')}
+              </div>
+              <div class="actor-plate">
+                <strong>${e.name}</strong>
+                <div class="vital-bar enemy-bar">
+                  <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
+                  <span>${ratio(e.hp, e.maxHp)}</span>
+                </div>
+                <div class="status-tags">
+                  ${e.hp > 0 ? `<span class="tag threat-tag">${icon('knife')} يضرب ${num(e.attack)}</span>` : '<span class="tag dead-tag">صريع</span>'}
+                  ${s.bleed > 0 && e.hp > 0 ? `<span class="tag bleed-tag">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
+                  ${s.poison > 0 && e.hp > 0 ? `<span class="tag poison-tag">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+// -------------------------------------------------------------
+// Right Side (45%): 3x3 Basalt Nexus Altar
+// -------------------------------------------------------------
+function renderNexusAltar(s, p, projected, model) {
+  const prepared = p.axis ? stage(s, { card: p.card, cell: p.cell, axis: p.axis, face: p.face ?? 0 }) : null;
+  const staged = prepared?.grid || s.grid.slice();
+  if (!prepared && p.cell !== null && p.card) staged[p.cell] = p.card;
+
+  const shown = { ...s, faces: { ...s.faces, ...prepared?.faces, ...(p.card ? { [p.card]: p.face ?? 0 } : {}) } };
+  const indices = p.cell !== null && p.axis ? lineIndices(p.cell, p.axis) : [];
+
+  return `
+    <section class="nexus-altar">
+      <div class="altar-slab">
+        <div class="slab-header">
+          <h3>صَخْرَةُ التَّدْبِير <small>٣×٣</small></h3>
+          <span class="slab-instruction">
+            ${!p.card ? 'اختر فعلاً من يدك' : p.cell === null ? 'المس خانة فارغة في الصخرة' : 'حدّد الصف أو العمود للتنفيذ'}
+          </span>
+        </div>
+
+        <!-- 3x3 Grid Matrix with Molten Gold Channels -->
+        <div class="matrix-grid">
+          ${staged.map((uid, i) => {
+            const c = uid ? def(uid, shown) : null;
+            const b = c?.build || 'general';
+            const isStaged = p.cell === i;
+            const inLine = indices.includes(i);
+            const isTrail = !uid && trailCells.includes(i);
+            const isWard = !uid && s.wards[i];
+            const arch = ARCHETYPES[b] || ARCHETYPES.general;
+
+            return `
+              <button
+                data-cell="${i}"
+                class="matrix-cell ${uid ? `placed-card ${arch.class}` : 'empty-cell'} ${isStaged ? 'staged-cell' : ''} ${inLine ? 'active-line' : ''} ${isTrail ? 'trail-cell' : ''} ${isWard ? 'ward-cell' : ''}"
+                ${!uid && !p.card ? 'disabled' : ''}
+                aria-label="خانة ${num(i + 1)}"
+              >
+                ${inLine ? `<span class="order-badge">${num(indices.indexOf(i) + 1)}</span>` : ''}
+                ${c ? `
+                  <div class="card-miniature">
+                    <span class="card-icon">${icon(c.icon)}</span>
+                    <strong class="card-title">${c.name}</strong>
+                    <div class="card-effects-mini">${cardEffects(uid, shown)}</div>
+                  </div>
+                ` : isTrail ? `
+                  <div class="terrain-marker">${icon('foot')}<span>درب +١</span></div>
+                ` : isWard ? `
+                  <div class="terrain-marker ward">${icon('cover')}<span>ساتر</span></div>
+                ` : `
+                  <span class="plus-sign">＋</span>
+                `}
+
+                ${isStaged ? `
+                  <div class="spatial-axis-controls">
+                    <button data-axis="row" class="axis-btn ${p.axis === 'row' ? 'selected' : ''}" title="تفعيل الصف">↔ صف</button>
+                    <button data-axis="col" class="axis-btn ${p.axis === 'col' ? 'selected' : ''}" title="تفعيل العمود">↕ عمود</button>
+                  </div>
+                ` : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Combo Feedback and Action Preview -->
+        <div class="altar-preview">
+          ${model ? comboView(s, model) : `
+            <div class="idle-prompt">
+              ${p.card ? 'ضع البطاقة في الصخرة لترى نتائج أفعالك وتآزرها.' : 'اختر بطاقة لتبدأ رسم خطوتك.'}
+            </div>
+          `}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+// -------------------------------------------------------------
+// Bottom Dock: Hand Fan, Momentum Gauge, End Turn Pommel
+// -------------------------------------------------------------
+function renderBottomDock(s, p, projected) {
+  return `
+    <footer class="bottom-dock">
+      <!-- Outlaw Seals (The Brotherhood Trio) -->
+      <div class="outlaw-trio">
+        <div class="outlaw-seal shanfara selected">
+          <div class="seal-avatar">${icon('bow')}</div>
+          <div class="seal-info">
+            <strong>الشنفرى</strong>
+            <small>${icon('fire')} زخم ${num(s.momentum)}</small>
+          </div>
+        </div>
+        <div class="outlaw-seal taabbata">
+          <div class="seal-avatar">${icon('knife')}</div>
+          <div class="seal-info">
+            <strong>تأبّط شرّاً</strong>
+            <small>كمين متربص</small>
+          </div>
+        </div>
+        <div class="outlaw-seal amr">
+          <div class="seal-avatar">${icon('shield')}</div>
+          <div class="seal-info">
+            <strong>ابن برّاق</strong>
+            <small>حراسة الظهر</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hand Cards Fan -->
+      <div class="hand-fan-tray" aria-label="أوراق التدبير في يدك">
+        ${s.hand.map(uid => {
+          const c0 = def(uid, s, 0);
+          const c1 = def(uid, s, 1);
+          const isSel = p.card === uid;
+          const isF0 = isSel && p.face === 0;
+          const isF1 = isSel && p.face === 1;
+          const arch = ARCHETYPES[c0.build] || ARCHETYPES.general;
+
+          return `
+            <div class="fan-card ${arch.class} ${isSel ? 'selected' : ''}">
+              <div class="card-archetype-badge">${arch.name}</div>
+              <button data-card="${uid}" data-face="0" class="face-toggle ${isF0 ? 'active' : ''}">
+                <div class="face-title">${icon(c0.icon)}<strong>${c0.name}</strong></div>
+                <div class="face-effects">${cardEffects(uid, s, 0)}</div>
+              </button>
+              <button data-card="${uid}" data-face="1" class="face-toggle ${isF1 ? 'active' : ''}">
+                <div class="face-title"><small class="alt-pill">طارئ</small><strong>${c1.name}</strong></div>
+                <div class="face-effects">${cardEffects(uid, s, 1)}</div>
+              </button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- End Turn / Commit Blade Button -->
+      <div class="dock-actions">
+        ${button(
+          `<span>${p.axis ? `نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : 'اختر فعلاً'}</span><i class="blade-gem"></i>`,
+          'activate',
+          'end-turn-blade',
+          !projected
+        )}
+        ${button('إلغاء', 'cancel', 'cancel-btn', !p.card)}
+      </div>
+    </footer>
+  `;
+}
+
+// -------------------------------------------------------------
+// Main Game View Assembler
+// -------------------------------------------------------------
+export function gameView(s, p, feedback = '') {
+  const projected = preview(s, p);
+  const model = projected
+    ? comboModel(s, { card: p.card, cell: p.cell, axis: p.axis, face: p.face ?? 0 }, projected)
+    : null;
+
+  return `
+    <div class="shanfara-widescreen-app">
+      ${renderTopBar(s)}
+      <main class="widescreen-battlefield">
+        ${renderCinematicArena(s, projected)}
+        ${renderNexusAltar(s, p, projected, model)}
+      </main>
+      ${renderBottomDock(s, p, projected)}
+      ${feedback ? `<div class="tactical-toast" role="status">${esc(feedback)}</div>` : ''}
+    </div>
+  `;
+}
+
+// -------------------------------------------------------------
+// Roguelike Drafting Screen: 1 of 3 Cards + Ascetic Purge
+// -------------------------------------------------------------
+export function rewardView(s) {
+  const choices = s.draftChoices.length ? s.draftChoices : ['sniper_wind', 'flint_blade', 'granite_spire'];
+
+  return `
+    <main class="hero reward-screen widescreen-modal">
+      <div class="modal-card">
+        <p class="gold-subtitle">«وَإِنْ مُدَّتِ الأَيْدِي إِلَى الزَّادِ»</p>
+        <h1>غَنِيمَةُ المعْبَر — اختر أسلوبك للمسير</h1>
+        <p class="lead-text">انتصرتَ في المواجهة؛ ضمّ بطاقة جديدة من مكائد الصعاليك إلى رزمتك، أو استغنِ وتخفف.</p>
+
+        <div class="draft-grid">
+          ${choices.map(k => {
+            const c0 = cards[k];
+            const c1 = alternates[k];
+            const arch = ARCHETYPES[c0?.build] || ARCHETYPES.general;
+            return `
+              <div class="draft-card ${arch.class}">
+                <div class="card-badge">${arch.name}</div>
+                <div class="card-hero-icon">${icon(c0?.icon || 'spark')}</div>
+                <h3>${c0?.name}</h3>
+                <div class="draft-face-desc">
+                  <p><b>الوجه الدائم:</b> ${c0?.text}</p>
+                  <p><b>الوجه الطارئ:</b> ${c1?.text}</p>
+                </div>
+                ${button(`اختر «${c0?.name}»`, `draft-${k}`, 'primary draft-pick-btn')}
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- The Ascetic Purge (الزهد والاستغناء) -->
+        <div class="purge-section">
+          <div class="purge-box">
+            <strong>الزُّهْدُ والاسْتِغْنَاء (Deck Thinning)</strong>
+            <p>«وأستفّ ترب الأرض كيلا يُرى له...»؛ ارفض أخذ أي بطاقة، وتخلّص من بطاقة زائدة لتسريع دوران رزمتك القوية.</p>
+            ${button('تطهير بطاقة زائدة (الزهد)', 'purge', 'purge-btn')}
+          </div>
+          ${button('متابعة التدبير دون تغيير', 'skip', 'skip-btn')}
+        </div>
+      </div>
+    </main>
+  `;
+}
+
+// -------------------------------------------------------------
+// Relic Selection Screen: Pick 1 of 4 Rule-Breaking Relics
+// -------------------------------------------------------------
+export function relicView(s) {
+  return `
+    <main class="hero relic-screen widescreen-modal">
+      <div class="modal-card">
+        <p class="gold-subtitle">«آثَارُ شِعَابِ السَّرَاةِ الكُبْرَى»</p>
+        <h1>اختر أثراً صعلوكياً يكسر قواعد اللعبة</h1>
+        <p class="lead-text">بلغتَ مورد الماء الصافي؛ اختر ميثاقاً من مواثيق الصعاليك يغيّر قوانين حسابك ومعاركك.</p>
+
+        <div class="relics-grid">
+          ${Object.values(RELICS).map(r => `
+            <div class="relic-card ${s.relics.includes(r.id) ? 'already-owned' : ''}">
+              <div class="relic-icon-wrapper">${icon(r.icon)}</div>
+              <h3>${r.title}</h3>
+              <p>${r.desc}</p>
+              ${button(s.relics.includes(r.id) ? 'تمتلك هذا الأثر' : 'اختر هذا الأثر', `relic-${r.id}`, 'primary', s.relics.includes(r.id))}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </main>
+  `;
+}
+
+// -------------------------------------------------------------
+// Interlude Screen (Between Encounters)
+// -------------------------------------------------------------
+export function interludeView(s) {
+  const enc = ENCOUNTERS[s.encounter - 1] || ENCOUNTERS[0];
+  const nextEnc = ENCOUNTERS[s.encounter] || null;
+
+  return `
+    <main class="hero interlude-screen widescreen-modal">
+      <div class="modal-card">
+        <p class="gold-subtitle">انْقِضَاءُ المَرْحَلَةِ ${num(s.encounter)}</p>
+        <h1>نصرٌ مؤزر في ${enc.name}</h1>
+        <p class="verse-quote">${enc.verse}</p>
+
+        <div class="run-stats-chips">
+          <span>${icon('heart')} ${num(s.hp)} صحة</span>
+          <span>${icon('fire')} رصيد الرزمة: ${num(s.deck.length)} بطاقة</span>
+          <span>${icon('moon')} بقي للفجر ${num(36 - s.turn)} دوراً</span>
+        </div>
+
+        ${nextEnc ? `
+          <div class="next-preview-box">
+            <h3>المحطة القادمة: ${nextEnc.name}</h3>
+            <p>${nextEnc.desc}</p>
+          </div>
+        ` : ''}
+
+        <div class="interlude-actions">
+          ${button('اقتحم المعبر التالي', 'continue', 'primary continue-btn')}
+          ${button('سجلّ الرحلة والمواجهات', 'report', 'secondary')}
+        </div>
+      </div>
+    </main>
+  `;
+}
+
+// -------------------------------------------------------------
+// End Run Screens (Epic Victory & Dignified Fall)
+// -------------------------------------------------------------
+export function endView(s) {
+  const isVictory = s.outcome === 'victory' || s.outcome === 'full';
+  return `
+    <main class="hero end-screen widescreen-modal">
+      <div class="modal-card">
+        <p class="gold-subtitle">${isVictory ? '«تَمَّ النَّذْرُ وَوَفَى الصَّاحِب»' : '«ثَوَى البَاسِلُ مُقْبِلاً»'}</p>
+        <h1>${isVictory ? 'إتمام ملحمة الشَّنْفَرَى والظَّفَر' : s.outcome === 'caught' ? 'انْصِدَاعُ الفَجْرِ وَالحِصَار' : 'سُقُوطٌ شَرِيفٌ فِي السَّرَاة'}</h1>
+        
+        <p class="lead-text">
+          ${isVictory
+            ? '«أَقِيمُوا بَنِي أُمِّي صُدُورَ مَطِيِّكُمْ • فَإِنِّي إِلى قَوْمٍ سِوَاكُمْ لَأَمْيَلُ • هُمُ الرَّهْطُ لا مُسْتَوْدَعُ السِّرِّ ذَائِعٌ لَدَيْهِمْ، وَلا الجَانِي بِمَا جَرَّ يُخْذَلُ».. أتممتَ نذر المئة قتيل وكسرتَ طوق بني سلامان!'
+            : '«لا تَدْفِنُونِي! إِنَّ دَفْنِيَ مُحَرَّمٌ عَلَيْكُمْ، وَلَكِنْ أَبْشِرِي أُمَّ عَامِرِ! • إِذَا احْتَمَلُوا رَأْسِي وَفِي الرَّأْسِ أَكْثَرِي • وَغُودِرَ عِنْدَ المُلْتَقَى ثَمَّ سَائِرِي».. سقطتَ مقبلاً غير مدبر.'}
+        </p>
+
+        <div class="run-stats-chips">
+          <span>${icon('heart')} ${num(s.hp)} صحة باقية</span>
+          <span>${icon('moon')} ${num(s.turn)} أدوار مستغرقة</span>
+          <span>${icon('sandals')} ${num(s.relics.length)} آثار مكتسبة</span>
+        </div>
+
+        <div class="end-actions">
+          ${button('ابدأ رناً جديداً بتوزيع مختلف', 'new-seed', 'primary')}
+          ${button('أعد نفس الرن', 'restart', 'secondary')}
+          ${button('سجلّ التقرير الكامل', 'report', 'secondary')}
+        </div>
+      </div>
+    </main>
+  `;
+}
+
+// -------------------------------------------------------------
+// Title Screen
+// -------------------------------------------------------------
+export function titleView() {
+  return `
+    <main class="hero title-screen widescreen-modal">
+      <div class="modal-card title-card">
+        <p class="gold-subtitle">رن الصعاليك الكامل · المسرح المزدوج</p>
+        <h1>طَرِيقُ السَّرَاة <small>· مَلْحَمَةُ الشَّنْفَرَى</small></h1>
+        <div class="hero-art-widescreen">
+          <div class="hero-silhouette"></div>
+        </div>
+        <p class="epic-prologue">
+          «أَقِيمُوا بَنِي أُمِّي صُدُورَ مَطِيِّكُمْ».. انطلق في ٤ مواجهات شاقة عبر شِعاب السَّراة؛
+          ابنِ رزمتك من ٤ مسارات تكتيكية (الزَّخَم والقَوْس، النَّزْف والسُّمُوم، الصَّخْر والجَلَد، ومِيثَاق الضَّوَارِي)،
+          واكتسب التحف التي تكسر القواعد لإتمام نذر المئة قتيل قبل انصداع الفجر.
+        </p>
+        <div class="title-actions">
+          ${button('ابدأ ملحمة السَّراة', 'start', 'primary start-btn')}
+          ${button('قوانين البناءات والشبكة', 'rules', 'secondary')}
+        </div>
+      </div>
+    </main>
+  `;
+}
