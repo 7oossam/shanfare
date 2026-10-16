@@ -9,7 +9,7 @@ const paths = {
   bag: 'M8 3h8l-2 5 5 5c5 9-19 9-14 0l5-5zM9 8h6M9 15h6',
   cave: 'M2 21l3-12 7-6 7 6 3 12H2zM8 21v-8l4-3 4 3v8',
   moon: 'M20 15A9 9 0 0 1 9 4 9 9 0 1 0 20 15z',
-  foot: 'M7 3c-4 0-5 9-2 11 4 2 7-8 2-11zM18 10c-4 0-6 10-2 11 4 1 6-10 2-11zM4 17v3M15 5v2',
+  foot: 'M4 16h8l4 4h4v-3l-4-3-3-6H8l1 4-5 1v3z',
   chain: 'M9 8l2-3c5-5 12 2 7 7l-3 2M15 16l-2 3C8 24 1 17 6 12l3-2M8 16l8-8',
   sneak: 'M3 16c4-9 6 6 10-3s5 0 8-7M5 21h4M14 21h4',
   bow: 'M4 3c21 2 21 16 0 18L15 12 4 3zM3 12h18M18 9l3 3-3 3',
@@ -42,11 +42,11 @@ const icon = id => `<svg class="icon icon-${id}" viewBox="0 0 24 24" aria-hidden
 const VERSION = 'shanfara-roguelike-v8';
 
 const ARCHETYPES = {
-  momentum: { id: 'momentum', name: 'الزَّخَم والقَوْس', color: '#f0b842', class: 'card-gold', icon: 'fire' },
-  bleed: { id: 'bleed', name: 'النَّزْف والسُّمُوم', color: '#e64a38', class: 'card-crimson', icon: 'bleed' },
-  rock: { id: 'rock', name: 'الصَّخْر والجَلَد', color: '#4aaed9', class: 'card-cyan', icon: 'stone' },
-  beast: { id: 'beast', name: 'الضَّوَارِي والرَّهْط', color: '#ba7ae8', class: 'card-amethyst', icon: 'wolf' },
-  general: { id: 'general', name: 'خِصَال الصَّعَالِيك', color: '#b2d5b2', class: 'card-emerald', icon: 'spark' }
+  momentum: { id: 'momentum', name: 'الزَّخَم والقَوْس', tag: 'زَخَم', color: '#f0b842', class: 'card-gold', icon: 'fire' },
+  bleed: { id: 'bleed', name: 'النَّزْف والسُّمُوم', tag: 'نَزْف', color: '#e64a38', class: 'card-crimson', icon: 'bleed' },
+  rock: { id: 'rock', name: 'الصَّخْر والجَلَد', tag: 'صَخْر', color: '#4aaed9', class: 'card-cyan', icon: 'stone' },
+  beast: { id: 'beast', name: 'الضَّوَارِي والرَّهْط', tag: 'رَهْط', color: '#ba7ae8', class: 'card-amethyst', icon: 'wolf' },
+  general: { id: 'general', name: 'خِصَال الصَّعَالِيك', tag: 'صَعَالِيك', color: '#b2d5b2', class: 'card-emerald', icon: 'spark' }
 };
 
 const cards = {
@@ -1621,26 +1621,31 @@ function renderNexusAltar(s, p, projected, model) {
 function renderBottomDock(s, p, projected) {
   return `
     <footer class="bottom-dock">
-      <!-- Hand Cards Fan -->
+      <!-- Hand Cards Fan: Single Active Face with Quick Flip -->
       <div class="hand-fan-tray" aria-label="أوراق التدبير في يدك">
         ${s.hand.map(uid => {
-          const c0 = def(uid, s, 0);
-          const c1 = def(uid, s, 1);
+          const curFace = (p.card === uid && p.face !== undefined) ? p.face : (s.faces?.[uid] ?? 0);
+          const c = def(uid, s, curFace);
+          const altFace = curFace === 0 ? 1 : 0;
+          const altC = def(uid, s, altFace);
           const isSel = p.card === uid;
-          const isF0 = isSel && p.face === 0;
-          const isF1 = isSel && p.face === 1;
-          const arch = ARCHETYPES[c0.build] || ARCHETYPES.general;
+          const arch = ARCHETYPES[c.build] || ARCHETYPES.general;
 
           return `
-            <div class="fan-card ${arch.class} ${isSel ? 'selected' : ''}">
-              <div class="card-archetype-badge">${arch.name}</div>
-              <button data-card="${uid}" data-face="0" class="face-toggle ${isF0 ? 'active' : ''}">
-                <div class="face-title">${icon(c0.icon)}<strong>${c0.name}</strong></div>
-                <div class="face-effects">${cardEffects(uid, s, 0)}</div>
-              </button>
-              <button data-card="${uid}" data-face="1" class="face-toggle ${isF1 ? 'active' : ''}">
-                <div class="face-title"><small class="alt-pill">طارئ</small><strong>${c1.name}</strong></div>
-                <div class="face-effects">${cardEffects(uid, s, 1)}</div>
+            <div class="fan-card ${arch.class} ${isSel ? 'selected' : ''}" data-card-frame="${uid}">
+              <div class="card-header-bar">
+                <span class="card-archetype-badge">${arch.tag || arch.name}</span>
+                <button type="button" class="flip-face-btn" data-action="flip-card" data-card="${uid}" title="تبديل إلى: ${altC.name}">
+                  ${curFace === 0 ? '🔄 طارئ' : '🔄 أصيل'}
+                </button>
+              </div>
+              <button type="button" data-card="${uid}" data-face="${curFace}" class="card-main-body ${isSel ? 'active' : ''}">
+                <div class="face-title">
+                  <span class="face-ico">${icon(c.icon)}</span>
+                  <strong class="card-title-text">${c.name}</strong>
+                  ${curFace === 1 ? '<span class="alt-pill">طارئ</span>' : ''}
+                </div>
+                <div class="face-effects">${cardEffects(uid, s, curFace)}</div>
               </button>
             </div>
           `;
@@ -2043,6 +2048,23 @@ function action(a) {
 document.addEventListener('click', e => {
   const b = e.target.closest('button') || e.target.closest('[data-cell]');
   if (!b || b.disabled) return;
+
+  if (b.dataset.action === 'flip-card') {
+    const card = b.dataset.card;
+    if (!s.faces) s.faces = {};
+    const cur = s.faces[card] !== undefined ? s.faces[card] : 0;
+    const nextFace = cur === 1 ? 0 : 1;
+    s.faces[card] = nextFace;
+    if (selection.card === card) {
+      selection.face = nextFace;
+      if (selection.cell !== null) {
+        selection.axis = bestAxis(s, card, selection.cell, nextFace);
+      }
+    }
+    render();
+    playSfx('select');
+    return;
+  }
 
   if (b.dataset.action) {
     action(b.dataset.action);

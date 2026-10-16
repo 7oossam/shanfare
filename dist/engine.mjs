@@ -1,11 +1,11 @@
 export const VERSION = 'shanfara-roguelike-v8';
 
 export const ARCHETYPES = {
-  momentum: { id: 'momentum', name: 'الزَّخَم والقَوْس', color: '#f0b842', class: 'card-gold', icon: 'fire' },
-  bleed: { id: 'bleed', name: 'النَّزْف والسُّمُوم', color: '#e64a38', class: 'card-crimson', icon: 'bleed' },
-  rock: { id: 'rock', name: 'الصَّخْر والجَلَد', color: '#4aaed9', class: 'card-cyan', icon: 'stone' },
-  beast: { id: 'beast', name: 'الضَّوَارِي والرَّهْط', color: '#ba7ae8', class: 'card-amethyst', icon: 'wolf' },
-  general: { id: 'general', name: 'خِصَال الصَّعَالِيك', color: '#b2d5b2', class: 'card-emerald', icon: 'spark' }
+  momentum: { id: 'momentum', name: 'الزَّخَم والقَوْس', tag: 'زَخَم', color: '#f0b842', class: 'card-gold', icon: 'fire' },
+  bleed: { id: 'bleed', name: 'النَّزْف والسُّمُوم', tag: 'نَزْف', color: '#e64a38', class: 'card-crimson', icon: 'bleed' },
+  rock: { id: 'rock', name: 'الصَّخْر والجَلَد', tag: 'صَخْر', color: '#4aaed9', class: 'card-cyan', icon: 'stone' },
+  beast: { id: 'beast', name: 'الضَّوَارِي والرَّهْط', tag: 'رَهْط', color: '#ba7ae8', class: 'card-amethyst', icon: 'wolf' },
+  general: { id: 'general', name: 'خِصَال الصَّعَالِيك', tag: 'صَعَالِيك', color: '#b2d5b2', class: 'card-emerald', icon: 'spark' }
 };
 
 export const cards = {

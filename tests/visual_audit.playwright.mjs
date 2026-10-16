@@ -171,7 +171,7 @@ async function runVisualAudits() {
     console.log('\n[Audit 3] Interactive Turn Simulation on Mobile...');
     
     // 1. Click first card in hand
-    const firstCard = mobilePage.locator('[data-card]').first();
+    const firstCard = mobilePage.locator('.card-main-body').first();
     await firstCard.click();
     console.log('1. Selected first card in hand');
 

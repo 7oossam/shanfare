@@ -200,6 +200,23 @@ document.addEventListener('click', e => {
   const b = e.target.closest('button') || e.target.closest('[data-cell]');
   if (!b || b.disabled) return;
 
+  if (b.dataset.action === 'flip-card') {
+    const card = b.dataset.card;
+    if (!s.faces) s.faces = {};
+    const cur = s.faces[card] !== undefined ? s.faces[card] : 0;
+    const nextFace = cur === 1 ? 0 : 1;
+    s.faces[card] = nextFace;
+    if (selection.card === card) {
+      selection.face = nextFace;
+      if (selection.cell !== null) {
+        selection.axis = bestAxis(s, card, selection.cell, nextFace);
+      }
+    }
+    render();
+    playSfx('select');
+    return;
+  }
+
   if (b.dataset.action) {
     action(b.dataset.action);
     return;
