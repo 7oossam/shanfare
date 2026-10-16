@@ -361,8 +361,17 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (menu.open || s.screen !== 'play') return;
+  if (e.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+  const cell = e.target.closest('[data-cell]');
+  if (cell && e.target === cell && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    cell.click();
+    return;
+  }
+  // Native buttons must retain their own Enter/Space activation.
+  if (e.target.closest('button') && (e.key === 'Enter' || e.key === ' ')) return;
   if (e.key === 'Escape') action('cancel');
-  if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.metaKey) {
+  if (e.key >= '1' && e.key <= String(s.hand.length) && !e.ctrlKey && !e.metaKey) {
     const cardIdx = Number(e.key) - 1;
     const uid = s.hand[cardIdx];
     if (uid) {
@@ -382,3 +391,4 @@ document.addEventListener('keydown', e => {
 
 render();
 focus(s.screen === 'title' ? '[data-action="start"]' : '[data-card]');
+

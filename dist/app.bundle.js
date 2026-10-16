@@ -38,6 +38,7 @@ const paths = {
 const icon = id => `<svg class="icon icon-${id}" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[id] || paths.grid}"/></svg>`;
 
 
+
 // --- engine.mjs ---
 const VERSION = 'shanfara-roguelike-v8';
 
@@ -930,6 +931,7 @@ function snapshot(s) {
 }
 
 
+
 // --- combos.mjs ---
 
 
@@ -1015,6 +1017,7 @@ function comboHints(s, card, face = 0) {
 }
 
 
+
 // --- report.mjs ---
 
 
@@ -1089,6 +1092,7 @@ function textReport(r) {
   const x = exported(r);
   return 'تقرير رن ملحمة الشنفرى — طريق السَّراة\n' + JSON.stringify(x, null, 2);
 }
+
 
 
 // --- audio.mjs ---
@@ -1318,6 +1322,7 @@ function playSfx(type) {
 }
 
 
+
 // --- view.mjs ---
 
 
@@ -1332,7 +1337,8 @@ const button = (label, action, cls = '', disabled = false, aria = '') =>
 
 function preview(s, p, axis = p.axis) {
   if (!p.card || p.cell === null || !axis || p.face === null) return null;
-  return activate(s, { card: p.card, cell: p.cell, axis, face: p.face ?? 0 });
+  const result = activate(s, { card: p.card, cell: p.cell, axis, face: p.face ?? 0 });
+  return result.valid ? result : null;
 }
 
 function bestAxis(s, card, cell, face = 0) {
@@ -1601,7 +1607,8 @@ function renderNexusAltar(s, p, projected, model) {
                 role="button"
                 tabindex="${!uid && !p.card ? '-1' : '0'}"
                 class="matrix-cell ${uid ? `placed-card ${arch.class}` : 'empty-cell'} ${isStaged ? 'staged-cell' : ''} ${inLine ? 'active-line' : ''} ${isTrail ? 'trail-cell' : ''} ${isWard ? 'ward-cell' : ''}"
-                aria-label="خانة ${num(i + 1)}"
+                aria-label="خانة ${num(i + 1)}${c ? `: ${esc(c.name)}` : '، فارغة'}"
+                aria-pressed="${isStaged}"
               >
                 ${inLine ? `<span class="order-badge">${num(indices.indexOf(i) + 1)}</span>` : ''}
                 ${c ? `
@@ -1620,8 +1627,8 @@ function renderNexusAltar(s, p, projected, model) {
 
                 ${isStaged ? `
                   <div class="spatial-axis-controls">
-                    <button type="button" data-axis="row" class="axis-btn ${p.axis === 'row' ? 'selected' : ''}" title="تفعيل الصف">↔ صف</button>
-                    <button type="button" data-axis="col" class="axis-btn ${p.axis === 'col' ? 'selected' : ''}" title="تفعيل العمود">↕ عمود</button>
+                    <button type="button" data-axis="row" aria-pressed="${p.axis === 'row'}" class="axis-btn ${p.axis === 'row' ? 'selected' : ''}" title="تفعيل الصف">↔ صف</button>
+                    <button type="button" data-axis="col" aria-pressed="${p.axis === 'col'}" class="axis-btn ${p.axis === 'col' ? 'selected' : ''}" title="تفعيل العمود">↕ عمود</button>
                   </div>
                 ` : ''}
               </div>
@@ -1633,7 +1640,7 @@ function renderNexusAltar(s, p, projected, model) {
         <div class="altar-preview">
           ${model ? comboView(s, model) : `
             <div class="idle-prompt">
-              ${p.card ? 'ضع البطاقة في الصخرة لترى نتائج أفعالك وتآزرها.' : 'اختر بطاقة لتبدأ رسم خطوتك.'}
+              ${p.card ? `<strong>${esc(def(p.card, s, p.face ?? 0).name)}</strong> · ${esc(def(p.card, s, p.face ?? 0).text)}` : 'اختر بطاقة، ثم خانة فارغة، وراجع النتيجة قبل التنفيذ.'}
             </div>
           `}
         </div>
@@ -1666,7 +1673,7 @@ function renderBottomDock(s, p, projected) {
                   ${curFace === 0 ? '🔄 طارئ' : '🔄 أصيل'}
                 </button>
               </div>
-              <button type="button" data-card="${uid}" data-face="${curFace}" class="card-main-body ${isSel ? 'active' : ''}">
+              <button type="button" data-card="${uid}" data-face="${curFace}" aria-pressed="${isSel}" class="card-main-body ${isSel ? 'active' : ''}">
                 <div class="face-title">
                   <span class="face-ico">${icon(c.icon)}</span>
                   <strong class="card-title-text">${c.name}</strong>
@@ -1684,6 +1691,7 @@ function renderBottomDock(s, p, projected) {
         ${button(
           p.axis && projected ? `
             <div class="blade-content">
+              ${projected ? `<div class="health-forecast ${projected.state.hp < s.hp ? 'at-risk' : ''}" role="status">${projected.state.hp <= 0 ? 'خطر: هذه الحركة تنهي رحلتك' : projected.state.hp < s.hp ? `ستفقد ${num(s.hp - projected.state.hp)} صحة` : projected.state.hp > s.hp ? `ستستعيد ${num(projected.state.hp - s.hp)} صحة` : 'صحتك آمنة هذا الدور'}</div>` : ''}
               <span class="blade-main-text">نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}</span>
               <span class="blade-stats-preview">
                 ${projected.summary.hits ? `<b>💥 ${num(projected.summary.hits)}</b>` : ''}
@@ -1892,6 +1900,7 @@ function titleView() {
     </main>
   `;
 }
+
 
 const btn = button;
 
@@ -2246,8 +2255,17 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (menu.open || s.screen !== 'play') return;
+  if (e.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+  const cell = e.target.closest('[data-cell]');
+  if (cell && e.target === cell && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    cell.click();
+    return;
+  }
+  // Native buttons must retain their own Enter/Space activation.
+  if (e.target.closest('button') && (e.key === 'Enter' || e.key === ' ')) return;
   if (e.key === 'Escape') action('cancel');
-  if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.metaKey) {
+  if (e.key >= '1' && e.key <= String(s.hand.length) && !e.ctrlKey && !e.metaKey) {
     const cardIdx = Number(e.key) - 1;
     const uid = s.hand[cardIdx];
     if (uid) {
@@ -2267,5 +2285,6 @@ document.addEventListener('keydown', e => {
 
 render();
 focus(s.screen === 'title' ? '[data-action="start"]' : '[data-card]');
+
 
 })();
