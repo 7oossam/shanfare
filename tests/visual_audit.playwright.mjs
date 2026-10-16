@@ -141,7 +141,20 @@ async function runVisualAudits() {
     assert(bottomDockBox, '.bottom-dock must be visible');
     console.log(`Mobile Bottom Dock Box: y=${bottomDockBox.y.toFixed(1)}, h=${bottomDockBox.height.toFixed(1)}`);
     assert((bottomDockBox.y + bottomDockBox.height) <= 844,
-      'Bottom dock must fit cleanly within viewport');
+      `Bottom dock must fit cleanly within 844px viewport (got ${bottomDockBox.y + bottomDockBox.height}px)`);
+
+    // Verify hand tray cards are physically visible
+    const handTrayBox = await mobilePage.locator('.hand-fan-tray').boundingBox();
+    assert(handTrayBox && handTrayBox.height >= 50, 'Hand tray must be rendered and visible');
+    console.log(`Mobile Hand Tray: y=${handTrayBox.y.toFixed(1)}, h=${handTrayBox.height.toFixed(1)}`);
+    assert(handTrayBox.y + handTrayBox.height < 844, 'Hand cards must be above viewport bottom edge');
+
+    // Verify commit blade button is physically visible
+    const bladeBtnBox = await mobilePage.locator('.end-turn-blade').boundingBox();
+    console.log('Mobile Blade Button Box:', bladeBtnBox);
+    assert(bladeBtnBox && bladeBtnBox.height >= 20, 'Commit blade button must be rendered and visible');
+    console.log(`Mobile Blade Button: y=${bladeBtnBox.y.toFixed(1)}, h=${bladeBtnBox.height.toFixed(1)}`);
+    assert(bladeBtnBox.y + bladeBtnBox.height <= 844, 'Commit blade button must be inside viewport');
 
     // Strict Zero-Scroll Check
     const mobileScrollHeight = await mobilePage.evaluate(() => document.documentElement.scrollHeight);

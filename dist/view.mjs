@@ -157,115 +157,75 @@ function renderCinematicArena(s, projected, p = {}) {
 
   return `
     <section class="cinematic-arena">
-      <!-- 3-Tier Layered Sarawat Gorge Battlefield -->
-      <div class="gorge-arena-content">
-
-        <!-- Tier 1: The High Ridge (المرقبة) -->
-        <div class="gorge-tier tier-ridge">
-          <div class="tier-label">
-            <span class="tier-badge">${icon('bow')} مَرْقَبَةُ الصَّفَا</span>
-            <span class="verse-snip">${enc.verse}</span>
-          </div>
-          <div class="ridge-elements">
-            <div class="lookout-tag">
-              <span class="torch-fire">🔥</span>
-              <span>رماة الطليعة</span>
-            </div>
-            <div class="dawn-clock ${s.turn >= 30 ? 'danger' : ''}">
-              ${icon('moon')}
-              <span>الفجر: <b>${num(36 - s.turn)}</b> أدوار</span>
-            </div>
+      <!-- 1. Ambient Scenic Topline Strip -->
+      <div class="arena-topline">
+        <div class="encounter-badge">
+          <span class="enc-dot"></span>
+          <strong>المعبر ${num(enc.index)}: ${enc.name}</strong>
+        </div>
+        <div class="haven-tracker">
+          <span>المأمن: <b>${num(goal(s) - s.progress)}</b> خطوات</span>
+          <div class="track-pips" style="--track-steps:${goal(s) + 1}">
+            ${Array.from({ length: goal(s) + 1 }, (_, i) => `
+              <i class="track-pip ${i <= s.progress ? 'passed' : ''} ${i === s.progress ? 'hero' : ''}"></i>
+            `).join('')}
           </div>
         </div>
+        <div class="threat-tag">
+          ${icon('knife')} <span>خطر الدور: <b>${num(threat)}</b></span>
+        </div>
+      </div>
 
-        <!-- Tier 2: The Valley Pass & Campfire (بطن الوادي) - ENEMIES & INTENTS -->
-        <div class="gorge-tier tier-valley">
-          <div class="valley-track-bar">
-            <span class="track-goal">${icon('foot')} المأمن: <b>${num(goal(s) - s.progress)}</b> خطوات</span>
-            <div class="track-pips" style="--track-steps:${goal(s) + 1}">
-              ${Array.from({ length: goal(s) + 1 }, (_, i) => `
-                <i class="track-pip ${i <= s.progress ? 'passed' : ''} ${i === s.progress ? 'hero' : ''}"></i>
-              `).join('')}
-            </div>
-            <span class="threat-summary">${icon('knife')} خطر الدور: <b>${num(threat)}</b></span>
-          </div>
-
-          <!-- Salaman Enemies Formation with Prominent Intent Badges -->
-          <div class="enemy-squad" aria-label="أعداء بني سلامان ونواياهم">
-            ${s.enemies.map((e, idx) => {
-              const living = s.enemies.filter(x => x.hp > 0);
-              const isSolo = living.length === 1;
-              const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
-              const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
-              return `
-                <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
-                  <div class="enemy-header">
-                    <span class="enemy-avatar">${e.isBoss ? icon('swords') : icon('knife')}</span>
-                    <strong class="enemy-title">${e.name}</strong>
-                  </div>
-                  <div class="enemy-hp-track">
-                    <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
-                    <span class="hp-num">${ratio(e.hp, e.maxHp)}</span>
-                  </div>
-                  <div class="enemy-intent-badge intent-${intent.intent}">
-                    ${e.hp > 0 ? `${icon(intentIcon)} <strong>${intent.desc}</strong>` : '<span class="dead">صريع</span>'}
-                  </div>
-                  ${(s.bleed > 0 || s.poison > 0) && e.hp > 0 ? `
-                    <div class="status-chips">
-                      ${s.bleed > 0 ? `<span class="chip bleed">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
-                      ${s.poison > 0 ? `<span class="chip poison">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
-                    </div>
-                  ` : ''}
+      <!-- 2. The Living Gorge Field: Enemies Standing Openly in the Terrain -->
+      <div class="enemy-squad" aria-label="أعداء بني سلامان ونواياهم">
+        ${s.enemies.map((e, idx) => {
+          const living = s.enemies.filter(x => x.hp > 0);
+          const isSolo = living.length === 1;
+          const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
+          const intentIcon = intent.intent === 'defend' ? 'cover' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
+          return `
+            <div class="enemy-actor ${e.hp <= 0 ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''}">
+              <div class="enemy-head">
+                <span class="enemy-avatar">${e.isBoss ? icon('swords') : icon('knife')}</span>
+                <strong class="enemy-title">${e.name}</strong>
+              </div>
+              <div class="enemy-hp-track">
+                <i style="width:${(e.hp / e.maxHp) * 100}%"></i>
+                <span class="hp-num">${ratio(e.hp, e.maxHp)}</span>
+              </div>
+              <div class="enemy-intent-badge intent-${intent.intent}">
+                ${e.hp > 0 ? `${icon(intentIcon)} <strong>${intent.desc}</strong>` : '<span class="dead">صريع</span>'}
+              </div>
+              ${(s.bleed > 0 || s.poison > 0) && e.hp > 0 ? `
+                <div class="status-chips">
+                  ${s.bleed > 0 ? `<span class="chip bleed">${icon('bleed')} نزف ${num(s.bleed)}</span>` : ''}
+                  ${s.poison > 0 ? `<span class="chip poison">${icon('poison')} سم ${num(s.poison)}</span>` : ''}
                 </div>
-              `;
-            }).join('')}
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- 3. Ambient Outlaw Line: Sleek footer strip for Shanfara & Allies -->
+      <div class="hero-vanguard-bar">
+        <div class="hero-plate">
+          <span class="hero-ico">${icon('bow')}</span>
+          <div class="hero-hp-wrap">
+            <span class="hero-name">الشَّنْفَرَى</span>
+            <div class="hero-hp-bar"><i style="width:${(s.hp/s.maxHp)*100}%"></i><span>${ratio(s.hp, s.maxHp)}</span></div>
           </div>
+          ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} ${num(s.momentum)}</span>` : ''}
         </div>
 
-        <!-- Tier 3: Subterranean Caverns (مسارب الصفا) - BEAST ALLIES -->
-        <div class="gorge-tier tier-caverns">
-          <div class="beast-allies">
-            <div class="beast-chip wolf ${s.relics.includes('wolf_skin') ? 'active-relic' : ''}">
-              <span class="beast-avatar">${icon('wolf')}</span>
-              <div class="beast-meta">
-                <strong>السِّيد العَمَلَّس (الذئب)</strong>
-                <small>${s.relics.includes('wolf_skin') ? 'ضارٍ مساند (+٣ ضرر/نزف)' : 'متربص بالطريدة'}</small>
-              </div>
-            </div>
-            <div class="beast-chip leopard">
-              <span class="beast-avatar">🐆</span>
-              <div class="beast-meta">
-                <strong>الأَرْقَط الزُّهْلُول (النمر)</strong>
-                <small>كمين المرتفعات</small>
-              </div>
-            </div>
-          </div>
+        <div class="center-turn-banner">
+          <span>${p.axis ? `نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : p.card ? 'المس خانة بالصخرة' : 'اختر بطاقة لتبدأ'}</span>
         </div>
 
-        <!-- Theater Bottom Character & Turn Bar (matching concept artwork) -->
-        <div class="theater-bottom-bar">
-          <div class="actor-plate shanfara-plate">
-            <span class="portrait">${icon('bow')}</span>
-            <div class="plate-info">
-              <strong>الشَّنْفَرَى</strong>
-              <div class="plate-hp"><i style="width:${(s.hp/s.maxHp)*100}%"></i><span>${ratio(s.hp, s.maxHp)}</span></div>
-            </div>
-            ${s.momentum > 0 ? `<span class="momentum-tag">${icon('fire')} زخم ${num(s.momentum)}</span>` : ''}
-          </div>
-
-          <div class="center-turn-banner">
-            <span>${p.axis ? `تفعيل ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}` : p.card ? 'ضع البطاقة في الصخرة' : 'اختر فعلاً لتبدأ خطوتك'}</span>
-          </div>
-
-          <div class="actor-plate taabbata-plate">
-            <div class="plate-info">
-              <strong>تَأَبَّطَ شَرّاً</strong>
-              <small>كمين متربص</small>
-            </div>
-            <span class="portrait">${icon('knife')}</span>
-          </div>
+        <div class="allies-mini-tag">
+          <span class="ally-ico" title="الذئب العَمَلَّس">${icon('wolf')}</span>
+          <span class="ally-ico" title="تأبط شراً">${icon('knife')}</span>
         </div>
-
       </div>
     </section>
   `;
