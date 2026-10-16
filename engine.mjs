@@ -417,7 +417,26 @@ export function valid(s, a) {
   if (s.screen === 'relic') {
     return a.kind === 'relic' && Object.hasOwn(RELICS, a.choice);
   }
-  return s.screen === 'play' && s.hand.includes(a.card) && Number.isInteger(a.cell) && a.cell >= 0 && a.cell < 9 && !s.grid[a.cell] && ['row', 'col'].includes(a.axis) && (a.face === undefined || a.face === 0 || a.face === 1);
+  return s.screen === 'play' && s.hand.includes(a.card) && Number.isInteger(a.cell) && a.cell >= 0 && a.cell < 9 && !s.grid[a.cell] && ['row', 'col'].includes(a.axis) && (a.face === undefined || a.face === 0 || a.face === 1) && (a.target == null || attackTargets(s).some(e => e.id === a.target));
+}
+
+// Actor positions are a visual layer over the nine action slots.
+export const enemyCell = index => [0, 2, 1][index] ?? 1;
+
+export function attackTargets(s) {
+  const living = (s.enemies || []).filter(e => e.hp > 0);
+  const shields = living.filter(e => e.id.startsWith('shield'));
+  return shields.length ? shields : living;
+}
+
+export function targetForAction(s, a = {}) {
+  const pool = attackTargets(s);
+  if (a.target && pool.some(e => e.id === a.target)) return a.target;
+  if (Number.isInteger(a.cell) && a.axis === 'col') {
+    const aligned = pool.find(e => enemyCell(s.enemies.indexOf(e)) % 3 === a.cell % 3);
+    if (aligned) return aligned.id;
+  }
+  return pool[0]?.id ?? null;
 }
 
 export function actions(s) {
@@ -452,6 +471,7 @@ function applyDamageToEnemies(s, dmg) {
   // Boss encounter targeting: check if shieldbearers are guarding warlord
   const activeShields = s.enemies.filter(e => e.id.startsWith('shield') && e.hp > 0);
   const targetPool = activeShields.length > 0 ? activeShields : s.enemies.filter(e => e.hp > 0);
+  if (s.pendingTarget) targetPool.sort((a, b) => Number(b.id === s.pendingTarget) - Number(a.id === s.pendingTarget));
 
   for (const e of targetPool) {
     if (e.hp > 0 && remaining > 0) {
@@ -552,6 +572,7 @@ export function activate(state, a) {
   }
 
   // Screen: Play action
+  s.pendingTarget = a.target ?? null;
   const log = [];
   const effects = [];
   const beforeFriend = s.friend;
@@ -861,6 +882,7 @@ export function activate(state, a) {
     log
   };
 
+  delete s.pendingTarget;
   assertState(s);
   return { state: s, valid: true, summary: s.last };
 }

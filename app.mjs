@@ -1,5 +1,5 @@
 import { comboModel } from './combos.mjs?v=8';
-import { VERSION, fresh, start, activate, assertState, def, stage } from './engine.mjs?v=8';
+import { VERSION, fresh, start, activate, assertState, def, stage, targetForAction } from './engine.mjs?v=8';
 import { begin, record, restore, exported, textReport } from './report.mjs?v=8';
 import {
   gameView,
@@ -26,7 +26,7 @@ const LAST = 'shanfara-roguelike-last-v8';
 let s = fresh();
 let report = null;
 let activeReport = null;
-let selection = { card: null, cell: null, axis: null, face: null };
+let selection = { card: null, cell: null, axis: null, face: null, target: null };
 let feedback = '';
 let feedbackTimer = null;
 let displayedFeedback = '';
@@ -87,7 +87,7 @@ function reset(seed = s.seed) {
   if (menu.open) menu.close();
   s = start(fresh(seed));
   report = begin(s);
-  selection = { card: null, cell: null, axis: null, face: null };
+  selection = { card: null, cell: null, axis: null, face: null, target: null };
   feedback = '';
   persist();
   render();
@@ -105,7 +105,7 @@ function rules() {
     'دليل ملحمة السَّراة وقوانين البناءات',
     `
     <ol class="steps">
-      <li><strong>المسرح المزدوج:</strong> الساحة على اليسار تعرض المعركة ومواقع الأعداء وتقدمك نحو المأمن؛ وصخرة التدبير على اليمين (٣×٣) تنظم فيها أفعالك وتآزر بطاقاتك.</li>
+      <li><strong>الرقعة هي المعركة:</strong> الأعداء في الصف العلوي والشنفرى في الأسفل. لكل خانة موضع بطاقة مستقل تحت الشخصية؛ اضغط الشخصية لتحديد الهدف أو موضع البطاقة للتخطيط. العمود يفضّل العدو المحاذي له ما لم تحدد هدفًا يدويًا. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
       <li><strong>مسارات البناء الأربعة:</strong>
         <ul>
           <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> مراكمة السرعة الحركية وتحويل فائض الزخم لصد (+٢ لكل خطوة) ومضاعفة ضرر رميات القوس.</li>
@@ -122,13 +122,13 @@ function rules() {
 }
 
 function commit(chosen = selection) {
-  const action = { ...chosen };
+  const action = s.screen === 'play' ? { ...chosen, target: targetForAction(s, chosen) } : { ...chosen };
   const result = activate(s, action);
   if (!result.valid) return;
 
   report = record(report || begin(s), s, action, result);
   s = result.state;
-  selection = { card: null, cell: null, axis: null, face: null };
+  selection = { card: null, cell: null, axis: null, face: null, target: null };
 
   if (result.summary.kind === 'reward') {
     feedback = result.summary.choice === 'purge' ? '✨ تطهرت رزمتك من بطاقة زائدة.' : '✨ ظفرتَ ببطاقة جديدة للمسير!';
@@ -180,7 +180,7 @@ function action(a) {
     reset(Date.now() >>> 0);
     playSfx('select');
   } else if (a === 'cancel') {
-    selection = { card: null, cell: null, axis: null, face: null };
+    selection = { card: null, cell: null, axis: null, face: null, target: null };
     render();
     playSfx('select');
   } else if (a === 'activate') {
@@ -197,71 +197,22 @@ function action(a) {
   } else if (a.startsWith('relic-')) {
     const relicId = a.replace('relic-', '');
     commit({ kind: 'relic', choice: relicId });
+  } else if (a === 'card-info' && selection.card) {
+    const uid = selection.card;
+    const permanent = def(uid, s, 0);
+    const instant = def(uid, s, 1);
+    show('وجها البطاقة', `<div class="quick-guide-dialog"><div class="guide-card"><div class="guide-body"><strong>دائم · ${esc(permanent.name)}</strong><p>${esc(permanent.text)}</p><div>${cardEffects(uid, s, 0)}</div></div></div><div class="guide-card"><div class="guide-body"><strong>طارئ · ${esc(instant.name)}</strong><p>${esc(instant.text)}</p><div>${cardEffects(uid, s, 1)}</div></div></div></div>`);
   } else if (a === 'rules') {
     rules();
   } else if (a === 'help') {
-    show(
-      'كيف تُلعب ملحمة الشَّنْفَرَى؟ (في ٤ خطوات بسيطة)',
-      `
+    show('ساحة واحدة، قرارك يصنع النصر', `
       <div class="quick-guide-dialog">
-        <div class="guide-card">
-          <div class="guide-num">١</div>
-          <div class="guide-body">
-            <strong>اختر بطاقة من يدك بالأسفل:</strong>
-            <p>لكل بطاقة وجهان: (أصيل 🔄 طارئ). بدّل بينهما بزر 🔄 لاختيار الأثر الأنسب لخطتك.</p>
-          </div>
-        </div>
-        <div class="guide-card">
-          <div class="guide-num">٢</div>
-          <div class="guide-body">
-            <strong>ضعها في خانة فارغة (＋) في الصخرة (٣×٣):</strong>
-            <p>البطاقة ستثبت في الصخرة. يمكنك لمس أي بطاقة في الصخرة لقراءة تفاصيلها وقوتها.</p>
-          </div>
-        </div>
-        <div class="guide-card">
-          <div class="guide-num">٣</div>
-          <div class="guide-body">
-            <strong>اختر تفعيل الصف (↔) أو العمود (↕):</strong>
-            <p>تفعيل الخط يجمع قوى كل البطاقات الموجودة في ذلك الخط وينفّذها بتسلسل وتآزر هجومي ودفاعي!</p>
-          </div>
-        </div>
-        <div class="guide-card">
-          <div class="guide-num">٤</div>
-          <div class="guide-body">
-            <strong>اضغط زر (نفّذ) بالسيف بالأسفل:</strong>
-            <p>قبل الضغط، راقب التوقعات بالأعلى: الضرر الذي سينال العدو، والدروع التي ستصد هجومه القادم!</p>
-          </div>
-        </div>
-        <div class="guide-footer-tip" style="margin-top:6px;">
-          💡 <b>سر الصعاليك:</b> عندما يكتمل الخط بـ ٣ بطاقات ينفّذ ضربات قاضية ثم يُفرَّغ لتضع فيه بطاقات جديدة!
-        </div>
-
-        <div class="mechanics-breakdown-box" style="margin-top:10px;background:rgba(8,16,20,0.85);border:1px solid #ffd488;border-radius:8px;padding:10px;">
-          <h3 style="color:#efbf75;margin:0 0 8px;font-size:0.95rem;">⚡ كيف تستغل الزَّخَم والنَّهْش في معاركك؟</h3>
-          <ul style="margin:0;padding-right:18px;font-size:0.8rem;line-height:1.5;color:#e8ded1;">
-            <li style="margin-bottom:6px;">
-              <b style="color:#f0b842;">🔥 الزَّخَم (Momentum):</b> طاقة سرعة تتراكم.
-              <br>• <b>حماية تلقائية:</b> أي زخم يتبقى بنهاية الدور <b>يتحول تلقائياً إلى دروع (+١ درع لكل زخم)</b> تحميك من الأعداء!
-              <br>• <b>تقوية القوس:</b> رمية القوس 🏹 تضيف نصف رصيدك من الزخم كضرر إضافي مباشر!
-            </li>
-            <li style="margin-bottom:6px;">
-              <b style="color:#ba7ae8;">🐺 النَّهْش وانقضاض الذئب (Beast Pounce):</b>
-              <br>• الذئب يضرب ضرراً أساسياً.
-              <br>• <b>التآزر القاتل:</b> إذا ضربت العدو أولاً بـ <b>النَّزْف 🩸</b> أو <b>السُّم 🧪</b>، يشم الذئب الدم ويكسب <b>+٢ ضرر إضافي فوراً!</b>
-            </li>
-            <li style="margin-bottom:6px;">
-              <b style="color:#e64a38;">🩸 النَّزْف (Bleed):</b>
-              <br>• يُمكّن الذئب من النهش المضاعف، وتفجيره ببطاقة النصل يضاعف ضرره مرتين 💥!
-            </li>
-            <li>
-              <b style="color:#4aaed9;">🛡️ الصَّخْر والسَّواتر (Rock):</b>
-              <br>• تغرس سواتر في خانات الصخرة؛ تفعيلها يمنحك دروعاً صلبة ويصد هجمات العدو.
-            </li>
-          </ul>
-        </div>
-      </div>
-      `
-    );
+        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>اقرأ الأعداء داخل الرقعة</strong><p>فوق كل عدو هجومه القادم، وتحته صحته. المس شخصيته لتحديده هدفًا. حاملو التراس يحمون الزعيم.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>اختر بطاقة ووجهًا من يدك</strong><p>زر دائم / طارئ يبدّل الوجه. الدائم يبقى ليتكرر أثره، والطارئ ينفّذ أثره ثم يُطرح.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>ضعها في موضع بطاقة فارغ</strong><p>كل خانة تستقبل بطاقة حتى لو كانت فيها شخصية؛ موضع البطاقة تحت الشخصية مستقل عنها. وجود الشخصية لا يغلق الخانة.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>قارن الصف والعمود ثم نفّذ</strong><p>الخط المضيء ينفّذ البطاقات بالترتيب المرقّم. السهم يبيّن الهدف، وصحة الشخصيات تعرض النتيجة المتوقعة. يمكنك تغيير الهدف قبل التنفيذ.</p></div></div>
+        <div class="guide-footer-tip">العمود يختار عدوًا محاذيًا تلقائيًا إن وجد. ترتيب تنفيذ الصفوف من اليسار لليمين والأعمدة من الأعلى للأسفل. اكتمال خط بثلاث بطاقات يفرّغه. الزخم الفائض يتحوّل إلى دروع.</div>
+      </div>`);
   } else if (a === 'menu') {
     show(
       'ملحمة الشَّنْفَرَى',
@@ -291,7 +242,7 @@ document.addEventListener('click', e => {
     if (selection.card === card) {
       selection.face = nextFace;
       if (selection.cell !== null) {
-        selection.axis = bestAxis(s, card, selection.cell, nextFace);
+        selection.axis = bestAxis(s, card, selection.cell, nextFace, selection.target);
       }
     }
     render();
@@ -306,15 +257,22 @@ document.addEventListener('click', e => {
 
   if (s.screen !== 'play') return;
 
+  if (b.dataset.target) {
+    selection.target = selection.target === b.dataset.target ? null : b.dataset.target;
+    render();
+    playSfx('select');
+    return;
+  }
+
   // Face toggle or card selection in hand
   if (b.dataset.face !== undefined && b.dataset.card) {
     const face = Number(b.dataset.face);
     const card = b.dataset.card;
     if (selection.cell !== null) {
-      const axis = bestAxis(s, card, selection.cell, face);
-      selection = { card, face, cell: selection.cell, axis };
+      const axis = bestAxis(s, card, selection.cell, face, selection.target);
+      selection = { ...selection, card, face, cell: selection.cell, axis };
     } else {
-      selection = { card, face, cell: null, axis: null };
+      selection = { ...selection, card, face, cell: null, axis: null };
     }
     render();
     playSfx('select');
@@ -326,10 +284,10 @@ document.addEventListener('click', e => {
     const card = b.dataset.card;
     const face = selection.face ?? 0;
     if (selection.cell !== null) {
-      const axis = bestAxis(s, card, selection.cell, face);
-      selection = { card, face, cell: selection.cell, axis };
+      const axis = bestAxis(s, card, selection.cell, face, selection.target);
+      selection = { ...selection, card, face, cell: selection.cell, axis };
     } else {
-      selection = { card, face, cell: null, axis: null };
+      selection = { ...selection, card, face, cell: null, axis: null };
     }
     render();
     playSfx('select');
@@ -348,7 +306,7 @@ document.addEventListener('click', e => {
           <p style="font-size:0.9rem;line-height:1.4;margin:4px 0 8px;">${esc(c.text)}</p>
           <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;">${cardEffects(s.grid[i], s)}</div>
           <p style="color:#efbf75;font-size:0.8rem;border-top:1px dashed #33444d;padding-top:6px;margin:8px 0 0;">
-            💡 هذه البطاقة مستقرة في الصخرة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
+            💡 هذه البطاقة مستقرة في الرقعة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
           </p>
         </div>
         `
@@ -357,8 +315,8 @@ document.addEventListener('click', e => {
     }
     if (!selection.card) return;
     const face = selection.face ?? 0;
-    const axis = bestAxis(s, selection.card, i, face);
-    selection = { card: selection.card, face, cell: i, axis };
+    const axis = bestAxis(s, selection.card, i, face, selection.target);
+    selection = { ...selection, card: selection.card, face, cell: i, axis };
     render();
     playSfx('select');
     return;
@@ -390,8 +348,8 @@ document.addEventListener('keydown', e => {
     if (uid) {
       const face = e.shiftKey ? 1 : (selection.card === uid && selection.face === 0 ? 1 : 0);
       const cell = selection.cell;
-      const axis = cell !== null ? bestAxis(s, uid, cell, face) : null;
-      selection = { card: uid, face, cell, axis };
+      const axis = cell !== null ? bestAxis(s, uid, cell, face, selection.target) : null;
+      selection = { ...selection, card: uid, face, cell, axis };
       render();
       playSfx('select');
     }

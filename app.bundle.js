@@ -458,7 +458,26 @@ function valid(s, a) {
   if (s.screen === 'relic') {
     return a.kind === 'relic' && Object.hasOwn(RELICS, a.choice);
   }
-  return s.screen === 'play' && s.hand.includes(a.card) && Number.isInteger(a.cell) && a.cell >= 0 && a.cell < 9 && !s.grid[a.cell] && ['row', 'col'].includes(a.axis) && (a.face === undefined || a.face === 0 || a.face === 1);
+  return s.screen === 'play' && s.hand.includes(a.card) && Number.isInteger(a.cell) && a.cell >= 0 && a.cell < 9 && !s.grid[a.cell] && ['row', 'col'].includes(a.axis) && (a.face === undefined || a.face === 0 || a.face === 1) && (a.target == null || attackTargets(s).some(e => e.id === a.target));
+}
+
+// Actor positions are a visual layer over the nine action slots.
+const enemyCell = index => [0, 2, 1][index] ?? 1;
+
+function attackTargets(s) {
+  const living = (s.enemies || []).filter(e => e.hp > 0);
+  const shields = living.filter(e => e.id.startsWith('shield'));
+  return shields.length ? shields : living;
+}
+
+function targetForAction(s, a = {}) {
+  const pool = attackTargets(s);
+  if (a.target && pool.some(e => e.id === a.target)) return a.target;
+  if (Number.isInteger(a.cell) && a.axis === 'col') {
+    const aligned = pool.find(e => enemyCell(s.enemies.indexOf(e)) % 3 === a.cell % 3);
+    if (aligned) return aligned.id;
+  }
+  return pool[0]?.id ?? null;
 }
 
 function actions(s) {
@@ -493,6 +512,7 @@ function applyDamageToEnemies(s, dmg) {
   // Boss encounter targeting: check if shieldbearers are guarding warlord
   const activeShields = s.enemies.filter(e => e.id.startsWith('shield') && e.hp > 0);
   const targetPool = activeShields.length > 0 ? activeShields : s.enemies.filter(e => e.hp > 0);
+  if (s.pendingTarget) targetPool.sort((a, b) => Number(b.id === s.pendingTarget) - Number(a.id === s.pendingTarget));
 
   for (const e of targetPool) {
     if (e.hp > 0 && remaining > 0) {
@@ -593,6 +613,7 @@ function activate(state, a) {
   }
 
   // Screen: Play action
+  s.pendingTarget = a.target ?? null;
   const log = [];
   const effects = [];
   const beforeFriend = s.friend;
@@ -902,6 +923,7 @@ function activate(state, a) {
     log
   };
 
+  delete s.pendingTarget;
   assertState(s);
   return { state: s, valid: true, summary: s.last };
 }
@@ -1332,14 +1354,14 @@ const button = (label, action, cls = '', disabled = false, aria = '') =>
 
 function preview(s, p, axis = p.axis) {
   if (!p.card || p.cell === null || !axis || p.face === null) return null;
-  const result = activate(s, { card: p.card, cell: p.cell, axis, face: p.face ?? 0 });
+  const result = activate(s, { card: p.card, cell: p.cell, axis, face: p.face ?? 0, target: targetForAction(s, { ...p, axis }) });
   return result.valid ? result : null;
 }
 
-function bestAxis(s, card, cell, face = 0) {
+function bestAxis(s, card, cell, face = 0, target = null) {
   if (!card || cell === null) return 'row';
-  const rowRes = activate(s, { card, cell, axis: 'row', face: face ?? 0 });
-  const colRes = activate(s, { card, cell, axis: 'col', face: face ?? 0 });
+  const rowRes = activate(s, { card, cell, axis: 'row', face: face ?? 0, target: targetForAction(s, { cell, axis: 'row', target }) });
+  const colRes = activate(s, { card, cell, axis: 'col', face: face ?? 0, target: targetForAction(s, { cell, axis: 'col', target }) });
   if (!rowRes.valid) return 'col';
   if (!colRes.valid) return 'row';
 
@@ -1430,302 +1452,109 @@ function comboView(s, m) {
   `;
 }
 
-// -------------------------------------------------------------
-// Top Navigation & Journey Bar (Unified HUD)
-// -------------------------------------------------------------
-function renderTopBar(s) {
-  const enc = ENCOUNTERS[s.encounter - 1] || ENCOUNTERS[0];
-  const threat = incoming(s);
-
-  return `
-    <header class="top-bar">
-      <!-- 1. Encounter Badge -->
-      <div class="encounter-badge">
-        <span class="enc-dot"></span>
-        <strong>المعبر ${num(enc.index)}: ${enc.name}</strong>
-      </div>
-
-      <!-- 2. Dawn & Threat Center HUD -->
-      <div class="top-center-hud">
-        <span class="dawn-tag dawn-dial ${s.turn >= 30 ? 'danger' : ''}">${icon('moon')} <b>${num(36 - s.turn)} دوراً</b></span>
-        ${threat > 0 ? `<span class="threat-tag">${icon('swords')} <b>${num(threat)}</b></span>` : ''}
-      </div>
-
-      <!-- 3. Top Quick Actions & Relics -->
-      <div class="top-actions">
-        ${s.relics.map(rKey => {
-          const r = RELICS[rKey];
-          return `<span class="relic-chip" title="${esc(r?.title || '')}">${icon(r?.icon || 'spark')}</span>`;
-        }).join('')}
-        ${button('؟', 'help', 'icon-btn help-btn', false, 'دليل اللعب السريع')}
-        ${button(isMuted() ? icon('mute') : icon('sound'), 'toggle-audio', 'icon-btn', false, 'الصوت')}
-        ${button('⋯', 'menu', 'icon-btn menu-btn', false, 'القائمة')}
-      </div>
-    </header>
-  `;
+// One battlefield: actors occupy the board visually; cards occupy its action slots.
+function fighterArt(kind) {
+  return `<span class="fighter-art fighter-${kind}" aria-hidden="true"></span>`;
 }
 
-// -------------------------------------------------------------
-// Left Side (55%): The Live Cinematic Arena (Pure Scenic Landscape)
-// -------------------------------------------------------------
-function renderCinematicArena(s, projected, p = {}) {
-  return `
-    <section class="cinematic-arena">
-      <!-- 1. The Living Gorge Field: Enemies Standing Openly in the Terrain -->
-      <div class="enemy-squad squad-size-${s.enemies.length}" aria-label="أعداء بني سلامان ونواياهم">
-        ${s.enemies.map((e, idx) => {
-          const living = s.enemies.filter(x => x.hp > 0);
-          const isSolo = living.length === 1;
-          const intent = getEnemyIntent(e, idx, s.phaseTurn, isSolo);
-          const intentIcon = intent.intent === 'defend' ? 'shield' : intent.intent === 'scheme' ? 'spark' : intent.intent === 'lunge' ? 'swords' : 'knife';
-          const isDead = e.hp <= 0;
-
-          // Projected Impact
-          const projEnemy = projected?.state?.enemies?.[idx];
-          const projHp = projEnemy !== undefined ? projEnemy.hp : e.hp;
-          const dmgTaken = Math.max(0, e.hp - projHp);
-          const willDie = !isDead && projHp <= 0;
-
-          return `
-            <div class="enemy-actor ${isDead ? 'defeated' : ''} ${e.isBoss ? 'boss-actor' : ''} ${dmgTaken > 0 ? 'taking-preview-hit' : ''}">
-              <!-- STS Floating Intent Icon -->
-              <div class="enemy-intent-crest enemy-intent-badge intent-${intent.intent}" title="${intent.desc}">
-                ${!isDead ? (intent.damage > 0 
-                  ? `${icon(intentIcon)}<b>${num(intent.damage)}</b>` 
-                  : `${icon(intentIcon)}<b>${intent.intent === 'defend' ? 'درع' : 'مكر'}</b>`
-                ) : '<span class="dead">صريع</span>'}
-              </div>
-
-              <!-- Enemy Plate: Name + HP Bar + Ghost Damage Forecast -->
-              <div class="enemy-crest-body">
-                <div class="enemy-head">
-                  <span class="enemy-name">${e.name}</span>
-                  ${dmgTaken > 0 ? `<b class="preview-dmg-tag">-${num(dmgTaken)} 💥</b>` : ''}
-                </div>
-                <div class="enemy-hp-track">
-                  <i class="hp-fill" style="width:${(projHp / e.maxHp) * 100}%"></i>
-                  ${dmgTaken > 0 ? `<i class="hp-ghost" style="width:${(e.hp / e.maxHp) * 100}%"></i>` : ''}
-                  <span class="hp-num">${willDie ? '<b class="kill-tag">صريع!</b>' : ratio(projHp, e.maxHp)}</span>
-                </div>
-                ${(s.bleed > 0 || s.poison > 0) && !isDead ? `
-                  <div class="status-chips">
-                    ${s.bleed > 0 ? `<span class="chip bleed">${icon('bleed')} <b>${num(s.bleed)}</b></span>` : ''}
-                    ${s.poison > 0 ? `<span class="chip poison">${icon('poison')} <b>${num(s.poison)}</b></span>` : ''}
-                  </div>
-                ` : ''}
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-
-      <!-- 2. Ambient Outlaw Line: Sleek footer strip for Shanfara with Real-Time Defense Forecast -->
-      <div class="hero-vanguard-bar">
-        <div class="hero-plate">
-          <span class="hero-ico">${icon('bow')}</span>
-          <div class="hero-hp-wrap">
-            <span class="hero-name">الشَّنْفَرَى</span>
-            <div class="hero-hp-bar">
-              <i style="width:${((projected ? projected.state.hp : s.hp) / s.maxHp) * 100}%"></i>
-              <span>${ratio(projected ? projected.state.hp : s.hp, s.maxHp)}</span>
-            </div>
-          </div>
-          ${projected?.summary?.block ? `<span class="proj-block-tag">${icon('shield')} <b>+${num(projected.summary.block)}</b></span>` : ''}
-          ${s.momentum > 0 ? `
-            <span class="momentum-tag" title="زخم حركي: يتحول إلى دروع نهاية الدور أو يضاعف رميات القوس">
-              ${icon('fire')} <b>${num(s.momentum)}</b> <small class="mom-convert">➔ +${num(s.momentum * (s.relics.includes('sandals') ? 2 : 1))}🛡️</small>
-            </span>
-          ` : ''}
-        </div>
-
-        <div class="center-turn-banner">
-          ${p.axis ? `
-            <span class="staged-action-banner">
-              نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'} 
-              <small>(${projected?.summary?.hits ? `💥 ${num(projected.summary.hits)}` : ''} ${projected?.summary?.block ? `🛡️ ${num(projected.summary.block)}` : ''} ${projected?.summary?.moves ? `👟 ${num(projected.summary.moves)}` : ''})</small>
-            </span>
-          ` : p.cell !== null ? `
-            <span class="guide-step">الخطوة ٣: حدّد الصف (↔) أو العمود (↕) للتنفيذ</span>
-          ` : p.card ? `
-            <span class="guide-step">الخطوة ٢: المس خانة فارغة (＋) في الصخرة</span>
-          ` : `
-            <span class="guide-step">الخطوة ١: اختر بطاقة من يدك للبدء</span>
-          `}
-        </div>
-
-        <div class="haven-mini-tag">
-          <small>المأمن</small>
-          <b>${num(goal(s) - (projected ? projected.state.progress : s.progress))}</b>
-          ${projected?.summary?.moves ? `<small class="haven-gain">+${num(projected.summary.moves)}</small>` : ''}
-        </div>
-      </div>
-    </section>
-  `;
+function battleHeader(s) {
+  const enc = ENCOUNTERS[s.encounter - 1];
+  return `<header class="battle-header">
+    <div class="battle-heading"><span class="battle-eyebrow">طريق السَّراة · ${num(s.encounter)} / ٤</span><h1>${esc(enc.name)}</h1></div>
+    <div class="battle-tools">${button('؟', 'help', 'battle-tool', false, 'كيف ألعب؟')}${button(icon(isMuted() ? 'mute' : 'sound'), 'toggle-audio', 'battle-tool', false, 'تبديل الصوت')}${button('⋯', 'menu', 'battle-tool', false, 'القائمة')}</div>
+  </header>
+  <div class="journey-strip"><span>${icon('moon')} للفجر <b>${num(Math.max(0, 37 - s.turn))}</b> دورًا</span><span class="journey-track"><i style="width:${Math.min(100, s.progress / goal(s) * 100)}%"></i></span><span>${icon('foot')} المأمن <b>${num(s.progress)} / ${num(goal(s))}</b></span></div>`;
 }
 
-// -------------------------------------------------------------
-// Right Side (45%): 3x3 Basalt Nexus Altar (شبكة التدبير)
-// -------------------------------------------------------------
-function renderNexusAltar(s, p, projected, model) {
-  const prepared = p.axis ? stage(s, { card: p.card, cell: p.cell, axis: p.axis, face: p.face ?? 0 }) : null;
-  const staged = prepared?.grid || s.grid.slice();
-  if (!prepared && p.cell !== null && p.card) staged[p.cell] = p.card;
+function renderBattleBoard(s, p, projected) {
+  const prepared = p.card && p.cell !== null ? stage(s, p) : null;
+  const grid = prepared?.grid || s.grid;
+  const shown = { ...s, faces: { ...s.faces, ...prepared?.faces } };
+  const line = p.cell !== null && p.axis ? lineIndices(p.cell, p.axis) : [];
+  const target = targetForAction(s, p);
+  const pool = attackTargets(s);
+  const living = s.enemies.filter(e => e.hp > 0);
+  const targetIndex = s.enemies.findIndex(e => e.id === target);
+  const targetCell = enemyCell(targetIndex);
+  const originCell = p.cell === targetCell ? 7 : p.cell;
+  const point = cell => [((cell % 3) * 100) + 50, Math.floor(cell / 3) * 100 + 50];
+  const [tx, ty] = point(targetCell);
+  const [sx, sy] = point(originCell ?? 7);
+  const forecastHp = projected?.state.hp ?? s.hp;
+  const collapse = collapseRow(s);
 
-  const shown = { ...s, faces: { ...s.faces, ...prepared?.faces, ...(p.card ? { [p.card]: p.face ?? 0 } : {}) } };
-  const indices = p.cell !== null && p.axis ? lineIndices(p.cell, p.axis) : [];
-
-  return `
-    <section class="nexus-altar">
-      <div class="altar-slab">
-        <div class="slab-header">
-          <div class="crest-wings"></div>
-          <h3>شَبَكَةُ التَّدْبِير <small>٣×٣</small></h3>
-          <span class="slab-instruction">
-            ${!p.card ? 'اختر فعلاً من يدك' : p.cell === null ? 'المس خانة فارغة في الصخرة' : 'حدّد الصف أو العمود للتنفيذ'}
-          </span>
-        </div>
-
-        <!-- 3x3 Grid Matrix with Molten Gold Channels & Golden Lightning Arcs -->
-        <div class="matrix-grid ${p.axis ? `axis-${p.axis}` : ''}">
-          ${staged.map((uid, i) => {
-            const c = uid ? def(uid, shown) : null;
-            const b = c?.build || 'general';
-            const isStaged = p.cell === i;
-            const inLine = indices.includes(i);
-            const isTrail = !uid && trailCells.includes(i);
-            const isWard = !uid && s.wards[i];
-            const arch = ARCHETYPES[b] || ARCHETYPES.general;
-
-            return `
-              <div
-                data-cell="${i}"
-                role="button"
-                tabindex="${!uid && !p.card ? '-1' : '0'}"
-                class="matrix-cell ${uid ? `placed-card ${arch.class}` : 'empty-cell'} ${isStaged ? 'staged-cell' : ''} ${inLine ? 'active-line' : ''} ${isTrail ? 'trail-cell' : ''} ${isWard ? 'ward-cell' : ''}"
-                aria-label="خانة ${num(i + 1)}${c ? `: ${esc(c.name)}` : '، فارغة'}"
-                aria-pressed="${isStaged}"
-              >
-                ${inLine ? `<span class="order-badge">${num(indices.indexOf(i) + 1)}</span>` : ''}
-                ${c ? `
-                  <div class="card-miniature">
-                    <span class="card-icon">${icon(c.icon)}</span>
-                    <strong class="card-title">${c.name}</strong>
-                    <div class="card-effects-mini">${cardEffects(uid, shown)}</div>
-                  </div>
-                ` : isTrail ? `
-                  <div class="terrain-marker">${icon('foot')}<span>درب +١</span></div>
-                ` : isWard ? `
-                  <div class="terrain-marker ward">${icon('cover')}<span>ساتر</span></div>
-                ` : `
-                  <span class="plus-sign">＋</span>
-                `}
-
-                ${isStaged ? `
-                  <div class="spatial-axis-controls">
-                    <button type="button" data-axis="row" aria-pressed="${p.axis === 'row'}" class="axis-btn ${p.axis === 'row' ? 'selected' : ''}" title="تفعيل الصف">↔ صف</button>
-                    <button type="button" data-axis="col" aria-pressed="${p.axis === 'col'}" class="axis-btn ${p.axis === 'col' ? 'selected' : ''}" title="تفعيل العمود">↕ عمود</button>
-                  </div>
-                ` : ''}
-              </div>
-            `;
-          }).join('')}
-        </div>
-
-        <!-- Combo Feedback and Action Preview -->
-        <div class="altar-preview">
-          ${model ? comboView(s, model) : `
-            <div class="idle-prompt">
-              ${p.card ? `<strong>${esc(def(p.card, s, p.face ?? 0).name)}</strong> · ${esc(def(p.card, s, p.face ?? 0).text)}` : 'اختر بطاقة، ثم خانة فارغة، وراجع النتيجة قبل التنفيذ.'}
-            </div>
-          `}
-        </div>
-      </div>
-    </section>
-  `;
+  return `<section class="battle-stage" aria-label="ساحة المعركة وشبكة الأفعال">
+    <div class="battle-legend"><span>${icon('swords')} اضغط العدو لتحديد الهدف</span><span>شبكة القتال <b>٣ × ٣</b></span></div>
+    <div class="combat-grid" role="group" aria-label="رقعة المعركة، تسع خانات">
+      ${grid.map((uid, cell) => {
+        const c = uid ? def(uid, shown) : null;
+        const enemyIndex = s.enemies.findIndex((e, i) => enemyCell(i) === cell);
+        const enemy = s.enemies[enemyIndex];
+        const actor = enemy || cell === 7;
+        const staged = p.cell === cell;
+        let actorHtml = '';
+        if (enemy) {
+          const intent = getEnemyIntent(enemy, enemyIndex, s.phaseTurn, living.length === 1);
+          const after = projected?.state.enemies[enemyIndex]?.hp ?? enemy.hp;
+          const lost = Math.max(0, enemy.hp - after);
+          const locked = enemy.hp > 0 && !pool.some(e => e.id === enemy.id);
+          const kind = /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard';
+          actorHtml = `<button type="button" class="board-fighter enemy-fighter ${target === enemy.id ? 'is-target' : ''} ${enemy.hp <= 0 ? 'is-fallen' : ''} ${after <= 0 && enemy.hp > 0 ? 'will-fall' : ''}" data-target="${enemy.id}" ${enemy.hp <= 0 || locked ? 'disabled' : ''} aria-pressed="${target === enemy.id}" aria-label="${esc(enemy.name)}، صحة ${num(enemy.hp)}، ${locked ? 'يحميه حاملو التراس' : esc(intent.desc)}">
+            <span class="fighter-intent">${locked ? icon('shield') + ' محمي' : enemy.hp <= 0 ? 'صريع' : intent.damage ? icon('swords') + ' ' + num(intent.damage) : icon('spark') + ' تأهّب'}</span>
+            ${fighterArt(kind)}
+            <span class="fighter-name">${esc(enemy.name.replace(/\s*\(.*\)/, ''))}</span>
+            <span class="fighter-health"><i class="health-before" style="width:${enemy.hp / enemy.maxHp * 100}%"></i><i style="width:${after / enemy.maxHp * 100}%"></i><b>${num(after)} / ${num(enemy.maxHp)}</b></span>
+            ${lost ? `<span class="impact-number">−${num(lost)}</span>` : ''}
+            ${target === enemy.id && enemy.hp > 0 ? '<span class="target-mark">الهدف</span>' : ''}
+          </button>`;
+        } else if (cell === 7) {
+          actorHtml = `<div class="board-fighter hero-fighter">${fighterArt('hero')}<span class="fighter-name">الشَّنْفَرَى</span><span class="fighter-health"><i class="health-before" style="width:${s.hp / s.maxHp * 100}%"></i><i style="width:${forecastHp / s.maxHp * 100}%"></i><b>${num(forecastHp)} / ${num(s.maxHp)}</b></span>${projected?.summary.block ? `<span class="hero-block">${icon('shield')}${num(projected.summary.block)}</span>` : ''}</div>`;
+        }
+        return `<div class="battle-tile ${actor ? 'has-fighter' : ''} ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
+          <span class="tile-number" aria-hidden="true">${num(cell + 1)}</span>
+          <button type="button" data-cell="${cell}" class="tile-action ${c ? 'has-card ' + (ARCHETYPES[c.build]?.class || '') : ''}" aria-pressed="${staged}" aria-label="خانة ${num(cell + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}" ${!uid && !p.card ? 'disabled' : ''}>
+            ${c ? `<span class="action-token">${icon(c.icon)}<span>${esc(c.name)}</span><small>${esc(c.short)}</small>${staged ? '<b class="placement-tag">معاينة</b>' : ''}</span>` : `<span class="empty-action">${s.wards[cell] ? icon('cover') : trailCells.includes(cell) ? icon('foot') : '＋'}<small>${s.wards[cell] ? 'ساتر' : trailCells.includes(cell) ? 'درب +١' : p.card ? 'ضع هنا' : ''}</small></span>`}
+          </button>
+          ${actorHtml}
+          ${line.includes(cell) ? `<span class="path-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
+        </div>`;
+      }).join('')}
+      ${projected && (projected.summary.hits || 0) > 0 && targetIndex >= 0 ? `<svg class="attack-route" viewBox="0 0 300 300" aria-hidden="true"><defs><marker id="attack-tip" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="currentColor" stroke-width="1.5"/></marker></defs><path d="M${sx},${sy} Q${sx + (sx === tx ? 28 : 0)},${ty + 60} ${tx},${ty + 20}" marker-end="url(#attack-tip)"/></svg>` : ''}
+    </div>
+    <div class="board-context" role="status">${collapse !== null ? `<span class="collapse-note">${icon('stone')} صف ${num(collapse + 1)} ينهار بعد الدور</span>` : `<span>${icon('shield')} هجوم الأعداء القادم: <b>${num(incoming(s))}</b></span>`}<span>${s.relics.map(r => `<span title="${esc(RELICS[r]?.desc || '')}">${icon(RELICS[r]?.icon || 'spark')}</span>`).join('')}</span></div>
+  </section>`;
 }
 
-// -------------------------------------------------------------
-// Bottom Dock: Hand Fan, Momentum Gauge, End Turn Pommel
-// -------------------------------------------------------------
-function renderBottomDock(s, p, projected) {
-  return `
-    <footer class="bottom-dock">
-      <!-- Hand Cards Fan: Single Active Face with Quick Flip -->
-      <div class="hand-fan-tray" aria-label="أوراق التدبير في يدك">
-        ${s.hand.map(uid => {
-          const curFace = (p.card === uid && p.face !== undefined) ? p.face : (s.faces?.[uid] ?? 0);
-          const c = def(uid, s, curFace);
-          const altFace = curFace === 0 ? 1 : 0;
-          const altC = def(uid, s, altFace);
-          const isSel = p.card === uid;
-          const arch = ARCHETYPES[c.build] || ARCHETYPES.general;
-
-          return `
-            <div class="fan-card ${arch.class} ${isSel ? 'selected' : ''}" data-card-frame="${uid}">
-              <div class="card-header-bar">
-                <span class="card-archetype-badge">${arch.tag || arch.name}</span>
-                <button type="button" class="flip-face-btn" data-action="flip-card" data-card="${uid}" title="تبديل إلى: ${altC.name}">
-                  ${curFace === 0 ? '🔄 طارئ' : '🔄 أصيل'}
-                </button>
-              </div>
-              <button type="button" data-card="${uid}" data-face="${curFace}" aria-pressed="${isSel}" class="card-main-body ${isSel ? 'active' : ''}">
-                <div class="face-title">
-                  <span class="face-ico">${icon(c.icon)}</span>
-                  <strong class="card-title-text">${c.name}</strong>
-                  ${curFace === 1 ? '<span class="alt-pill">طارئ</span>' : ''}
-                </div>
-                <div class="face-effects">${cardEffects(uid, s, curFace)}</div>
-              </button>
-            </div>
-          `;
-        }).join('')}
-      </div>
-
-      <!-- End Turn / Commit Blade Button with Dynamic Live Metrics -->
-      <div class="dock-actions">
-        ${button(
-          p.axis && projected ? `
-            <div class="blade-content">
-              ${projected ? `<div class="health-forecast ${projected.state.hp < s.hp ? 'at-risk' : ''}" role="status">${projected.state.hp <= 0 ? 'خطر: هذه الحركة تنهي رحلتك' : projected.state.hp < s.hp ? `ستفقد ${num(s.hp - projected.state.hp)} صحة` : projected.state.hp > s.hp ? `ستستعيد ${num(projected.state.hp - s.hp)} صحة` : 'صحتك آمنة هذا الدور'}</div>` : ''}
-              <span class="blade-main-text">نفّذ ${p.axis === 'row' ? 'الصف ↔' : 'العمود ↕'}</span>
-              <span class="blade-stats-preview">
-                ${projected.summary.hits ? `<b>💥 ${num(projected.summary.hits)}</b>` : ''}
-                ${projected.summary.block ? `<b>🛡️ ${num(projected.summary.block)}</b>` : ''}
-                ${projected.summary.moves ? `<b>👟 ${num(projected.summary.moves)}</b>` : ''}
-              </span>
-            </div>
-            <i class="blade-gem"></i>
-          ` : `<span>${p.cell !== null ? 'حدّد الصف أو العمود' : p.card ? 'المس خانة بالصخرة' : 'اختر فعلاً'}</span><i class="blade-gem"></i>`,
-          'activate',
-          `end-turn-blade ${p.axis && projected ? 'blade-ready-pulse' : ''}`,
-          !projected
-        )}
-        ${button('إلغاء', 'cancel', 'cancel-btn', !p.card)}
-      </div>
-    </footer>
-  `;
+function axisChoices(s, p) {
+  if (!p.card || p.cell === null) return `<div class="planning-hint">${p.card ? `${esc(def(p.card, s, p.face ?? 0).name)} · اختر خانة لوضعها` : '١ اختر بطاقة · ٢ ضعها في الرقعة · ٣ فعّل خطّها'}</div>`;
+  return `<div class="axis-choices" aria-label="قارن الصف والعمود">${['row', 'col'].map(axis => {
+    const result = preview(s, p, axis);
+    if (!result) return '';
+    return `<button type="button" data-axis="${axis}" aria-pressed="${p.axis === axis}" class="axis-choice ${p.axis === axis ? 'is-selected' : ''}"><strong>${axis === 'row' ? '↔ الصف' : '↕ العمود'}</strong><span>${icon('swords')}${num(result.summary.hits || 0)} ${icon('shield')}${num(result.summary.block || 0)} ${icon('foot')}${num(result.summary.moves || 0)}</span>${result.state.hp < s.hp ? `<small class="axis-cost">−${num(s.hp - result.state.hp)} صحة</small>` : '<small>بلا خسارة صحة</small>'}</button>`;
+  }).join('')}</div>`;
 }
 
-// -------------------------------------------------------------
-// Main Game View Assembler
-// -------------------------------------------------------------
+function renderBattleHand(s, p, projected) {
+  const chosen = p.card ? def(p.card, s, p.face ?? 0) : null;
+  const hpLoss = projected ? Math.max(0, s.hp - projected.state.hp) : 0;
+  return `<section class="battle-hand" aria-label="بطاقاتك وتخطيط الحركة">
+    ${axisChoices(s, p)}
+    <div class="hand-heading"><span>بطاقاتك <b>${num(s.hand.length)}</b></span>${chosen ? button('شرح البطاقة', 'card-info', 'card-info-button') : '<small>الدائم يبقى · الطارئ يُطرح</small>'}</div>
+    <div class="battle-cards">${s.hand.map(uid => {
+      const face = p.card === uid ? p.face ?? 0 : s.faces?.[uid] ?? 0;
+      const c = def(uid, s, face);
+      return `<div class="battle-card ${ARCHETYPES[c.build]?.class || ''} ${p.card === uid ? 'is-selected' : ''}" data-card-frame="${uid}">
+        <button type="button" class="card-face-toggle" data-action="flip-card" data-card="${uid}" aria-label="تبديل وجه ${esc(c.name)}" title="${esc(c.text)}">${face === 0 ? 'دائم' : 'طارئ'} ${icon('swap')}</button>
+        <button type="button" data-card="${uid}" data-face="${face}" aria-pressed="${p.card === uid}" class="hand-card-main" aria-label="${esc(c.name + '، ' + c.text)}"><span class="hand-card-icon">${icon(c.icon)}</span><strong>${esc(c.name)}</strong><span class="hand-card-effects">${cardEffects(uid, s, face)}</span></button>
+      </div>`;
+    }).join('')}</div>
+    <div class="battle-commit"><div class="commit-result" role="status">${projected ? projected.state.hp <= 0 ? '<b class="danger-text">هذه الحركة تنهي رحلتك</b>' : hpLoss ? `<b class="danger-text">−${num(hpLoss)} صحة</b>` : `<b>${projected.state.hp > s.hp ? '+' + num(projected.state.hp - s.hp) + ' صحة' : 'صحتك آمنة'}</b>` : '<b>خطّط حركتك</b>'}<small>${projected ? 'النتيجة معروضة على الشخصيات' : 'المس الشخصية لاختيار الهدف'}</small></div>${button(p.card ? 'إلغاء' : '؟', p.card ? 'cancel' : 'help', 'battle-cancel', false, p.card ? 'إلغاء الاختيار' : 'دليل اللعب')}${button(projected ? 'نفّذ ' + (p.axis === 'row' ? 'الصف ↔' : 'العمود ↕') : p.card ? 'اختر خانة' : 'اختر بطاقة', 'activate', 'battle-execute', !projected)}</div>
+  </section>`;
+}
+
 function gameView(s, p, feedback = '') {
   const projected = preview(s, p);
-  const model = projected
-    ? comboModel(s, { card: p.card, cell: p.cell, axis: p.axis, face: p.face ?? 0 }, projected)
-    : null;
-
-  return `
-    <div class="shanfara-widescreen-app">
-      ${renderTopBar(s)}
-      <main class="widescreen-battlefield">
-        ${renderCinematicArena(s, projected, p)}
-        ${renderNexusAltar(s, p, projected, model)}
-      </main>
-      ${renderBottomDock(s, p, projected)}
-      ${feedback ? `<div class="tactical-toast" role="status">${esc(feedback)}</div>` : ''}
-    </div>
-  `;
+  return `<div class="battlefield-app">${battleHeader(s)}${renderBattleBoard(s, p, projected)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
 }
 
 // -------------------------------------------------------------
@@ -1877,7 +1706,7 @@ function titleView() {
   return `
     <main class="hero title-screen widescreen-modal">
       <div class="modal-card title-card">
-        <p class="gold-subtitle">رن الصعاليك الكامل · المسرح المزدوج</p>
+        <p class="gold-subtitle">ساحة واحدة · تسع خانات · قرارك يصنع النصر</p>
         <h1>طَرِيقُ السَّرَاة <small>· مَلْحَمَةُ الشَّنْفَرَى</small></h1>
         <div class="hero-art-widescreen">
           <div class="hero-silhouette"></div>
@@ -1889,7 +1718,7 @@ function titleView() {
         </p>
         <div class="title-actions">
           ${button('ابدأ ملحمة السَّراة', 'start', 'primary start-btn')}
-          ${button('قوانين البناءات والشبكة', 'rules', 'secondary')}
+          ${button('كيف تعمل ساحة المعركة؟', 'help', 'secondary')}
         </div>
       </div>
     </main>
@@ -1915,7 +1744,7 @@ const LAST = 'shanfara-roguelike-last-v8';
 let s = fresh();
 let report = null;
 let activeReport = null;
-let selection = { card: null, cell: null, axis: null, face: null };
+let selection = { card: null, cell: null, axis: null, face: null, target: null };
 let feedback = '';
 let feedbackTimer = null;
 let displayedFeedback = '';
@@ -1976,7 +1805,7 @@ function reset(seed = s.seed) {
   if (menu.open) menu.close();
   s = start(fresh(seed));
   report = begin(s);
-  selection = { card: null, cell: null, axis: null, face: null };
+  selection = { card: null, cell: null, axis: null, face: null, target: null };
   feedback = '';
   persist();
   render();
@@ -1994,7 +1823,7 @@ function rules() {
     'دليل ملحمة السَّراة وقوانين البناءات',
     `
     <ol class="steps">
-      <li><strong>المسرح المزدوج:</strong> الساحة على اليسار تعرض المعركة ومواقع الأعداء وتقدمك نحو المأمن؛ وصخرة التدبير على اليمين (٣×٣) تنظم فيها أفعالك وتآزر بطاقاتك.</li>
+      <li><strong>الرقعة هي المعركة:</strong> الأعداء في الصف العلوي والشنفرى في الأسفل. لكل خانة موضع بطاقة مستقل تحت الشخصية؛ اضغط الشخصية لتحديد الهدف أو موضع البطاقة للتخطيط. العمود يفضّل العدو المحاذي له ما لم تحدد هدفًا يدويًا. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
       <li><strong>مسارات البناء الأربعة:</strong>
         <ul>
           <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> مراكمة السرعة الحركية وتحويل فائض الزخم لصد (+٢ لكل خطوة) ومضاعفة ضرر رميات القوس.</li>
@@ -2011,13 +1840,13 @@ function rules() {
 }
 
 function commit(chosen = selection) {
-  const action = { ...chosen };
+  const action = s.screen === 'play' ? { ...chosen, target: targetForAction(s, chosen) } : { ...chosen };
   const result = activate(s, action);
   if (!result.valid) return;
 
   report = record(report || begin(s), s, action, result);
   s = result.state;
-  selection = { card: null, cell: null, axis: null, face: null };
+  selection = { card: null, cell: null, axis: null, face: null, target: null };
 
   if (result.summary.kind === 'reward') {
     feedback = result.summary.choice === 'purge' ? '✨ تطهرت رزمتك من بطاقة زائدة.' : '✨ ظفرتَ ببطاقة جديدة للمسير!';
@@ -2069,7 +1898,7 @@ function action(a) {
     reset(Date.now() >>> 0);
     playSfx('select');
   } else if (a === 'cancel') {
-    selection = { card: null, cell: null, axis: null, face: null };
+    selection = { card: null, cell: null, axis: null, face: null, target: null };
     render();
     playSfx('select');
   } else if (a === 'activate') {
@@ -2086,71 +1915,22 @@ function action(a) {
   } else if (a.startsWith('relic-')) {
     const relicId = a.replace('relic-', '');
     commit({ kind: 'relic', choice: relicId });
+  } else if (a === 'card-info' && selection.card) {
+    const uid = selection.card;
+    const permanent = def(uid, s, 0);
+    const instant = def(uid, s, 1);
+    show('وجها البطاقة', `<div class="quick-guide-dialog"><div class="guide-card"><div class="guide-body"><strong>دائم · ${esc(permanent.name)}</strong><p>${esc(permanent.text)}</p><div>${cardEffects(uid, s, 0)}</div></div></div><div class="guide-card"><div class="guide-body"><strong>طارئ · ${esc(instant.name)}</strong><p>${esc(instant.text)}</p><div>${cardEffects(uid, s, 1)}</div></div></div></div>`);
   } else if (a === 'rules') {
     rules();
   } else if (a === 'help') {
-    show(
-      'كيف تُلعب ملحمة الشَّنْفَرَى؟ (في ٤ خطوات بسيطة)',
-      `
+    show('ساحة واحدة، قرارك يصنع النصر', `
       <div class="quick-guide-dialog">
-        <div class="guide-card">
-          <div class="guide-num">١</div>
-          <div class="guide-body">
-            <strong>اختر بطاقة من يدك بالأسفل:</strong>
-            <p>لكل بطاقة وجهان: (أصيل 🔄 طارئ). بدّل بينهما بزر 🔄 لاختيار الأثر الأنسب لخطتك.</p>
-          </div>
-        </div>
-        <div class="guide-card">
-          <div class="guide-num">٢</div>
-          <div class="guide-body">
-            <strong>ضعها في خانة فارغة (＋) في الصخرة (٣×٣):</strong>
-            <p>البطاقة ستثبت في الصخرة. يمكنك لمس أي بطاقة في الصخرة لقراءة تفاصيلها وقوتها.</p>
-          </div>
-        </div>
-        <div class="guide-card">
-          <div class="guide-num">٣</div>
-          <div class="guide-body">
-            <strong>اختر تفعيل الصف (↔) أو العمود (↕):</strong>
-            <p>تفعيل الخط يجمع قوى كل البطاقات الموجودة في ذلك الخط وينفّذها بتسلسل وتآزر هجومي ودفاعي!</p>
-          </div>
-        </div>
-        <div class="guide-card">
-          <div class="guide-num">٤</div>
-          <div class="guide-body">
-            <strong>اضغط زر (نفّذ) بالسيف بالأسفل:</strong>
-            <p>قبل الضغط، راقب التوقعات بالأعلى: الضرر الذي سينال العدو، والدروع التي ستصد هجومه القادم!</p>
-          </div>
-        </div>
-        <div class="guide-footer-tip" style="margin-top:6px;">
-          💡 <b>سر الصعاليك:</b> عندما يكتمل الخط بـ ٣ بطاقات ينفّذ ضربات قاضية ثم يُفرَّغ لتضع فيه بطاقات جديدة!
-        </div>
-
-        <div class="mechanics-breakdown-box" style="margin-top:10px;background:rgba(8,16,20,0.85);border:1px solid #ffd488;border-radius:8px;padding:10px;">
-          <h3 style="color:#efbf75;margin:0 0 8px;font-size:0.95rem;">⚡ كيف تستغل الزَّخَم والنَّهْش في معاركك؟</h3>
-          <ul style="margin:0;padding-right:18px;font-size:0.8rem;line-height:1.5;color:#e8ded1;">
-            <li style="margin-bottom:6px;">
-              <b style="color:#f0b842;">🔥 الزَّخَم (Momentum):</b> طاقة سرعة تتراكم.
-              <br>• <b>حماية تلقائية:</b> أي زخم يتبقى بنهاية الدور <b>يتحول تلقائياً إلى دروع (+١ درع لكل زخم)</b> تحميك من الأعداء!
-              <br>• <b>تقوية القوس:</b> رمية القوس 🏹 تضيف نصف رصيدك من الزخم كضرر إضافي مباشر!
-            </li>
-            <li style="margin-bottom:6px;">
-              <b style="color:#ba7ae8;">🐺 النَّهْش وانقضاض الذئب (Beast Pounce):</b>
-              <br>• الذئب يضرب ضرراً أساسياً.
-              <br>• <b>التآزر القاتل:</b> إذا ضربت العدو أولاً بـ <b>النَّزْف 🩸</b> أو <b>السُّم 🧪</b>، يشم الذئب الدم ويكسب <b>+٢ ضرر إضافي فوراً!</b>
-            </li>
-            <li style="margin-bottom:6px;">
-              <b style="color:#e64a38;">🩸 النَّزْف (Bleed):</b>
-              <br>• يُمكّن الذئب من النهش المضاعف، وتفجيره ببطاقة النصل يضاعف ضرره مرتين 💥!
-            </li>
-            <li>
-              <b style="color:#4aaed9;">🛡️ الصَّخْر والسَّواتر (Rock):</b>
-              <br>• تغرس سواتر في خانات الصخرة؛ تفعيلها يمنحك دروعاً صلبة ويصد هجمات العدو.
-            </li>
-          </ul>
-        </div>
-      </div>
-      `
-    );
+        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>اقرأ الأعداء داخل الرقعة</strong><p>فوق كل عدو هجومه القادم، وتحته صحته. المس شخصيته لتحديده هدفًا. حاملو التراس يحمون الزعيم.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>اختر بطاقة ووجهًا من يدك</strong><p>زر دائم / طارئ يبدّل الوجه. الدائم يبقى ليتكرر أثره، والطارئ ينفّذ أثره ثم يُطرح.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>ضعها في موضع بطاقة فارغ</strong><p>كل خانة تستقبل بطاقة حتى لو كانت فيها شخصية؛ موضع البطاقة تحت الشخصية مستقل عنها. وجود الشخصية لا يغلق الخانة.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>قارن الصف والعمود ثم نفّذ</strong><p>الخط المضيء ينفّذ البطاقات بالترتيب المرقّم. السهم يبيّن الهدف، وصحة الشخصيات تعرض النتيجة المتوقعة. يمكنك تغيير الهدف قبل التنفيذ.</p></div></div>
+        <div class="guide-footer-tip">العمود يختار عدوًا محاذيًا تلقائيًا إن وجد. ترتيب تنفيذ الصفوف من اليسار لليمين والأعمدة من الأعلى للأسفل. اكتمال خط بثلاث بطاقات يفرّغه. الزخم الفائض يتحوّل إلى دروع.</div>
+      </div>`);
   } else if (a === 'menu') {
     show(
       'ملحمة الشَّنْفَرَى',
@@ -2180,7 +1960,7 @@ document.addEventListener('click', e => {
     if (selection.card === card) {
       selection.face = nextFace;
       if (selection.cell !== null) {
-        selection.axis = bestAxis(s, card, selection.cell, nextFace);
+        selection.axis = bestAxis(s, card, selection.cell, nextFace, selection.target);
       }
     }
     render();
@@ -2195,15 +1975,22 @@ document.addEventListener('click', e => {
 
   if (s.screen !== 'play') return;
 
+  if (b.dataset.target) {
+    selection.target = selection.target === b.dataset.target ? null : b.dataset.target;
+    render();
+    playSfx('select');
+    return;
+  }
+
   // Face toggle or card selection in hand
   if (b.dataset.face !== undefined && b.dataset.card) {
     const face = Number(b.dataset.face);
     const card = b.dataset.card;
     if (selection.cell !== null) {
-      const axis = bestAxis(s, card, selection.cell, face);
-      selection = { card, face, cell: selection.cell, axis };
+      const axis = bestAxis(s, card, selection.cell, face, selection.target);
+      selection = { ...selection, card, face, cell: selection.cell, axis };
     } else {
-      selection = { card, face, cell: null, axis: null };
+      selection = { ...selection, card, face, cell: null, axis: null };
     }
     render();
     playSfx('select');
@@ -2215,10 +2002,10 @@ document.addEventListener('click', e => {
     const card = b.dataset.card;
     const face = selection.face ?? 0;
     if (selection.cell !== null) {
-      const axis = bestAxis(s, card, selection.cell, face);
-      selection = { card, face, cell: selection.cell, axis };
+      const axis = bestAxis(s, card, selection.cell, face, selection.target);
+      selection = { ...selection, card, face, cell: selection.cell, axis };
     } else {
-      selection = { card, face, cell: null, axis: null };
+      selection = { ...selection, card, face, cell: null, axis: null };
     }
     render();
     playSfx('select');
@@ -2237,7 +2024,7 @@ document.addEventListener('click', e => {
           <p style="font-size:0.9rem;line-height:1.4;margin:4px 0 8px;">${esc(c.text)}</p>
           <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;">${cardEffects(s.grid[i], s)}</div>
           <p style="color:#efbf75;font-size:0.8rem;border-top:1px dashed #33444d;padding-top:6px;margin:8px 0 0;">
-            💡 هذه البطاقة مستقرة في الصخرة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
+            💡 هذه البطاقة مستقرة في الرقعة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
           </p>
         </div>
         `
@@ -2246,8 +2033,8 @@ document.addEventListener('click', e => {
     }
     if (!selection.card) return;
     const face = selection.face ?? 0;
-    const axis = bestAxis(s, selection.card, i, face);
-    selection = { card: selection.card, face, cell: i, axis };
+    const axis = bestAxis(s, selection.card, i, face, selection.target);
+    selection = { ...selection, card: selection.card, face, cell: i, axis };
     render();
     playSfx('select');
     return;
@@ -2279,8 +2066,8 @@ document.addEventListener('keydown', e => {
     if (uid) {
       const face = e.shiftKey ? 1 : (selection.card === uid && selection.face === 0 ? 1 : 0);
       const cell = selection.cell;
-      const axis = cell !== null ? bestAxis(s, uid, cell, face) : null;
-      selection = { card: uid, face, cell, axis };
+      const axis = cell !== null ? bestAxis(s, uid, cell, face, selection.target) : null;
+      selection = { ...selection, card: uid, face, cell, axis };
       render();
       playSfx('select');
     }
