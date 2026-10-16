@@ -1,21 +1,283 @@
-import {comboModel} from './combos.mjs?v=7';
-import {VERSION,fresh,start,activate,assertState,def,stage} from './engine.mjs?v=7';import {begin,record,restore,exported,textReport} from './report.mjs?v=7';import {gameView,endView,titleView,rewardView,interludeView,comboView,bestAxis,button as btn,esc,num,ratio} from './view.mjs?v=7';
-import {playSfx,toggleMute,isMuted} from './audio.mjs?v=7';
-const root=document.querySelector('#app'),menu=document.querySelector('#menu'),KEY='shanfara-nexus-v7',LAST='shanfara-nexus-last-v7';let s=fresh(),report=null,activeReport=null,selection={card:null,cell:null,axis:null,face:null},feedback='',rewardPick=null;
-try{const save=JSON.parse(localStorage.getItem(KEY));if(save?.state?.version===VERSION){assertState(save.state);s=save.state;report=restore(save.report,s);}}catch{}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify({state:s,report}));if(s.screen==='end')localStorage.setItem(LAST,JSON.stringify(report));}catch{feedback='تعذر الحفظ على الجهاز؛ يمكنك نسخ تقرير الرن.';}}
-function render(){document.body.dataset.screen=s.screen;root.innerHTML=s.screen==='title'?titleView():s.screen==='end'?endView(s):s.screen==='reward'?rewardView(s,rewardPick):s.screen==='interlude'?interludeView(s):gameView(s,selection,feedback);}
-const focus=q=>root.querySelector(q)?.focus({preventScroll:true});
-function reset(seed=s.seed){if(menu.open)menu.close();s=start(fresh(seed));report=begin(s);selection={card:null,cell:null,axis:null,face:null};feedback='';rewardPick=null;persist();render();focus('[data-card]');}
-function show(title,body){menu.innerHTML=`<div class="dialog-head"><h2>${title}</h2>${btn('×','close')}</div>${body}`;if(!menu.open)menu.showModal();menu.querySelector('button')?.focus();}
-function rules(){show('طريق العودة',`<ol class="steps"><li>اختر بطاقة وأحد فعليها، ثم خانة فارغة، ثم صفًا أو عمودًا.</li><li>نفّذ الخط بالترتيب الظاهر. تتقدّم عبر الدروب الفارغة أيضًا.</li><li>ثلاث بطاقات تملأ الخط: تُنفّذ ثم تُطرح. غير ذلك تبقى.</li><li>«حِيلَةُ التَّحَوُّل» تبدّل الخانتين الأخريين قبل تنفيذ الخط، ثم تُطرح.</li><li>لكل بطاقة فعلان مستلهمان من خصال الشنفرى؛ دائم وطارئ مضحٍّ. اختر وجهًا قبل وضعها؛ يثبت على الشبكة حتى تُطرح وتسحبها مجددًا.</li><li>عند بلوغ الزاد، تظفر بأسلوب جديد من مكائد الصعاليك تستبدله ببطاقة من يدك.</li></ol><p>حرّر قيود رفيقك الثلاثة («وَفَاءُ الرَّهْط»). بعدها تصبح البطاقة «دِرْعُ الرَّفِيق» وتصدّ ضررين. «مَلاذُ الجَلْمَد» جائزة مستقلة: صدّ ٣ الآن، ووجهها الآخر «أَثَرُ السَّاتِر» يصدّ ١ في تفعيلات لاحقة. وضع بطاقة فوقه يمحوه.</p><p>المواجهة الأولى تنتهي بجمع الزاد وتحرير الرفيق وهزيمة الحارس، أو ببلوغ المأمن بـ١٢ خطوة. الثانية تتطلب عبور ٨ خطوات في الشِّعب؛ الصف المعلّم يفقد بطاقاته وسواتره بعد كل دور. الصحة ووقت الفجر مستمران، وبقاء الحارس حيًا يزيد وطأة الخطر في الشِّعب.</p><p class="danger">«حَدُّ الإصْلِيت» يجرحك حتى عند الانصراف لكبرياء الصعلوك. «رَوَاغُ الزُّهْلُول» تقوّي الهجوم الذي يأتي بعدها في الخط نفسه.</p>${btn('ابدأ الرحلة','start','primary',s.screen!=='title')}`);}
-function effects(){if(!s.last)return;const l=s.last,event=report?.events.at(-1),model=event?.summary.kind==='turn'?comboModel(event.before,event.action,{valid:true,summary:event.summary}):null;show('ما حدث',`${model?comboView(event.before,model):''}<p>تقدّمت ${num(l.moves)} · أصبت ${num(l.hits)} · صدَدت ${num(l.block)}</p>${l.collapsed?.length?`<p>طرح الانهيار: ${l.collapsed.map(uid=>def(uid,s).name).join('، ')}</p>`:''}<p>جرح النصل: ${num(l.selfDamage)} · ضربة الحارس: ${num(l.enemyDamage)}</p>${l.log.map(t=>`<p>${esc(t)}</p>`).join('')}<p>${l.cleared.length?'طُرحت بطاقات الخط.':l.vanished?.length?'طُرحت البطاقة المؤقتة وحدها.':'بقيت البطاقات في أماكنها.'}</p>`);}
-function animate(result,rects){if(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;for(const x of result.summary.line){const node=root.querySelector(`[data-cell="${x.cell}"]`);node?.animate?.([{filter:'brightness(1.5)'},{filter:'brightness(1)'}],{duration:350,easing:'ease-out'});if(result.summary.cleared.includes(x.uid)){const r=rects[x.cell];if(!r?.width)continue;const ghost=document.createElement('span');ghost.className='clear-ghost';ghost.textContent=x.name||def(x.uid,s).name;Object.assign(ghost.style,{top:r.top+'px',left:r.left+'px',width:r.width+'px',height:r.height+'px'});document.body.append(ghost);const a=ghost.animate?.([{opacity:.9,transform:'scale(1)'},{opacity:0,transform:'translateY(20px) scale(.7)'}],{duration:380,easing:'ease-out'});if(a)a.onfinish=()=>ghost.remove();else ghost.remove();}}}
-function commit(chosen=selection){const action={...chosen},rects={};for(let i=0;i<9;i++)rects[i]=root.querySelector(`[data-cell="${i}"]`)?.getBoundingClientRect?.();const result=activate(s,action);if(!result.valid)return;report=record(report||begin(s),s,action,result);s=result.state;rewardPick=null;selection={card:null,cell:null,axis:null,face:null};feedback=result.summary.kind==='reward'?(result.summary.uid?'ظفرتَ بمهارة جديدة؛ اختر أين توظّفها في الشبكة.':'ثبتَّ على تدبيرك الحالي.'):result.summary.friendSaved?'«وفاءُ الرَّهْط»؛ تحرّر رفيقك وصار درعاً يصدّ عنك.':`تقدّمت ${num(result.summary.moves)} · أصبت ${num(result.summary.hits)} · تلقّيت ${num(result.summary.enemyDamage+result.summary.selfDamage)}${result.summary.traceLeft?' · خلّفت ساترًا':''}`;if(result.summary.collapsed?.length)feedback=`طرح الانهيار ${num(result.summary.collapsed.length)} بطاقة · `+feedback;if(result.summary.unusedPrime)feedback=`ضاعت تقوية +${num(result.summary.unusedPrime)}؛ لا هجوم بعدها · `+feedback;persist();render();animate(result,rects);if(result.summary.friendSaved)playSfx('friend');else if(result.summary.collapsed?.length)playSfx('collapse');else if(result.summary.hits)playSfx('hit');else if(result.summary.selfDamage)playSfx('knife');else if(result.summary.block)playSfx('block');else if(result.summary.moves)playSfx('move');else playSfx('select');if(s.outcome==='full'||s.outcome==='supplies')playSfx('victory');else if(s.outcome==='dead'||s.outcome==='caught')playSfx('defeat');document.querySelector('#live').textContent=feedback;focus(s.screen==='end'?'[data-action="report"]':s.screen==='reward'?'[data-reward]':s.screen==='interlude'?'[data-action="continue"]':'[data-card]');}
-function reportDialog(r=report){if(!r){show('التقرير','<p>ابدأ تجربة لتسجيل قراراتها.</p>');return;}activeReport=r;const x=exported(r);show('تقرير تجربة الشبكة',`<p>الأدوار المسجّلة ${num(x.metrics.turns)} · خطوط فرّغتها ${num(x.metrics.clearedLines)}</p><p>${r.coverage==='complete'?'السجل كامل من بداية التجربة.':'السجل جزئي؛ بداية التجربة غير مسجلة.'}</p><p>انسخ التقرير والصقه في المحادثة لتحليل مواضع البطاقات واختيار الخطوط.</p>${btn('نسخ التقرير للتحليل','copy','primary')}${btn('تنزيل JSON','download')}<p id="copy-status" role="status"></p><details><summary>النص القابل للنسخ</summary><textarea readonly class="report-box" id="report-text" aria-label="تقرير الرن">${esc(textReport(r))}</textarea></details><small>التقرير يُحفظ على جهازك، ولا يُرسل تلقائيًا.</small>`);}
-async function copy(){const status=menu.querySelector('#copy-status');try{if(!globalThis.navigator?.clipboard?.writeText)throw Error();await navigator.clipboard.writeText(textReport(activeReport));status.textContent='تم النسخ؛ الصقه في المحادثة.';}catch{const box=menu.querySelector('#report-text'),details=box?.closest?.('details');if(details)details.open=true;box?.focus();box?.select();status.textContent='تعذر النسخ التلقائي؛ انسخ النص المحدد أو نزّل الملف.';}}
-function download(){const blob=new Blob([JSON.stringify(exported(activeReport),null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`shanfara-nexus-${activeReport.runId}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function action(a){if(a==='close'){menu.close();focus('[data-action="menu"]');}else if(a==='toggle-audio'){toggleMute();render();playSfx('select');}else if(a==='start'){if(s.screen==='title'){s=start(s);report=begin(s);if(menu.open)menu.close();persist();render();playSfx('select');focus('[data-card]');}}else if(a==='restart'){reset();playSfx('select');}else if(a==='new-seed'){reset(Date.now()>>>0);playSfx('select');}else if(a==='reward-back'){rewardPick=null;render();focus('[data-reward]');}else if(a==='cancel'){selection={card:null,cell:null,axis:null,face:null};render();playSfx('select');focus('[data-card]');}else if(a==='change-face'&&selection.card){const nextFace=selection.face===0?1:0;const axis=selection.cell!==null?bestAxis(s,selection.card,selection.cell,nextFace):selection.axis;selection={...selection,face:nextFace,axis};render();playSfx('select');focus('[data-action="activate"]');}else if(a==='activate')commit();else if(a==='continue')commit({kind:'continue'});else if(a==='card-info'&&selection.card){show('فعلا البطاقة',`${[0,1].map(face=>{const c=def(selection.card,s,face);return `<h2>${c.name}</h2><p>${c.text}</p>`;}).join('')}<small>الوجه الذي تختاره يثبت حتى تُطرح البطاقة وتسحبها مجددًا.</small>`);}else if(a==='rules')rules();else if(a==='last-result')effects();else if(a==='report')reportDialog();else if(a==='copy')copy();else if(a==='download')download();else if(a==='last-report'){try{reportDialog(JSON.parse(localStorage.getItem(LAST)));}catch{reportDialog(null);}}else if(a==='health-info')show('صحتك',`<p>بقيت ${num(s.hp)} صحة من ١٨. نفادها ينهي الرحلة.</p>`);else if(a==='enemy-info')show('الحارس',`<p>بقيت له ${num(s.enemy)} صحة من ${s.encounter===2?'٦':'١٢'}. ${s.enemy?'يضرب في نهاية الدور؛ أفعال الصدّ تقلّل الضرر.':'هُزم؛ لن يهاجمك.'}</p><p>${s.encounter===1?'أخذ الزاد وتحرير الرفيق وإسقاط الحارس ينهي المواجهة فورًا. أو انثنِ بالوصول إلى ١٢ خطوة مأمناً.':'الخطر = حجارة ١ + رماة ٢ إن بقوا أحياء'+(s.firstResult?.enemy>0?' + مطاردة الحارس ١.':'.')+' إسقاط الرماة لا يوقف انهيار الشِّعب.'}</p>`);else if(a==='friend-info')show('رفيقك',`<p>${s.encounter===2&&s.friend<3?'بقي رفيقك أسيراً في الوادي؛ مضيتَ وحيداً ببطاقات تقدّمك خطوة بدل التغطية: «وَلِي دُونَكُمْ أَهْلُونَ».':s.friend===3?'صار طليقاً بوفاء الصاحب. بطاقة «دِرْعُ الرَّفِيق» تصدّ ضررين؛ وتستطيع اكتساب «مَلاذُ الجَلْمَد» عند الزاد.':'فُكّ '+num(s.friend)+' من ٣ قيود. فعّل «وَفَاءُ الرَّهْط» لفكّ البقية.'}</p>`);else if(a==='menu')show('شبكة التدبير',`${btn('أكمل اللعب','close','primary')}${btn(isMuted()?'تشغيل المؤثرات الصوتية':'كتم المؤثرات الصوتية','toggle-audio')}${btn('قواعد النموذج','rules')}${btn('نتيجة آخر تفعيل','last-result','',!s.last)}${btn('تقرير التجربة الحالية','report')}${btn('آخر تقرير مكتمل','last-report')}${btn('إعادة نفس التجربة','restart')}${btn('توزيع سحب جديد','new-seed')}<p><a href="raid/">نموذج المواجهتين السابق</a></p>`);}
-document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;if(b.dataset.action){action(b.dataset.action);return;}if(b.dataset.reward){playSfx('select');if(s.screen==='reward'){if(b.dataset.reward==='keep')commit({kind:'reward',choice:'keep'});else{rewardPick=b.dataset.reward;render();focus('[data-replace]');}}return;}if(b.dataset.replace){playSfx('select');if(s.screen==='reward'&&rewardPick)commit({kind:'reward',choice:rewardPick,replace:b.dataset.replace});return;}if(s.screen!=='play')return;if(b.dataset.face!==undefined){const face=Number(b.dataset.face),card=b.dataset.card||selection.card;if(card&&[0,1].includes(face)){if(selection.cell!==null){const axis=bestAxis(s,card,selection.cell,face);selection={card,face,cell:selection.cell,axis};}else{selection={card,face,cell:null,axis:null};}render();playSfx('select');focus(selection.cell!==null?'[data-action="activate"]':'[data-cell]:not(:disabled)');}return;}if(b.dataset.card){const card=b.dataset.card,face=selection.face??0;if(selection.cell!==null){const axis=bestAxis(s,card,selection.cell,face);selection={card,face,cell:selection.cell,axis};}else{selection={card,face,cell:null,axis:null};}render();playSfx('select');focus(selection.cell!==null?'[data-action="activate"]':'[data-cell]:not(:disabled)');return;}if(b.dataset.cell!==undefined){const i=Number(b.dataset.cell);if(selection.card&&selection.cell!==null){if(selection.cell===i){if(selection.axis){commit();return;}}const sR=Math.floor(selection.cell/3),cR=Math.floor(i/3),sC=selection.cell%3,cC=i%3;if(cR===sR&&cC!==sC){selection.axis='row';render();playSfx('select');focus('[data-action="activate"]');return;}if(cC===sC&&cR!==sR){selection.axis='col';render();playSfx('select');focus('[data-action="activate"]');return;}if(!s.grid[i]){const face=selection.face??0,axis=bestAxis(s,selection.card,i,face);selection={card:selection.card,face,cell:i,axis};render();playSfx('select');focus('[data-action="activate"]');return;}const c=def(s.grid[i],s);show(c.name,`<p>${c.text}</p>`);return;}if(s.grid[i]){const c=def(s.grid[i],s);show(c.name,`<p>${c.text}</p>`);return;}if(!selection.card)return;const face=selection.face??0,axis=bestAxis(s,selection.card,i,face);selection={card:selection.card,face,cell:i,axis};render();playSfx('select');focus('[data-action="activate"]');return;}if(b.dataset.axis){if(selection.axis===b.dataset.axis&&selection.cell!==null&&selection.card){commit();return;}selection.axis=b.dataset.axis;render();playSfx('select');focus('[data-action="activate"]');}});
-document.addEventListener('keydown',e=>{if(menu.open||s.screen!=='play')return;if(e.key==='Escape')action('cancel');if(e.key>='1'&&e.key<='4'&&!e.ctrlKey&&!e.metaKey){const cardIdx=Number(e.key)-1,uid=s.hand[cardIdx];if(uid){const face=e.shiftKey?1:(selection.card===uid&&selection.face===0?1:0),cell=selection.cell,axis=cell!==null?bestAxis(s,uid,cell,face):null;selection={card:uid,face,cell,axis};render();playSfx('select');}}if((e.key==='Enter'||e.key===' ')&&selection.card&&selection.cell!==null&&selection.axis){e.preventDefault();commit();}});
-render();focus(s.screen==='title'?'[data-action="start"]':s.screen==='reward'?'[data-reward]':s.screen==='end'?'[data-action="report"]':'[data-card]');
+import { comboModel } from './combos.mjs?v=8';
+import { VERSION, fresh, start, activate, assertState, def, stage } from './engine.mjs?v=8';
+import { begin, record, restore, exported, textReport } from './report.mjs?v=8';
+import {
+  gameView,
+  endView,
+  titleView,
+  rewardView,
+  relicView,
+  interludeView,
+  comboView,
+  bestAxis,
+  button as btn,
+  esc,
+  num,
+  ratio
+} from './view.mjs?v=8';
+import { playSfx, toggleMute, isMuted } from './audio.mjs?v=8';
+
+const root = document.querySelector('#app');
+const menu = document.querySelector('#menu');
+const KEY = 'shanfara-roguelike-v8';
+const LAST = 'shanfara-roguelike-last-v8';
+
+let s = fresh();
+let report = null;
+let activeReport = null;
+let selection = { card: null, cell: null, axis: null, face: null };
+let feedback = '';
+
+try {
+  const save = JSON.parse(localStorage.getItem(KEY));
+  if (save?.state?.version === VERSION) {
+    assertState(save.state);
+    s = save.state;
+    report = restore(save.report, s);
+  }
+} catch {}
+
+function persist() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ state: s, report }));
+    if (s.screen === 'end') localStorage.setItem(LAST, JSON.stringify(report));
+  } catch {
+    feedback = 'تعذر الحفظ على الجهاز؛ يمكنك نسخ تقرير الرن.';
+  }
+}
+
+function render() {
+  document.body.dataset.screen = s.screen;
+  if (s.screen === 'title') {
+    root.innerHTML = titleView();
+  } else if (s.screen === 'end') {
+    root.innerHTML = endView(s);
+  } else if (s.screen === 'reward') {
+    root.innerHTML = rewardView(s);
+  } else if (s.screen === 'relic') {
+    root.innerHTML = relicView(s);
+  } else if (s.screen === 'interlude') {
+    root.innerHTML = interludeView(s);
+  } else {
+    root.innerHTML = gameView(s, selection, feedback);
+  }
+}
+
+const focus = q => root.querySelector(q)?.focus({ preventScroll: true });
+
+function reset(seed = s.seed) {
+  if (menu.open) menu.close();
+  s = start(fresh(seed));
+  report = begin(s);
+  selection = { card: null, cell: null, axis: null, face: null };
+  feedback = '';
+  persist();
+  render();
+  focus('[data-card]');
+}
+
+function show(title, body) {
+  menu.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn('×', 'close')}</div>${body}`;
+  if (!menu.open) menu.showModal();
+  menu.querySelector('button')?.focus();
+}
+
+function rules() {
+  show(
+    'دليل ملحمة السَّراة وقوانين البناءات',
+    `
+    <ol class="steps">
+      <li><strong>المسرح المزدوج:</strong> الساحة على اليسار تعرض المعركة ومواقع الأعداء وتقدمك نحو المأمن؛ وصخرة التدبير على اليمين (٣×٣) تنظم فيها أفعالك وتآزر بطاقاتك.</li>
+      <li><strong>مسارات البناء الأربعة:</strong>
+        <ul>
+          <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> مراكمة السرعة الحركية وتحويل فائض الزخم لصد (+٢ لكل خطوة) ومضاعفة ضرر رميات القوس.</li>
+          <li><b style="color:#e64a38">النَّزْف والسُّمُوم:</b> إدماء الأعداء، وتطبيق السم الذي يتجاوز الدروع، وتفجير النزف بضربات قاضية.</li>
+          <li><b style="color:#4aaed9">الصَّخْر والجَلَد:</b> غرس السواتر المتينة، واستفاف الترب لتحويل الجراح لدروع ورد هجومي.</li>
+          <li><b style="color:#ba7ae8">مِيثَاق الضَّوَارِي:</b> انقضاض الذئب، وكمائن النمر، واسترداد غنائم الضبعة.</li>
+        </ul>
+      </li>
+      <li><strong>الآثار كاسرة القواعد:</strong> تمنحك مزايا خارقة تغيّر قوانين المعركة (مثل تفجير السواتر، وتطبيق النزف الجماعي عند تفريغ الخط).</li>
+      <li><strong>المراحل الأربع:</strong> مَضِيق الصَّفَا ➔ قَلْت المَاءِ (المورد والشفاء) ➔ شِعَاب الغَبَش (الضباب والسموم) ➔ مُعَسْكَر سَلامَان (نزال الزعيم عوف بن صخر).</li>
+    </ol>
+    `
+  );
+}
+
+function commit(chosen = selection) {
+  const action = { ...chosen };
+  const result = activate(s, action);
+  if (!result.valid) return;
+
+  report = record(report || begin(s), s, action, result);
+  s = result.state;
+  selection = { card: null, cell: null, axis: null, face: null };
+
+  if (result.summary.kind === 'reward') {
+    feedback = result.summary.choice === 'purge' ? 'تطهرت رزمتك من بطاقة زائدة.' : 'ظفرتَ ببطاقة جديدة للمسير!';
+  } else if (result.summary.kind === 'relic') {
+    feedback = 'اكتسبتَ أثراً صعلوكياً جديداً!';
+  } else if (result.summary.kind === 'transition') {
+    feedback = 'اقتحمتَ المعبر التالي.';
+  } else {
+    feedback = `تقدّمت ${num(result.summary.moves || 0)} · أصبت ${num(result.summary.hits || 0)} · صدَدت ${num(result.summary.block || 0)} · ضرر ${num(result.summary.enemyDamage || 0)}`;
+  }
+
+  persist();
+  render();
+
+  // Play appropriate audio SFX
+  if (result.summary.hits) playSfx('hit');
+  else if (result.summary.selfDamage) playSfx('knife');
+  else if (result.summary.block) playSfx('block');
+  else if (result.summary.moves) playSfx('move');
+  else playSfx('select');
+
+  if (s.outcome === 'victory' || s.outcome === 'full') playSfx('victory');
+  else if (s.outcome === 'dead' || s.outcome === 'caught') playSfx('defeat');
+}
+
+function action(a) {
+  if (a === 'close') {
+    menu.close();
+  } else if (a === 'toggle-audio') {
+    toggleMute();
+    render();
+    playSfx('select');
+  } else if (a === 'start') {
+    s = start(s);
+    report = begin(s);
+    if (menu.open) menu.close();
+    persist();
+    render();
+    playSfx('select');
+  } else if (a === 'restart') {
+    reset();
+    playSfx('select');
+  } else if (a === 'new-seed') {
+    reset(Date.now() >>> 0);
+    playSfx('select');
+  } else if (a === 'cancel') {
+    selection = { card: null, cell: null, axis: null, face: null };
+    render();
+    playSfx('select');
+  } else if (a === 'activate') {
+    commit();
+  } else if (a === 'continue') {
+    commit({ kind: 'continue' });
+  } else if (a === 'purge') {
+    commit({ kind: 'purge' });
+  } else if (a === 'skip') {
+    commit({ kind: 'skip' });
+  } else if (a.startsWith('draft-')) {
+    const cardId = a.replace('draft-', '');
+    commit({ kind: 'draft', choice: cardId });
+  } else if (a.startsWith('relic-')) {
+    const relicId = a.replace('relic-', '');
+    commit({ kind: 'relic', choice: relicId });
+  } else if (a === 'rules') {
+    rules();
+  } else if (a === 'menu') {
+    show(
+      'ملحمة الشَّنْفَرَى',
+      `
+      <div style="display:grid;gap:8px;">
+        ${btn('أكمل اللعب', 'close', 'primary')}
+        ${btn(isMuted() ? 'تشغيل المؤثرات الصوتية' : 'كتم الصوت', 'toggle-audio')}
+        ${btn('دليل القواعد والبناءات', 'rules')}
+        ${btn('إعادة نفس الرن', 'restart')}
+        ${btn('رن جديد بتوزيع عشوائي', 'new-seed')}
+      </div>
+      `
+    );
+  }
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+
+  if (b.dataset.action) {
+    action(b.dataset.action);
+    return;
+  }
+
+  if (s.screen !== 'play') return;
+
+  // Face toggle or card selection in hand
+  if (b.dataset.face !== undefined && b.dataset.card) {
+    const face = Number(b.dataset.face);
+    const card = b.dataset.card;
+    if (selection.cell !== null) {
+      const axis = bestAxis(s, card, selection.cell, face);
+      selection = { card, face, cell: selection.cell, axis };
+    } else {
+      selection = { card, face, cell: null, axis: null };
+    }
+    render();
+    playSfx('select');
+    return;
+  }
+
+  // Card select without specific face
+  if (b.dataset.card) {
+    const card = b.dataset.card;
+    const face = selection.face ?? 0;
+    if (selection.cell !== null) {
+      const axis = bestAxis(s, card, selection.cell, face);
+      selection = { card, face, cell: selection.cell, axis };
+    } else {
+      selection = { card, face, cell: null, axis: null };
+    }
+    render();
+    playSfx('select');
+    return;
+  }
+
+  // Grid cell select
+  if (b.dataset.cell !== undefined) {
+    const i = Number(b.dataset.cell);
+    if (!selection.card) return;
+    if (s.grid[i]) {
+      const c = def(s.grid[i], s);
+      show(c.name, `<p>${c.text}</p>`);
+      return;
+    }
+    const face = selection.face ?? 0;
+    const axis = bestAxis(s, selection.card, i, face);
+    selection = { card: selection.card, face, cell: i, axis };
+    render();
+    playSfx('select');
+    return;
+  }
+
+  // Axis button (row / col toggle)
+  if (b.dataset.axis) {
+    selection.axis = b.dataset.axis;
+    render();
+    playSfx('select');
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (menu.open || s.screen !== 'play') return;
+  if (e.key === 'Escape') action('cancel');
+  if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.metaKey) {
+    const cardIdx = Number(e.key) - 1;
+    const uid = s.hand[cardIdx];
+    if (uid) {
+      const face = e.shiftKey ? 1 : (selection.card === uid && selection.face === 0 ? 1 : 0);
+      const cell = selection.cell;
+      const axis = cell !== null ? bestAxis(s, uid, cell, face) : null;
+      selection = { card: uid, face, cell, axis };
+      render();
+      playSfx('select');
+    }
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && selection.card && selection.cell !== null && selection.axis) {
+    e.preventDefault();
+    commit();
+  }
+});
+
+render();
+focus(s.screen === 'title' ? '[data-action="start"]' : '[data-card]');
