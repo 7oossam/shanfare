@@ -146,8 +146,9 @@ function activate(before, a) {
   const action = { card: a.card, cell: a.cell, face: a.face, target: targetForAction(s, a) };
   s.hand.splice(s.hand.indexOf(a.card), 1); s.grid[a.cell] = a.card; s.faces[a.card] = a.face; s.placements++;
   const lines = completedLines(s.grid, a.cell);
-  const cells = [...new Set(lines.flat())].sort((x, y) => x - y);
-  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
+  const cells = [...new Set(LINES.filter(line => line.includes(a.cell)).flat())].filter(cell => s.grid[cell]).sort((x, y) => x - y);
+  const clearedCells = [...new Set(lines.flat())].sort((x, y) => x - y);
+  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, clearedCells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
   s.prime ??= 0;
   const hit = amount => {
     const pool = attackTargets(s);
@@ -173,10 +174,10 @@ function activate(before, a) {
       summary.effects.push(record);
     }
   };
-  execute(a.cell, 'placement');
-  if (a.face === 1) { s.grid[a.cell] = null; delete s.faces[a.card]; s.discard.push(a.card); summary.cleared.push(a.card); }
-  for (const cell of cells) if (s.grid[cell] && s.faces[s.grid[cell]] === 0) execute(cell, 'line');
-  for (const cell of cells) {
+  // Resolve the occupied row/column union once, including the newly placed card.
+  for (const cell of cells) execute(cell, 'cross');
+  if (a.face === 1 && !clearedCells.includes(a.cell)) clearedCells.push(a.cell);
+  for (const cell of clearedCells) {
     const uid = s.grid[cell]; if (!uid) continue; summary.cleared.push(uid);
     s.discard.push(uid);
     delete s.faces[uid]; s.grid[cell] = null;
@@ -550,7 +551,7 @@ function board(s, p, projected, animation) {
         ${chosen.includes(cell) ? `<b class="line-order">${num(chosen.indexOf(cell) + 1)}</b>` : ''}
       </button>`;
     }).join('')}</div>
-    <div class="board-feedback" aria-live="polite">${projected ? projected.summary.lines.length ? `<strong>${projected.summary.lines.length > 1 ? 'يكتمل الصف والعمود' : projected.summary.lines[0][1] - projected.summary.lines[0][0] === 1 ? 'يكتمل الصف' : 'يكتمل العمود'}</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>تفعيل فوري + إعادة تفعيل الخط</small>` : `<strong>تتفعّل فورًا ${p.face ? 'وتختفي' : 'وتبقى'}</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>بطاقة واحدة في الدور</small>` : animation ? '<strong>تُفعّل البطاقات ثم تُزال</strong>' : `<strong>${p.card ? 'اختر خانة فارغة' : 'اختر بطاقة ووجهًا'}</strong><small>صف ٣ · عمود ٢ · الدائم يبقى</small>`}</div>
+    <div class="board-feedback" aria-live="polite">${projected ? projected.summary.lines.length ? `<strong>${projected.summary.lines.length > 1 ? 'يكتمل الصف والعمود' : projected.summary.lines[0][1] - projected.summary.lines[0][0] === 1 ? 'يكتمل الصف' : 'يكتمل العمود'}</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>يتفعّل الصف والعمود · المكتمل يُزال</small>` : `<strong>يتفعّل الصف والعمود</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>الدائم يبقى · الطارئ يختفي</small>` : animation ? '<strong>يتفعّل الصف والعمود · يُزال المكتمل فقط</strong>' : `<strong>${p.card ? 'اختر خانة فارغة' : 'اختر بطاقة ووجهًا'}</strong><small>صف ٣ · عمود ٢ · الدائم يبقى</small>`}</div>
   </aside>`;
 }
 function hand(s, p, projected, busy) {
@@ -566,7 +567,7 @@ function gameView(s, p, animation = null) {
   const projected = animation ? null : preview(s, p);
   return `<main class="duel-app" data-version="9">${header(s)}<div class="main-stage">${arena(s, p, projected)}${board(s, p, projected, animation)}</div>${hand(s, p, projected, !!animation)}${rotationHint()}</main>`;
 }
-function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>بطاقة واحدة في الدور، تتفعّل فورًا. أكمل خطًا لتفعيل الدائم مجددًا.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>صفّان × ٣ خانات · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
+function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>كل بطاقة تُفعّل صفّها وعمودها. اكتمال الخط يزيله.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>صفّان × ٣ خانات · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
 function rewardView(s) { return `<main class="screen-panel"><h1>حُسمت المواجهة</h1><p>اختر بطاقة جديدة · تستعيد ${stat(Math.min(6, s.maxHp - s.hp), 'heart')}</p><div class="reward-cards">${s.draftChoices.map(key => `<article class="reward-card"><h2>${esc(cards[key].name)}</h2>${cardArt(key + '.reward', s, 'reward-art')}<div><b>دائم</b>${effectFormula(key + '.reward', s, 0)}</div><div><b>طارئ</b>${effectFormula(key + '.reward', s, 1)}</div>${button('اختر البطاقة', 'draft-' + key, 'gold-button')}</article>`).join('')}</div>${button('أكمل بدون بطاقة', 'continue', 'text-button')}${rotationHint()}</main>`; }
 function endView(s) { return `<main class="screen-panel end-screen"><h1>${s.outcome === 'victory' ? 'انتصار الشنفرى' : s.outcome === 'exhausted' ? 'استُنفدت الأوراق' : 'انتهت المواجهة'}</h1><p>${s.outcome === 'victory' ? 'هزمت خصومك في اللقاءات الأربعة.' : s.outcome === 'exhausted' ? 'لم تبق بطاقات هجومية متاحة.' : 'جرّب مزج الصدّ والهجوم في الخط نفسه.'}</p>${button('العب من جديد', 'restart', 'gold-button')}${rotationHint()}</main>`; }
 
@@ -609,8 +610,8 @@ function requestFullscreenFromGesture(explicit = false) {
 }
 for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
-function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل فور وضعه ويبقى، ثم يتفعّل مجددًا عند اكتمال خطه ويُزال.'}</small></section>`).join('')}</div>`); }
-function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في كل دور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>كل بطاقة تتفعّل فور وضعها. الدائمة تبقى في الشبكة، والطارئة تُكمل الخط قبل اختفائها وتعود للرزمة.</li><li>اكتمال صف من ٣ بطاقات أو عمود من بطاقتين يُفعّل بطاقاته الدائمة مرة ثانية ثم يزيل الخط كاملًا. البطاقة التي أكملت الخط تعمل فورًا ثم مجددًا مع الخط.</li><li>عند اكتمال خطين، تتفعّل كل بطاقة مشتركة مرة واحدة ضمن الخطوط.</li><li>يرد الأعداء بعد كل بطاقة تلعبها. معاينة الخانة تعرض مجموع تأثير البطاقة والخط وردّ الأعداء.</li></ol><p>العزم يجمع الزخم فورًا، والسهم الدائم يصرفه كضرر إضافي. اضغط ⓘ للتفاصيل.</p>'); }
+function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل عند وضعه ومع كل بطاقة توضع في صفّه أو عموده. الاكتمال يحدد إزالة الخط.'}</small></section>`).join('')}</div>`); }
+function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في الدور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>الوضع يُفعّل البطاقة وكل البطاقات الموجودة في صفّها وعمودها، حتى لو لم يكتمل الخط.</li><li>كل بطاقة تعمل مرة واحدة فقط، بما فيها البطاقة المشتركة بين الصف والعمود. الترتيب من اليسار لليمين ثم من الأعلى للأسفل.</li><li>الدائمة تبقى بين الأدوار، والطارئة تختفي بعد التفعيل.</li><li>الاكتمال يحدد الإزالة فقط: يُزال الخط المكتمل، وتبقى الدائمات في الخط الناقص الذي تفعّل. صف من ٣ أو عمود من بطاقتين.</li><li>يرد الأعداء مرة واحدة بعد كل بطاقة. معاينة الخانة تعرض النتيجة كاملة.</li></ol>'); }
 function newGame() { clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
 function commit(action) {
   if (resolving) return;
@@ -621,13 +622,13 @@ function commit(action) {
   save();
   if ((result.summary.lines?.length || a.face === 1) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const grid = [...before.grid]; grid[a.cell] = a.card;
-    resolving = { grid, cells: result.summary.cells.length ? result.summary.cells : [a.cell], faces: { ...before.faces, [a.card]: a.face } };
+    resolving = { grid, cells: result.summary.clearedCells, faces: { ...before.faces, [a.card]: a.face } };
     // Show activation before the committed removal, including a lethal final line.
     root.innerHTML = gameView({ ...s, screen: 'play' }, selection, resolving);
     resolveTimer = setTimeout(() => { resolving = null; render(); }, 420);
   } else render();
   playSfx(result.summary.hits ? 'hit' : result.summary.block ? 'block' : 'select');
-  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّلت البطاقة${result.summary.lines.length ? ' ثم الخط' : ''}: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
+  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّلت بطاقات الصف والعمود: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
 }
 function action(name) {
   if (name === 'close') menu.close();
@@ -637,7 +638,7 @@ function action(name) {
   else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button(fullscreenActive() ? 'الخروج من ملء الشاشة' : 'ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)}</p>`);
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
   else if (name === 'fullscreen') requestFullscreenFromGesture(true);
-  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. العزم يتفعّل فورًا، والسهم فور وضعه، ثم يتفعّلان مجددًا عند اكتمال خطهما.</p>`);
+  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: إذا كان رصيدك ٢ 🔥 وتفعّل عزم ٢ 🔥 قبل سهم ٢ ⚔ في الصف، يصبح رصيدك ٤ 🔥 ثم يضرب السهم ٦ ⚔ ويصرف الرصيد.</p>`);
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });
   else if (name === 'export') { const url = URL.createObjectURL(new Blob([textReport(report)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'shanfara-report.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
