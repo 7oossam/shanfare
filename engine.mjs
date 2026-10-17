@@ -1,4 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
+export const HAND_SIZE = 3;
 export const GRID_ROWS = 2;
 export const GRID_COLUMNS = 3;
 export const GRID_SIZE = GRID_ROWS * GRID_COLUMNS;
@@ -19,14 +20,23 @@ export const alternates = {
   focus: face('عزم', 'fire', [{ op: 'momentum', n: 4 }], 'تجمع أربع نقاط زخم وتختفي من الشبكة.'),
   arrow: face('سهم', 'bow', [{ op: 'hit', n: 4 }], 'أربعة أضرار دون استهلاك الزخم، وتختفي من الشبكة.'),
   cover: face('احتماء', 'shield', [{ op: 'block', n: 6 }], 'تصد ستة أضرار وتختفي من الشبكة.'),
-  knife: face('جرح', 'knife', [{ op: 'bleed', n: 4 }], 'أربع نقاط نزيف على العدو المستهدف وتختفي من الشبكة.'),
+  knife: face('جرح', 'knife', [{ op: 'bleed', n: 3 }], 'ثلاث نقاط نزيف على العدو المستهدف وتختفي من الشبكة.'),
   wolf: face('نهش', 'wolf', [{ op: 'pounce', n: 4 }], 'أربعة أضرار، أو سبعة إذا كان الهدف ينزف وتختفي من الشبكة.'),
   trick: face('خدعة', 'spark', [{ op: 'prime', n: 4 }], 'يزيد الهجوم التالي بأربعة أضرار وتختفي من الشبكة.'),
   strong_arrow: face('سهم صقيل', 'bow', [{ op: 'hit', n: 6 }], 'ستة أضرار دون استهلاك الزخم وتختفي من الشبكة.'),
   strong_cover: face('حصن', 'shield', [{ op: 'block', n: 8 }], 'تصد ثمانية أضرار وتختفي من الشبكة.'),
   strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 5 }], 'تجمع خمس نقاط زخم وتختفي من الشبكة.')
 };
-export const rewards = ['strong_arrow', 'strong_cover', 'strong_focus', 'knife', 'wolf', 'trick'];
+cards.maneuver = face('مناورة', 'swap', [{op:'recall_grid',n:1}], 'بعد التفعيل، أعد دائمة أخرى تختارها إلى يدك.');
+alternates.maneuver = face('مناورة', 'swap', [{op:'shift_grid',n:1}], 'بعد التفعيل، انقل دائمة لخانة فارغة لا تكمل خطًا، بلا تفعيل إضافي.');
+cards.volley = face('وابل', 'bow', [{op:'area',n:2}], 'ضرران لكل عدو متاح للاستهداف.');
+alternates.volley = face('وابل', 'bow', [{op:'area',n:3}], 'ثلاثة أضرار لكل عدو متاح للاستهداف.');
+cards.leech = face('اغتنام', 'knife', [{op:'lifekill',n:2}], 'ضرران؛ تستعيد صحتين إذا قتلت الهدف.');
+alternates.leech = face('اغتنام', 'knife', [{op:'lifekill',n:4}], 'أربعة أضرار؛ تستعيد صحتين إذا قتلت الهدف.');
+cards.reserve = face('سهم الصقر', 'bow', [{op:'half',n:2}], 'ضرران زائد نصف الزخم، ويصرف النصف مقربًا للأعلى.');
+alternates.reserve = face('سهم الصقر', 'bow', [{op:'hit',n:4}], 'أربعة أضرار مع الاحتفاظ بالزخم.');
+alternates.focus = face('عزم', 'fire', [{op:'convert',n:1}], 'يحوّل رصيد الزخم كله إلى درع ويصرفه.');
+export const rewards = ['volley', 'knife', 'leech', 'reserve', 'wolf', 'strong_cover'];
 const enemy = (id, name, hp, attack, shield = 0) => ({ id, name, hp, maxHp: hp, attack, shield, bleed: 0 });
 export const ENCOUNTERS = [
   { name: 'مضيق الصفا', enemies: [enemy('guard', 'حارس المضيق', 16, 2), enemy('scout', 'متربّص الصحراء', 12, 1)] },
@@ -40,15 +50,15 @@ export const snapshot = s => { const { last, ...rest } = s; return structuredClo
 function random(s) { s.rng = (Math.imul(s.rng, 1664525) + 1013904223) >>> 0; return s.rng / 4294967296; }
 function shuffle(s, list) { const a = [...list]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(random(s) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 export function draw(s) {
-  while (s.hand.length < 5) {
+  while (s.hand.length < HAND_SIZE) {
     if (!s.draw.length) { if (!s.discard.length) break; s.draw = shuffle(s, s.discard); s.discard = []; }
     s.hand.push(s.draw.shift());
   }
 }
 export function fresh(seed = 20261017) {
-  const deck = ['focus.0', 'arrow.0', 'cover.0', 'focus.1', 'arrow.1', 'focus.2', 'arrow.2', 'cover.1', 'arrow.3', 'cover.2'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
-  s.draw = shuffle(s, deck.slice(5));
+  const deck = ['arrow.0', 'cover.0', 'focus.0', 'arrow.1', 'cover.1', 'maneuver.0'];
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 28, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
+  s.draw = shuffle(s, deck.slice(HAND_SIZE));
   return s;
 }
 export function migrateSave(before) {
@@ -59,7 +69,8 @@ export function migrateSave(before) {
     s.grid = [a, b, null, c, d, null];
     s.last = null;
   }
-  s.prime ??= 0;
+  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 28) s.last = null; s.ruleset = 28;
+  if (s.hand.length > HAND_SIZE) s.draw.unshift(...s.hand.splice(HAND_SIZE));
   s.discard.push(...s.exhausted); s.exhausted = [];
   for (let i = 0; i < s.grid.length; i++) {
     const uid = s.grid[i];
@@ -77,13 +88,28 @@ export function getEnemyIntent(e, index, turn) {
 export function completedLines(grid, cell) { return LINES.filter(line => line.includes(cell) && line.every(i => grid[i])); }
 export function placePreview(s, a) { return activate(s, a); }
 export function setupEncounter(s, index) {
-  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(GRID_SIZE).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
+  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(GRID_SIZE).fill(null); s.pendingManeuver = null; s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
   s.enemies = structuredClone(ENCOUNTERS[index - 1].enemies);
   s.draw = shuffle(s, s.deck); draw(s); s.screen = 'play'; s.draftChoices = [];
+}
+export function maneuverOptions(s) {
+  const pending = s.pendingManeuver;
+  if (!pending || s.screen !== 'play') return [];
+  const options = [];
+  for (const [from, uid] of s.grid.entries()) {
+    if (!uid || uid === pending.source || s.faces[uid] !== 0) continue;
+    if (pending.mode === 'recall') options.push({kind:'maneuver',card:uid,to:'hand'});
+    else for (const cell of s.grid.keys()) if (!s.grid[cell]) {
+      const grid = [...s.grid]; grid[from] = null; grid[cell] = uid;
+      if (!completedLines(grid,cell).length) options.push({kind:'maneuver',card:uid,cell});
+    }
+  }
+  return options;
 }
 export function actions(s) {
   if (s.screen === 'reward') return [...s.draftChoices.map(choice => ({ kind: 'draft', choice })), { kind: 'continue' }];
   if (s.screen !== 'play') return [];
+  if (s.pendingManeuver) return [...maneuverOptions(s), {kind:'maneuver',skip:true}];
   const out = [];
   for (const card of s.hand) for (const cell of s.grid.keys()) if (!s.grid[cell]) for (const face of [0, 1]) for (const e of attackTargets(s)) out.push({ card, cell, face, target: e.id });
   return out;
@@ -100,6 +126,18 @@ export function activate(before, a) {
     s.last = { kind: 'transition', action: structuredClone(a), choice: a.choice ?? null };
     assertState(s); return { valid: true, state: s, summary: s.last };
   }
+  if (before.screen === 'play' && before.pendingManeuver) {
+    if (a.kind !== 'maneuver') return invalid();
+    const legal = maneuverOptions(before).find(x => x.card === a.card && x.to === a.to && x.cell === a.cell);
+    if (!a.skip && !legal) return invalid();
+    const s = structuredClone(before);
+    if (!a.skip) { const from = s.grid.indexOf(a.card); s.grid[from] = null;
+      if (a.to === 'hand') {s.hand.push(a.card); delete s.faces[a.card];}
+      else s.grid[a.cell] = a.card;
+    }
+    s.pendingManeuver = null; draw(s); assertState(s);
+    return {valid:true,state:s,summary:{kind:'maneuver',action:structuredClone(a)}};
+  }
   if (before.screen !== 'play' || !before.hand.includes(a.card) || !Number.isInteger(a.cell) || a.cell < 0 || a.cell >= GRID_SIZE || before.grid[a.cell] || ![0, 1].includes(a.face) || (a.target && !attackTargets(before).some(e => e.id === a.target))) return invalid();
   const s = structuredClone(before);
   const action = { card: a.card, cell: a.cell, face: a.face, target: targetForAction(s, a) };
@@ -107,26 +145,32 @@ export function activate(before, a) {
   const lines = completedLines(s.grid, a.cell);
   const cells = [...new Set(LINES.filter(line => line.includes(a.cell)).flat())].filter(cell => s.grid[cell]).sort((x, y) => x - y);
   const clearedCells = [...new Set(lines.flat())].sort((x, y) => x - y);
-  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, clearedCells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
+  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, clearedCells, events: [], incoming: 0, prevented: 0, unusedBlock: 0, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
   s.prime ??= 0;
   const hit = amount => {
     const pool = attackTargets(s);
     pool.sort((x, y) => Number(y.id === action.target) - Number(x.id === action.target));
     let left = amount;
-    for (const e of pool) { const n = Math.min(e.hp, left); e.hp -= n; left -= n; if (!left) break; }
+    for (const e of pool) { const n = Math.min(e.hp, left); e.hp -= n; left -= n; if (n) summary.events.push({ type: 'damage', source: 'hero', target: e.id, amount: n, hp: e.hp, fatal: e.hp === 0 }); if (!left) break; }
     const dealt = amount - left; summary.hits += dealt; return dealt;
   };
   const execute = (cell, phase) => {
     const uid = s.grid[cell];
+    summary.events.push({ type: 'activate', cell, uid });
     for (const fx of def(uid, s).effects) {
       const record = { cell, uid, phase, op: fx.op, amount: fx.n };
-      if (fx.op === 'momentum') { s.momentum += fx.n; summary.momentum.gained += fx.n; }
-      else if (fx.op === 'block') summary.block += fx.n;
+      if (fx.op === 'momentum') { s.momentum += fx.n; summary.momentum.gained += fx.n; summary.events.push({ type: 'momentum', amount: fx.n, value: s.momentum }); }
+      else if (fx.op === 'block') { summary.block += fx.n; summary.events.push({ type: 'shield', amount: fx.n, value: summary.block }); }
       else if (fx.op === 'prime') s.prime += fx.n;
-      else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; } }
+      else if (fx.op === 'recall_grid' || fx.op === 'shift_grid') s.pendingManeuver = {mode: fx.op === 'recall_grid' ? 'recall' : 'shift',source:uid};
+      else if (fx.op === 'convert') {const amount=s.momentum;record.converted=amount;summary.block+=amount;summary.momentum.spent+=amount;s.momentum=0;summary.events.push({type:'momentum-spend',amount,value:0});if(amount)summary.events.push({type:'shield',amount,value:summary.block});}
+      else if (fx.op === 'area') {let dealt=0;const boost=s.prime;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
+      else if (fx.op === 'lifekill') {const target=s.enemies.find(e=>e.id===targetForAction(s,action));const hp=target?.hp??0;const power=fx.n+s.prime;s.prime=0;record.damage=hit(power);if(hp>0&&hp<=power){const amount=Math.min(2,s.maxHp-s.hp);s.hp+=amount;if(amount)summary.events.push({type:'heal',amount,hp:s.hp});}}
+      else if (fx.op === 'half') {const amount=Math.ceil(s.momentum/2);record.momentumSpent=amount;s.momentum-=amount;summary.momentum.spent+=amount;summary.events.push({type:'momentum-spend',amount,value:s.momentum});record.damage=hit(fx.n+amount+s.prime);s.prime=0;}
+      else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; summary.events.push({ type: 'bleed', target: e.id, amount: fx.n, value: e.bleed }); } }
       else {
         let extra = 0;
-        if (fx.op === 'sniper') { extra = s.momentum; record.momentumSpent = extra; summary.momentum.spent += extra; s.momentum = 0; }
+        if (fx.op === 'sniper') { extra = s.momentum; record.momentumSpent = extra; summary.momentum.spent += extra; s.momentum = 0; summary.events.push({ type: 'momentum-spend', amount: extra, value: 0 }); }
         if (fx.op === 'pounce' && s.enemies.find(e => e.id === targetForAction(s, action))?.bleed > 0) extra = 3;
         record.boost = extra + s.prime; record.damage = hit(fx.n + record.boost); s.prime = 0;
       }
@@ -142,22 +186,32 @@ export function activate(before, a) {
     delete s.faces[uid]; s.grid[cell] = null;
   }
   {
-    for (const e of s.enemies) if (e.hp > 0 && e.bleed > 0) { const dealt = Math.min(e.hp, e.bleed); e.hp -= dealt; summary.hits += dealt; summary.effects.push({ op: 'bleed_tick', target: e.id, amount: dealt }); e.bleed--; }
+    for (const e of s.enemies) if (e.hp > 0 && e.bleed > 0) { const dealt = Math.min(e.hp, e.bleed); e.hp -= dealt; summary.hits += dealt; summary.effects.push({ op: 'bleed_tick', target: e.id, amount: dealt }); summary.events.push({ type: 'damage', source: 'bleed', target: e.id, amount: dealt, hp: e.hp, fatal: e.hp === 0 }); e.bleed--; }
     if (s.enemies.every(e => e.hp <= 0)) {
       if (s.encounter === 4) { s.screen = 'end'; s.outcome = 'victory'; }
       else { s.screen = 'reward'; s.draftChoices = s.encounter === 1 ? rewards.slice(0, 3) : shuffle(s, rewards).slice(0, 3); }
     } else {
-      const threat = s.enemies.reduce((n, e, i) => n + getEnemyIntent(e, i, s.phaseTurn).damage, 0);
-      summary.enemyDamage = Math.min(s.hp, Math.max(0, threat - summary.block)); s.hp -= summary.enemyDamage;
+      let shield = summary.block;
+      for (const [i, e] of s.enemies.entries()) {
+        const incoming = getEnemyIntent(e, i, s.phaseTurn).damage;
+        if (!incoming) continue;
+        const blocked = Math.min(shield, incoming); shield -= blocked;
+        const damage = Math.min(s.hp, incoming - blocked); s.hp -= damage;
+        summary.incoming += incoming; summary.prevented += blocked; summary.enemyDamage += damage;
+        summary.events.push({ type: 'enemy-attack', source: e.id, target: 'hero', incoming, blocked, damage, hp: s.hp, shield });
+        if (!s.hp) break;
+      }
       if (!s.hp) { s.screen = 'end'; s.outcome = 'defeat'; }
     }
     s.turn++; s.phaseTurn++;
   }
+  summary.unusedBlock = summary.block - summary.prevented;
   summary.momentum.after = s.momentum;
-  draw(s);
+  if (s.screen !== 'play' || !maneuverOptions(s).length) s.pendingManeuver = null;
+  if (!s.pendingManeuver) draw(s);
   const usable = [...s.hand, ...s.draw, ...s.discard, ...s.grid.filter(Boolean)];
-  const canAttack = usable.some(uid => [0, 1].some(face => def(uid, s, face).effects.some(f => ['hit', 'sniper', 'pounce', 'bleed'].includes(f.op))));
-  if (s.screen === 'play' && (!s.hand.length || (!canAttack && !s.enemies.some(e => e.hp > 0 && e.bleed > 0)))) { s.screen = 'end'; s.outcome = 'exhausted'; }
+  const canAttack = usable.some(uid => [0, 1].some(face => def(uid, s, face).effects.some(f => ['hit', 'sniper', 'pounce', 'bleed', 'area', 'lifekill', 'half'].includes(f.op))));
+  if (s.screen === 'play' && !s.pendingManeuver && (!s.hand.length || (!canAttack && !s.enemies.some(e => e.hp > 0 && e.bleed > 0)))) { s.screen = 'end'; s.outcome = 'exhausted'; }
   s.last = summary; assertState(s); return { valid: true, state: s, summary };
 }
 export function assertState(s) {
@@ -165,7 +219,7 @@ export function assertState(s) {
   check(s.version === VERSION, 'Invalid version'); check(s.grid.length === GRID_SIZE, 'Grid must have six slots');
   check(Number.isInteger(s.hp) && s.hp >= 0 && s.hp <= s.maxHp, 'Invalid health');
   check(Number.isInteger(s.momentum) && s.momentum >= 0, 'Invalid momentum');
-  check(s.hand.length <= 5, 'Hand exceeds five'); check(s.encounter >= 1 && s.encounter <= 4, 'Invalid encounter');
+  check(s.hand.length <= HAND_SIZE, 'Hand exceeds three'); check(s.encounter >= 1 && s.encounter <= 4, 'Invalid encounter');
   const zones = [...s.hand, ...s.draw, ...s.discard, ...s.exhausted, ...s.grid.filter(Boolean)];
   check(zones.length === s.deck.length && new Set(zones).size === zones.length && zones.every(uid => s.deck.includes(uid) && cards[cardType(uid)]), 'Card conservation violated');
   check(Object.keys(s.faces).every(uid => s.grid.includes(uid) && [0, 1].includes(s.faces[uid])), 'Invalid face commitments');

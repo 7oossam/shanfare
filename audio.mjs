@@ -68,6 +68,9 @@ export function playSfx(type) {
         break;
       }
 
+      case 'hurt': {
+        const osc=c.createOscillator(), gain=c.createGain();osc.type='triangle';osc.frequency.setValueAtTime(95,now);osc.frequency.exponentialRampToValueAtTime(35,now+.14);gain.gain.setValueAtTime(.18,now);gain.gain.exponentialRampToValueAtTime(.001,now+.16);osc.connect(gain);gain.connect(c.destination);osc.start(now);osc.stop(now+.17);break;
+      }
       case 'bow':
       case 'hit': {
         // Arrow string release twang + impact thrum

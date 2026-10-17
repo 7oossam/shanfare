@@ -3,12 +3,14 @@ import { begin, record, restore, textReport } from './report.mjs?v=9';
 import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=9';
 import { playSfx, toggleMute, isMuted } from './audio.mjs?v=9';
 import { fullscreenActive, enterGameFullscreen, exitGameFullscreen, releaseLandscapeLock } from './fullscreen.mjs?v=9';
+import { playCombatFeedback } from './combat-feedback.mjs?v=9';
 const SAVE_KEY = 'shanfara-duel-v9';
 const root = document.querySelector('#app');
 const menu = document.querySelector('#menu');
 let s = fresh(); let report = null;
 let selection = { card: null, face: 0, cell: null, target: null };
 let inputModality = 'pointer';
+let cancelCombat = null;
 let resolving = null; let resolveTimer = null; let longPressTimer = null; let longPressConsumed = false;
 try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { s = migrateSave(save.state); report = restore(save.report, s); } } catch {}
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
@@ -33,25 +35,27 @@ function requestFullscreenFromGesture(explicit = false) {
 }
 for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
-function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل عند وضعه ومع كل بطاقة توضع في صفّه أو عموده. الاكتمال يحدد إزالة الخط.'}</small></section>`).join('')}</div>`); }
-function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في الدور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>الوضع يُفعّل البطاقة وكل البطاقات الموجودة في صفّها وعمودها، حتى لو لم يكتمل الخط.</li><li>كل بطاقة تعمل مرة واحدة فقط، بما فيها البطاقة المشتركة بين الصف والعمود. الترتيب من اليسار لليمين ثم من الأعلى للأسفل.</li><li>الدائمة تبقى بين الأدوار، والطارئة تختفي بعد التفعيل.</li><li>الاكتمال يحدد الإزالة فقط: يُزال الخط المكتمل، وتبقى الدائمات في الخط الناقص الذي تفعّل. صف من ٣ أو عمود من بطاقتين.</li><li>يرد الأعداء مرة واحدة بعد كل بطاقة. معاينة الخانة تعرض النتيجة كاملة.</li></ol>'); }
-function newGame() { clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
+function details(uid) {
+  const maneuver = def(uid,s,0).name === 'مناورة';
+  show(esc(def(uid,s,0).name), `<div class="card-explanation">${[0,1].map(f=>`<section><h3>${f?'طارئ':'دائم'}</h3><div>${effectFormula(uid,s,f)}</div><p>${esc(def(uid,s,f).text)}</p><small>${f?'يتفعّل مع الصف والعمود ثم يختفي إلى الرزمة.':'يتفعّل عند وضعه ومع كل بطاقة توضع في صفّه أو عموده. الاكتمال يحدد إزالة الخط.'}</small></section>`).join('')}</div>${maneuver?'<p class="maneuver-example"><b>مثال بالسهم:</b> الوجه الدائم يرجّع سهمًا من الشبكة إلى يدك لتلعبه لاحقًا بمكان أو وجه آخر. الوجه الطارئ ينقل السهم لخانة فارغة لتغيّر ترتيب تجهيزك. النقل والاسترجاع لا يفعّلان السهم مرة ثانية، ولا يأخذان دورًا آخر.</p>':''}`);
+}
+function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في الدور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>الوضع يُفعّل البطاقة وكل البطاقات الموجودة في صفّها وعمودها، حتى لو لم يكتمل الخط.</li><li>كل بطاقة تعمل مرة واحدة فقط، بما فيها البطاقة المشتركة بين الصف والعمود. الترتيب من اليسار لليمين ثم من الأعلى للأسفل.</li><li>الدائمة تبقى بين الأدوار، والطارئة تختفي بعد التفعيل.</li><li>الاكتمال يحدد الإزالة فقط: يُزال الخط المكتمل، وتبقى الدائمات في الخط الناقص الذي تفعّل. صف من ٣ أو عمود من بطاقتين.</li><li>يرد الأعداء مرة واحدة بعد كل بطاقة. معاينة الخانة تعرض النتيجة كاملة. اليد ثلاث أوراق، والبداية سهمان ودرعان وعزم ومناورة.</li></ol>'); }
+function newGame() { cancelCombat?.(); cancelCombat = null; clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
 function commit(action) {
   if (resolving) return;
-  const a = s.screen === 'play' ? { ...action, target: targetForAction(s, action) } : action;
+  const a = s.screen === 'play' && !s.pendingManeuver ? { ...action, target: targetForAction(s, action) } : action;
   const before = s; const result = activate(before, a); if (!result.valid) return;
   report = record(report || begin(before), before, a, result); s = result.state;
   selection = { card: null, face: 0, cell: null, target: a.target ?? null };
   save();
-  if ((result.summary.lines?.length || a.face === 1) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (result.summary.kind === 'turn') {
     const grid = [...before.grid]; grid[a.cell] = a.card;
     resolving = { grid, cells: result.summary.clearedCells, faces: { ...before.faces, [a.card]: a.face } };
-    // Show activation before the committed removal, including a lethal final line.
-    root.innerHTML = gameView({ ...s, screen: 'play' }, selection, resolving);
-    resolveTimer = setTimeout(() => { resolving = null; render(); }, 420);
-  } else render();
-  playSfx(result.summary.hits ? 'hit' : result.summary.block ? 'block' : 'select');
-  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّلت بطاقات الصف والعمود: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
+    root.innerHTML = gameView({ ...before, hand: s.hand, screen: 'play', last: null }, selection, resolving);
+    cancelCombat = playCombatFeedback({ root, summary: result.summary, reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches, onSound: playSfx, onComplete: () => { resolving = null; cancelCombat = null; render(); if (s.screen === 'reward' || s.outcome === 'victory') playSfx('victory'); else if (s.outcome === 'defeat') playSfx('defeat'); } });
+    document.querySelector('#live').textContent = `ألحقت ${num(result.summary.hits)} ضرر. اكتسبت ${num(result.summary.block)} درع. منع الدرع ${num(result.summary.prevented)} ضرر. خسرت ${num(result.summary.enemyDamage)} صحة.`;
+  } else { render(); playSfx('select'); }
+
 }
 function action(name) {
   if (name === 'close') menu.close();
@@ -62,6 +66,7 @@ function action(name) {
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
   else if (name === 'fullscreen') requestFullscreenFromGesture(true);
   else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: إذا كان رصيدك ٢ 🔥 وتفعّل عزم ٢ 🔥 قبل سهم ٢ ⚔ في الصف، يصبح رصيدك ٤ 🔥 ثم يضرب السهم ٦ ⚔ ويصرف الرصيد.</p>`);
+  else if (name === 'skip-maneuver') commit({kind:'maneuver',skip:true});
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });
   else if (name === 'export') { const url = URL.createObjectURL(new Blob([textReport(report)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'shanfara-report.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
@@ -72,6 +77,11 @@ document.addEventListener('click', e => {
   longPressConsumed = false;
   if (b.dataset.action) { action(b.dataset.action); return; }
   if (resolving || s.screen !== 'play') return;
+  if (s.pendingManeuver) {
+    if (b.dataset.maneuverCard) { if (s.pendingManeuver.mode === 'recall') commit({kind:'maneuver',card:b.dataset.maneuverCard,to:'hand'}); else { selection.utilityCard = b.dataset.maneuverCard; render(); } }
+    else if (b.dataset.maneuverCell !== undefined && selection.utilityCard) commit({kind:'maneuver',card:selection.utilityCard,cell:Number(b.dataset.maneuverCell)});
+    return;
+  }
   if (b.dataset.info) { details(b.dataset.info); return; }
   if (b.dataset.target) { selection.target = b.dataset.target; selection.cell = null; render(); return; }
   if (b.dataset.card) { selection = { ...selection, card: b.dataset.card, face: Number(b.dataset.face), cell: null }; render(); playSfx('select'); return; }
@@ -93,7 +103,7 @@ document.addEventListener('focusin', e => { if (inputModality !== 'keyboard') re
 document.addEventListener('pointerdown', e => { const b = e.target.closest('.card-face'); if (!b) return; longPressConsumed = false; longPressTimer = setTimeout(() => { longPressConsumed = true; details(b.dataset.card); }, 550); });
 for (const event of ['pointerup', 'pointercancel', 'pointermove']) document.addEventListener(event, () => clearTimeout(longPressTimer));
 document.addEventListener('keydown', e => {
-  if (menu.open || resolving || s.screen !== 'play') return;
+  if (menu.open || resolving || s.pendingManeuver || s.screen !== 'play') return;
   if (e.key === 'Escape') { selection = { card: null, face: 0, cell: null, target: selection.target }; render(); }
   if (/^[1-5]$/.test(e.key) && !e.ctrlKey && !e.metaKey && s.hand[Number(e.key) - 1]) { selection = { ...selection, card: s.hand[Number(e.key) - 1], face: e.shiftKey ? 1 : 0, cell: null }; render(); }
 });
