@@ -267,3 +267,8 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .command-panel .duel-grid { grid-template:repeat(3,minmax(0,1fr)) / repeat(3,minmax(0,1fr)); width:min(94%,40dvh); aspect-ratio:1; margin:0; gap:clamp(4px,1.2dvh,12px); flex:none; }
 @supports (width:1cqh) { .command-panel .duel-grid { width:min(96cqw,96cqh); } }
 .maneuver-cell { min-height:clamp(35px,11dvh,55px); }
+/* Keep the grid labels quiet; leave combat values at their readable size. */
+.command-panel .panel-heading h2 { font-size:clamp(13px,2.7dvh,22px); line-height:1.15; }
+.command-panel .board-feedback { min-height:clamp(28px,6dvh,56px); padding-top:2px; }
+.command-panel .board-feedback > strong { font-size:clamp(10px,1.9dvh,17px); }
+.command-panel .board-feedback > small { font-size:clamp(8px,1.4dvh,12px); }
