@@ -61,7 +61,7 @@ export const alternates = {
   cover: { name: 'سَاتِرٌ عَاجِل', build: 'rock', icon: 'cover', short: 'ساتر ١ لاحقاً · تُطرح', text: 'تغرس متراساً صخرياً يدوم في الخانة للتفعيلات القادمة.', effects: [{ op: 'ward', n: 1 }, { op: 'vanish', n: 1 }] },
   cover_granite: { name: 'حَذَرُ السَّارِي', build: 'rock', icon: 'cover', short: 'زخم ١ · صدّ ١', text: 'تخطو كذئب وجل؛ زخم خطوة وصد ضرر واحد.', effects: [{ op: 'momentum', n: 1 }, { op: 'move', n: 1 }, { op: 'block', n: 1 }] },
   trick: { name: 'انْسِلالُ الغَبَش', build: 'general', icon: 'sneak', short: 'زخم ١ · صدّ ٢ · تُطرح', text: 'تنسل في غبش الفجر بين الصخور وتتوارى عن الأنظار.', effects: [{ op: 'momentum', n: 1 }, { op: 'move', n: 1 }, { op: 'block', n: 2 }, { op: 'vanish', n: 1 }] },
-  wolf: { name: 'انْقِضَاضُ السِّيد', build: 'beast', icon: 'wolf', short: 'أصب ٤ للنازف · تُطرح', text: 'وثبة الذئب الكاسر؛ ٤ أضرار، أو ٦ أضرار إن كان العدو ينزف أو مسموماً.', effects: [{ op: 'wolf_pounce', n: 4 }, { op: 'vanish', n: 1 }] },
+  wolf: { name: 'انْقِضَاضُ السِّيد', build: 'beast', icon: 'wolf', short: '٤ ضرر · ٦ مع نزيف/سم · تُطرح', text: 'وثبة الذئب الكاسر؛ ٤ أضرار، أو ٦ أضرار إن كان العدو ينزف أو مسموماً.', effects: [{ op: 'wolf_pounce', n: 4 }, { op: 'vanish', n: 1 }] },
 
   // Reward Alternates
   sniper_wind: { name: 'إِطْلاقُ الإِعْصَار', build: 'momentum', icon: 'bow', short: '٥ + كامل الزخم ضرر · تُطرح', text: 'تفريغ كامل الزخم المتراكم كضرر صاعق واحد يقضي على الأعداء.', effects: [{ op: 'cyclone_shot', n: 5 }, { op: 'vanish', n: 1 }] },
@@ -284,6 +284,12 @@ export function incoming(s) {
 }
 
 export function setupEncounter(s, encIdx) {
+  if (s.learning && !s.advancedUnlocked && encIdx >= 2) {
+    const unlocked = ['knife.0', 'knife.1', 'trick.0', 'wolf.0'];
+    s.deck.push(...unlocked);
+    s.discard.push(...unlocked);
+    s.advancedUnlocked = true;
+  }
   s.encounter = encIdx;
   const enc = ENCOUNTERS[encIdx - 1];
   s.progress = 0;
@@ -314,7 +320,7 @@ const STARTER_DECK = [
   'trick.0', 'wolf.0'
 ];
 
-export function fresh(seed = 20261016) {
+export function fresh(seed = 20261016, guided = true) {
   const s = {
     v: 8,
     version: VERSION,
@@ -337,7 +343,8 @@ export function fresh(seed = 20261016) {
     wards: Array(9).fill(false),
     faces: {},
     upgrades: {},
-    deck: [...STARTER_DECK],
+    deck: guided ? ['run.0', 'run.1', 'arrow.0', 'arrow.1', 'cover.0', 'cover.1', 'arrow.2', 'arrow.3', 'cover.2', 'cover.3'] : [...STARTER_DECK],
+    learning: guided,
     hand: [],
     draw: [],
     discard: [],
@@ -432,10 +439,6 @@ export function attackTargets(s) {
 export function targetForAction(s, a = {}) {
   const pool = attackTargets(s);
   if (a.target && pool.some(e => e.id === a.target)) return a.target;
-  if (Number.isInteger(a.cell) && a.axis === 'col') {
-    const aligned = pool.find(e => enemyCell(s.enemies.indexOf(e)) % 3 === a.cell % 3);
-    if (aligned) return aligned.id;
-  }
   return pool[0]?.id ?? null;
 }
 

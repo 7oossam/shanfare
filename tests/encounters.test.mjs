@@ -39,7 +39,7 @@ function putInHand(s, uid) {
 // 1. Encounter 1: Granite Chokepoint (مَضِيقُ الصَّفَا)
 // ----------------------------------------------------
 test('Encounter 1: Progress reaches 10 transitions to reward drafting', () => {
-  let s = start(fresh(4001));
+  let s = start(fresh(4001, false));
   s.progress = 9;
   putInHand(s, 'run.0');
 
@@ -52,7 +52,7 @@ test('Encounter 1: Progress reaches 10 transitions to reward drafting', () => {
 });
 
 test('Encounter 1: Defeating all enemies transitions to reward drafting', () => {
-  let s = start(fresh(4002));
+  let s = start(fresh(4002, false));
   s.enemies.forEach(e => e.hp = 0);
   s.enemy = 0;
   putInHand(s, 'run.0');
@@ -67,7 +67,7 @@ test('Encounter 1: Defeating all enemies transitions to reward drafting', () => 
 // 2. Encounter 2: Oasis Pool & Relic Selection
 // ----------------------------------------------------
 test('Encounter 2 Transition: Spring heals health and offers Relic on completion', () => {
-  let s = start(fresh(4003));
+  let s = start(fresh(4003, false));
   s.encounter = 2;
   s.screen = 'play';
   s.hp = 15;
@@ -106,7 +106,7 @@ test('Encounter 2 Transition: Spring heals health and offers Relic on completion
 // 3. Encounter 3 & 4 Progression to Victory
 // ----------------------------------------------------
 test('Encounter 4: Defeating Boss Awf ibn Sakhr wins the full run', () => {
-  let s = start(fresh(4004));
+  let s = start(fresh(4004, false));
   s.encounter = 4;
   s.screen = 'play';
   s.enemies = ENCOUNTERS[3].enemies.map(e => ({ ...e }));

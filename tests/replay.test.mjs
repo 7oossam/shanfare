@@ -84,7 +84,7 @@ test('Replay: Same seed and actions reproduce identical game states', () => {
 // 2. Combo Model & Links (Prime + Hit / Ambush / Sniper)
 // ----------------------------------------------------
 test('Combos: Prime boost correctly links to following hit in line and expires', () => {
-  let s = start(fresh(991122));
+  let s = start(fresh(991122, false));
 
   putInHand(s, 'arrow.0');
   const a1 = { card: 'arrow.0', cell: 5, axis: 'col', face: 0 };
@@ -109,7 +109,7 @@ test('Combos: Prime boost correctly links to following hit in line and expires',
 // 3. Report Logging & Verification
 // ----------------------------------------------------
 test('Report: begin, record, and restore preserve complete event history', () => {
-  const s0 = start(fresh(77123));
+  const s0 = start(fresh(77123, false));
   let rep = begin(s0);
   assert.equal(rep.version, VERSION);
   assert.equal(rep.events.length, 0);
@@ -131,7 +131,7 @@ test('Report: begin, record, and restore preserve complete event history', () =>
 // 4. Playthrough Verification
 // ----------------------------------------------------
 test('Playthrough: Automated greedy search completes turn steps smoothly', () => {
-  let s = start(fresh(20261016));
+  let s = start(fresh(20261016, false));
   let steps = 0;
   const maxSteps = 30;
 

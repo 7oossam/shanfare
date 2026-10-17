@@ -62,7 +62,7 @@ function putInHand(s, uid) {
 // 1. Setup & Card Zone Conservation (10 cards starter deck)
 // ----------------------------------------------------
 test('Roguelike Setup: 10 starter cards distributed across zones', () => {
-  const s = fresh(20261016);
+  const s = fresh(20261016, false);
   assert.equal(s.version, VERSION);
   assert.equal(s.screen, 'title');
   assert.equal(s.encounter, 1);
@@ -79,7 +79,7 @@ test('Roguelike Setup: 10 starter cards distributed across zones', () => {
 });
 
 test('Invariant: Card conservation holds across turn activations', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
 
   for (let turn = 1; turn <= 6; turn++) {
     const legal = actions(s);
@@ -100,7 +100,7 @@ test('Invariant: Card conservation holds across turn activations', () => {
 // 2. Relic 1: Runner's Sandals (نَعْلا العَدَّاء)
 // ----------------------------------------------------
 test('Relic Sandals: Unspent momentum converts to +2 block per point', () => {
-  let s = start(fresh(777));
+  let s = start(fresh(777, false));
   s.relics = ['sandals'];
   putInHand(s, 'run.0');
 
@@ -115,7 +115,7 @@ test('Relic Sandals: Unspent momentum converts to +2 block per point', () => {
 // 3. Relic 2: Waterskin of the Wolf (قِرْبَةُ الذِّئْبِ)
 // ----------------------------------------------------
 test('Relic Waterskin: Full line clear applies 3 Bleed and strikes 3 damage', () => {
-  let s = start(fresh(888));
+  let s = start(fresh(888, false));
   s.relics = ['wolf_skin'];
   putOnGrid(s, 'run.0', 0);
   putOnGrid(s, 'arrow.0', 1);
@@ -133,7 +133,7 @@ test('Relic Waterskin: Full line clear applies 3 Bleed and strikes 3 damage', ()
 // 4. Relic 3: Crag of Salaman (صَخْرَةُ سَلامَان)
 // ----------------------------------------------------
 test('Relic Crag: Erasing a stone ward causes 5 explosion damage and 3 block', () => {
-  let s = start(fresh(999));
+  let s = start(fresh(999, false));
   s.relics = ['crag_salaman'];
   s.wards[1] = true; // stone ward at cell 1
   putInHand(s, 'cover.0');
@@ -149,7 +149,7 @@ test('Relic Crag: Erasing a stone ward causes 5 explosion damage and 3 block', (
 // 5. Relic 4: Taabbata Bracer (مِعْصَمُ تَأَبَّطَ شَرّاً)
 // ----------------------------------------------------
 test('Relic Taabbata Bracer: Empty cells grant +2 damage boost and +1 momentum', () => {
-  let s = start(fresh(111));
+  let s = start(fresh(111, false));
   s.relics = ['taabbata_bracer'];
   s.grid[0] = null;
   s.grid[1] = null;
@@ -167,7 +167,7 @@ test('Relic Taabbata Bracer: Empty cells grant +2 damage boost and +1 momentum',
 // 6. Drafting & Ascetic Purge (الزهد والاستغناء)
 // ----------------------------------------------------
 test('Ascetic Purge: Removes card from deck to thin deck', () => {
-  let s = start(fresh(222));
+  let s = start(fresh(222, false));
   s.screen = 'reward';
   s.draftChoices = ['sniper_wind', 'flint_blade', 'granite_spire'];
 

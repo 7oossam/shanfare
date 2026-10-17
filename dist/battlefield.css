@@ -79,22 +79,11 @@ html:has(.planner-app), body:has(.planner-app) { height: auto; min-height: 100dv
 .empty-action small { font-size: .54rem; }
 .action-token { position: relative; width: 76%; height: 76%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: linear-gradient(135deg, #627b80, #384c51); color: #eee4c9; border: 2px solid #dfcfa777; border-radius: 3px; box-shadow: 0 0 0 1px #273b3e, inset 0 0 0 2px #2a4047, 0 2px 4px #1f29234d; }
 .action-token > .icon { width: 30px; height: 30px; }
-.action-token small { display: none; }
+.action-token small { font-size: .55rem; line-height: 1.2; text-align: center; padding: 0 2px; }
 .token-bleed { background: linear-gradient(135deg, #995747, #663c32); box-shadow: 0 0 0 1px #64372b, inset 0 0 0 2px #6b392e, 0 2px 4px #1f29234d; }
 .token-momentum { background: linear-gradient(135deg, #998357, #665438); box-shadow: 0 0 0 1px #5f4e33, inset 0 0 0 2px #5b4b32, 0 2px 4px #1f29234d; }
 .token-beast { background: linear-gradient(135deg, #78657d, #4d3d55); }
 .token-general { background: linear-gradient(135deg, #6b7863, #414f40); }
-.board-fighter { position: absolute; top: 1px; left: 10%; right: 10%; height: 70%; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-.board-fighter > .fighter-art { width: 65%; height: 100%; filter: sepia(.65) saturate(.55); }
-.board-fighter.is-target::after { content: ''; position: absolute; bottom: -1px; left: 20%; right: 20%; height: 2px; background: #ac773b; opacity: .7; }
-.has-fighter .tile-action { top: 70%; height: 30%; z-index: 2; padding: 1px; border-top: 1px solid #8b80654d; }
-.has-fighter .action-token { width: auto; height: 90%; min-width: 20px; border-width: 1px; }
-.has-fighter .action-token > .icon { width: 15px; height: 15px; }
-.has-fighter .empty-action { font-size: .65rem; }
-.has-fighter .empty-action .icon { width: 11px; height: 11px; }
-.has-fighter .empty-action small { font-size: .5rem; }
-.hero-mini-health { position: absolute; height: 4px; bottom: 0; left: 12%; right: 12%; background: #9d8e72; border: 1px solid #52614c; }
-.hero-mini-health i { display: block; height: 100%; background: #58764e; }
 .path-order { position: absolute; right: 2px; top: 2px; width: 13px; height: 13px; font-size: .55rem; line-height: 13px; text-align: center; border-radius: 50%; background: #756044; color: #f6ebd1; pointer-events: none; }
 .board-context { font-size: .6rem; min-height: 13px; color: #7a6c50; text-align: center; }
 .board-context .icon { width: 12px; height: 12px; }
@@ -202,3 +191,7 @@ dialog::backdrop { background: #30291c88; }
   .planner-app { border-inline: 1px solid #827458; padding-inline: 25px; }
   .combat-grid { max-width: 290px; }
 }
+
+.learning-guide { flex-shrink: 0; margin: 2px 12px; padding: 6px 9px; border: 1px solid #a18c62; border-radius: 5px; background: #e5d7b5; color: #4b402c; font-size: .7rem; line-height: 1.45; }
+.learning-guide strong, .learning-guide span, .learning-guide small { display: block; }
+.learning-guide button { padding: 3px 12px; margin-top: 3px; background: #65573b; color: #fff2d2; border-radius: 4px; font: inherit; }

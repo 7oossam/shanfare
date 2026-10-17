@@ -64,7 +64,7 @@ test('Cards: Every base card and reward card has an alternate face definition', 
 });
 
 test('Face Commitment: Face is committed on placement and retained on grid', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
   putInHand(s, 'trick.0');
 
   // Place face 1 (vanish face)
@@ -75,7 +75,7 @@ test('Face Commitment: Face is committed on placement and retained on grid', () 
 });
 
 test('Momentum Build: Arrow scales with accumulated momentum', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
   s.momentum = 6;
   putInHand(s, 'arrow.0');
 
@@ -87,7 +87,7 @@ test('Momentum Build: Arrow scales with accumulated momentum', () => {
 });
 
 test('Bleed Build: Flint blade applies bleed and rend flesh doubles it', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
   putInHand(s, 'flint_blade.0');
   s.upgrades['knife.0'] = 'flint_blade';
 
@@ -104,7 +104,7 @@ test('Bleed Build: Flint blade applies bleed and rend flesh doubles it', () => {
 });
 
 test('Poison Build: Desert venom applies poison that ticks on enemy', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
   s.upgrades['knife.0'] = 'desert_venom';
   putInHand(s, 'knife.0');
 
@@ -115,7 +115,7 @@ test('Poison Build: Desert venom applies poison that ticks on enemy', () => {
 });
 
 test('Rock Build: Granite spire places stone ward', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
   s.upgrades['cover.0'] = 'granite_spire';
   putInHand(s, 'cover.0');
 
@@ -125,7 +125,7 @@ test('Rock Build: Granite spire places stone ward', () => {
 });
 
 test('Beast Build: Wolf pounces and deals extra damage to bleeding target', () => {
-  let s = start(fresh(12345));
+  let s = start(fresh(12345, false));
   s.bleed = 3;
   putInHand(s, 'wolf.0');
 

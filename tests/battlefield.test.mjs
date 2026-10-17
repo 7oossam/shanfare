@@ -4,17 +4,17 @@ import { fresh, start, activate, setupEncounter, attackTargets, targetForAction,
 import { begin, record, restore } from '../dist/report.mjs';
 import { preview } from '../dist/view.mjs';
 
-test('Board positions and column targeting agree with actor locations', () => {
-  const s = start(fresh(81));
+test('Target selection is independent of card placement', () => {
+  const s = start(fresh(81, false));
   assert.deepEqual([0, 1, 2].map(enemyCell), [0, 2, 1]);
-  assert.equal(targetForAction(s, { cell: 5, axis: 'col' }), 'scout');
+  assert.equal(targetForAction(s, { cell: 5, axis: 'col' }), 'guard');
   assert.equal(targetForAction(s, { cell: 5, axis: 'col', target: 'guard' }), 'guard');
   s.enemies[1].hp = 0;
   assert.equal(targetForAction(s, { cell: 5, axis: 'col', target: 'scout' }), 'guard');
 });
 
 test('Manual target receives direct damage and preview matches execution', () => {
-  const s = start(fresh(82));
+  const s = start(fresh(82, false));
   const action = { card: 'arrow.0', cell: 5, axis: 'col', face: 0, target: 'scout' };
   const before = structuredClone(s);
   const projected = preview(s, action);
@@ -30,7 +30,7 @@ test('Manual target receives direct damage and preview matches execution', () =>
 });
 
 test('Invalid and guarded targets cannot bypass boss protection', () => {
-  const s = start(fresh(83));
+  const s = start(fresh(83, false));
   setupEncounter(s, 4);
   assert.deepEqual(attackTargets(s).map(e => e.id), ['shield_r', 'shield_l']);
   const action = { card: s.hand[0], cell: 3, axis: 'row', face: 0 };
@@ -46,7 +46,7 @@ test('Invalid and guarded targets cannot bypass boss protection', () => {
 });
 
 test('Excess damage spills over without duplicating or losing damage', () => {
-  const s = start(fresh(84));
+  const s = start(fresh(84, false));
   s.enemies[1].hp = 1;
   s.enemy = s.enemies.reduce((sum, e) => sum + e.hp, 0);
   const result = activate(s, { card: 'arrow.0', cell: 5, axis: 'col', face: 0, target: 'scout' });

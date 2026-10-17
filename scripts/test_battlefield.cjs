@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
       await page.goto(base);
       await page.locator('[data-action="start"]').click();
       assert.equal(await page.locator('.combat-grid [data-cell]').count(), 9);
-      assert.equal(await page.locator('.combat-grid .hero-fighter').count(), 1);
+      assert.equal(await page.locator('.combat-grid .fighter-art').count(), 0);
       assert.equal(await page.locator('.enemy-strip [data-target]').count(), 2);
       assert.equal(await page.locator('.cinematic-arena').count(), 0);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);

@@ -16,7 +16,6 @@ import {
   RELICS,
   ENCOUNTERS,
   getEnemyIntent,
-  enemyCell,
   attackTargets,
   targetForAction
 } from './engine.mjs?v=8';
@@ -172,15 +171,11 @@ function renderBattleBoard(s, p, projected) {
     <div class="combat-grid" role="group" aria-label="رقعة التخطيط، تسع خانات">
     ${grid.map((uid, cell) => {
       const c = uid ? def(uid, shown) : null;
-      const enemy = s.enemies.find((e, i) => enemyCell(i) === cell && e.hp > 0);
       const staged = p.cell === cell;
-      const isHero = cell === 7;
-      const kind = enemy ? /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard' : 'hero';
-      return `<div class="battle-tile ${enemy || isHero ? 'has-fighter' : ''} ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
+      return `<div class="battle-tile ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
         <button type="button" data-cell="${cell}" class="tile-action ${c ? 'has-card card-' + c.build : ''}" aria-pressed="${staged}" aria-label="خانة ${num(cell + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}" ${!uid && !p.card ? 'disabled' : ''}>
           ${c ? `<span class="action-token token-${c.build}">${icon(c.icon)}<small>${esc(c.short)}</small></span>` : `<span class="empty-action">${s.wards[cell] ? icon('cover') : trailCells.includes(cell) ? icon('foot') : '◇'}<small>${s.wards[cell] ? 'ساتر' : trailCells.includes(cell) ? 'درب' : p.card ? '＋' : ''}</small></span>`}
         </button>
-        ${enemy || isHero ? `<span class="board-fighter ${isHero ? 'hero-fighter' : 'enemy-fighter'} ${enemy?.id === target ? 'is-target' : ''}" aria-hidden="true">${fighterArt(kind)}${isHero ? `<span class="hero-mini-health"><i style="width:${(projected?.state.hp ?? s.hp) / s.maxHp * 100}%"></i></span>` : ''}</span>` : ''}
         ${line.includes(cell) ? `<span class="path-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
       </div>`;
     }).join('')}</div>
@@ -224,9 +219,17 @@ function renderBattleHand(s, p, projected) {
   </section>`;
 }
 
+function learningGuide(s) {
+  if (s.encounter === 1) {
+    const example = s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1];
+    return `<aside class="learning-guide"><strong>الدرس الأول: الزخم يقوّي السهم</strong><span>ركض: +٢ زخم ← سهم: ٢ + ١ = ٣ ضرر. بعدها الزخم يصير ${s.relics.includes('sandals') ? '٤' : '٢'} صدّ ويُصفّر.</span>${example ? '<button data-action="momentum-example">جرّب المثال</button>' : '<small>نفّذ الركض قبل السهم في الخط نفسه. الأرقام على الخانات تبين الترتيب.</small>'}</aside>`;
+  }
+  return `<details class="learning-guide"><summary>كيف يعمل النهش والزخم؟</summary><p>الزخم يقوّي السهم: كل نقطتين تضيفان ١ ضرر؛ لا يستهلكه السهم. المتبقي يتحول إلى صدّ آخر الدور ثم يُصفّر.</p><p>النهش (وجه الذئب الطارئ): ٤ ضرر عادةً، أو ٦ إذا كان هناك نزيف أو سم. مثال: فعّل وجه السكين الطارئ أولًا لإحداث النزيف، ثم الذئب في الخط نفسه. بطاقة الذئب الطارئة تُطرح بعد التنفيذ.</p></details>`;
+}
+
 export function gameView(s, p, feedback = '') {
   const projected = preview(s, p);
-  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${enemyStrip(s, p, projected)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
+  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${enemyStrip(s, p, projected)}${learningGuide(s)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
 }
 
 // -------------------------------------------------------------
