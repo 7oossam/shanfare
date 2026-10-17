@@ -28,6 +28,6 @@ test('Guided example gives exactly four damage and two block, with no actors in 
   assert.equal(r.state.momentum, 0);
   assert.equal(r.state.enemies[1].hp, s.enemies[1].hp - 4);
   const html = gameView(s, {card:null, cell:null, axis:null, face:null, target:null});
-  assert.ok(html.includes('momentum-example'));
+  assert.ok(html.includes('data-action="plan"'));
   assert.ok(!html.includes('board-fighter'));
 });
