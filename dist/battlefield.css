@@ -177,3 +177,20 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
   .board-feedback > strong { font-size: 11px; }
   .board-feedback > small { font-size: 9px; }
 }
+.fullscreen-button { position: absolute; z-index: 3; right: 7.8%; min-width: 84px; max-width: 128px; height: min(80%, 38px); display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid #a47734; border-radius: 4px; background: #f7e1aa; box-shadow: inset 0 0 0 1px #fff2ca; color: #563711; font: bold clamp(11px, 1.8dvh, 15px)/1 Tahoma, Arial, sans-serif; padding: 3px 7px; }
+.fullscreen-button .icon { width: 17px; height: 17px; }
+.fullscreen-button.is-fullscreen { min-width: 65px; background: #e6d1ab; }
+@media (max-height: 300px) and (orientation: landscape) {
+  .duel-app { grid-template-rows: 28px minmax(0, 1fr) 110px; }
+  .duel-card { grid-template-rows: minmax(0, 1fr) 13px minmax(28px, 1fr) minmax(28px, 1fr); padding: 2px; gap: 1px; }
+  .card-name { font-size: 12px; }
+  .card-details { font-size: 10px; }
+  .command-panel { padding-block: 3px; }
+  .panel-heading h2 { font-size: 15px; line-height: 1.2; }
+  .board-feedback { min-height: 24px; }
+  .board-feedback > small { display: none; }
+  .duel-grid { width: min(70%, 21dvh); flex: 0 0 auto; }
+  .game-header h1 { font-size: 16px; }
+  .game-header h1 small { display: none; }
+  .fullscreen-button { font-size: 10px; }
+}

@@ -2,6 +2,8 @@
   'use strict';
   // --- icons.mjs ---
 const paths = {
+  expand: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5',
+  contract: 'M3 8h5V3M16 3v5h5M8 21v-5H3M21 16h-5v5',
   exhaust: 'M6 2h10l4 4v16H4V2h2M14 2v6h6M2 2l20 20',
   sound: 'M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14',
   mute: 'M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6',
@@ -416,7 +418,41 @@ function playSfx(type) {
 }
 
 
+// --- fullscreen.mjs ---
+// Fullscreen must be requested synchronously from a user gesture.
+let landscapeLocked = false;
+const fullscreenActive = () => typeof document !== 'undefined' && !!(document.fullscreenElement || document.webkitFullscreenElement);
+const fullscreenSupported = () => typeof document !== 'undefined' && !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+const enterGameFullscreen = async () => {
+  if (fullscreenActive()) return { ok: true };
+  if (!fullscreenSupported()) return { ok: false, reason: 'unsupported' };
+  try {
+    const element = document.documentElement;
+    if (element.requestFullscreen) await element.requestFullscreen({ navigationUI: 'hide' });
+    else await element.webkitRequestFullscreen();
+    if (typeof screen !== 'undefined' && screen.orientation?.lock) {
+      try { await screen.orientation.lock('landscape'); landscapeLocked = true; } catch {}
+    }
+    return { ok: fullscreenActive() };
+  } catch { return { ok: false, reason: 'denied' }; }
+};
+const releaseLandscapeLock = () => {
+  if (!fullscreenActive() && landscapeLocked) {
+    try { screen.orientation?.unlock?.(); } catch {}
+    landscapeLocked = false;
+  }
+};
+const exitGameFullscreen = async () => {
+  try {
+    if (document.exitFullscreen) await document.exitFullscreen();
+    else await document.webkitExitFullscreen?.();
+    releaseLandscapeLock(); return { ok: true };
+  } catch { return { ok: false, reason: 'denied' }; }
+};
+
+
 // --- view.mjs ---
+
 
 
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -448,10 +484,15 @@ function cardArt(uid, s, cls = '') {
   if (type.includes('focus')) return `<span class="focus-art ${cls}" aria-hidden="true">${icon('fire')}</span>`;
   return `<span class="focus-art ${cls}" aria-hidden="true">${icon(def(uid, s).icon)}</span>`;
 }
+function fullscreenButton() {
+  const active = fullscreenActive();
+  return `<button class="fullscreen-button ${active ? 'is-fullscreen' : ''}" data-action="fullscreen" aria-pressed="${active}" aria-label="${active ? 'الخروج من ملء الشاشة' : 'إخفاء شريط المتصفح وملء الشاشة'}">${icon(active ? 'contract' : 'expand')}<span>${active ? 'تصغير' : 'ملء الشاشة'}</span></button>`;
+}
 function header(s) {
   return `<header class="game-header">${slice(0, 0, 1672, 75, 'template-art', 'blank-template.png')}
     <div class="player-resources"><span class="health-count" aria-label="الصحة">${icon('heart')}${ratio(s.hp, s.maxHp)}</span><button class="momentum-count" data-action="momentum-info" aria-label="رصيد الزخم ${num(s.momentum)}">${icon('fire')}<span>الزخم <b data-momentum>${num(s.momentum)}</b></span></button></div>
     <h1>${esc(ENCOUNTERS[s.encounter - 1].name)}<small>المواجهة ${num(s.encounter)} / ٤</small></h1>
+    ${fullscreenButton()}
     ${button(slice(1585, 19, 45, 45), 'menu', 'settings-button', false, 'قائمة اللعبة')}
   </header>`;
 }
@@ -504,7 +545,7 @@ function gameView(s, p, animation = null) {
   const projected = animation ? null : preview(s, p);
   return `<main class="duel-app" data-version="9">${header(s)}<div class="main-stage">${arena(s, p, projected)}${board(s, p, projected, animation)}</div>${hand(s, p, projected, !!animation)}${rotationHint()}</main>`;
 }
-function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>اختر وجه البطاقة. أكمل صفًا أو عمودًا. اهزم خصومك.</p>${button('ابدأ المواجهة', 'start', 'gold-button')}<small>شبكة ٢ × ٢ · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
+function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>اختر وجه البطاقة. أكمل صفًا أو عمودًا. اهزم خصومك.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>شبكة ٢ × ٢ · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
 function rewardView(s) { return `<main class="screen-panel"><h1>حُسمت المواجهة</h1><p>اختر بطاقة جديدة · تستعيد ${stat(Math.min(6, s.maxHp - s.hp), 'heart')}</p><div class="reward-cards">${s.draftChoices.map(key => `<article class="reward-card"><h2>${esc(cards[key].name)}</h2>${cardArt(key + '.reward', s, 'reward-art')}<div><b>دائم</b>${effectFormula(key + '.reward', s, 0)}</div><div><b>طارئ</b>${effectFormula(key + '.reward', s, 1)}</div>${button('اختر البطاقة', 'draft-' + key, 'gold-button')}</article>`).join('')}</div>${button('أكمل بدون بطاقة', 'continue', 'text-button')}${rotationHint()}</main>`; }
 function endView(s) { return `<main class="screen-panel end-screen"><h1>${s.outcome === 'victory' ? 'انتصار الشنفرى' : s.outcome === 'exhausted' ? 'استُنفدت الأوراق' : 'انتهت المواجهة'}</h1><p>${s.outcome === 'victory' ? 'هزمت خصومك في اللقاءات الأربعة.' : s.outcome === 'exhausted' ? 'استخدم الوجه الدائم لتعود أوراقك إلى الرزمة، واحتفظ بالطارئ للحسم.' : 'جرّب مزج الصدّ والهجوم في الخط نفسه.'}</p>${button('العب من جديد', 'restart', 'gold-button')}${rotationHint()}</main>`; }
 
@@ -512,6 +553,7 @@ const btn = button;
 
 
 // --- app.mjs ---
+
 
 
 
@@ -526,6 +568,25 @@ let resolving = null; let resolveTimer = null; let longPressTimer = null; let lo
 try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { assertState(save.state); s = save.state; report = restore(save.report, s); } } catch {}
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
 function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : gameView(s, selection, resolving); }
+function syncFullscreenControls() {
+  const template = document.createElement('template');
+  template.innerHTML = fullscreenButton();
+  const next = template.content.firstElementChild;
+  for (const element of document.querySelectorAll('.fullscreen-button')) {
+    element.innerHTML = next.innerHTML;
+    for (const attribute of ['class', 'aria-pressed', 'aria-label']) element.setAttribute(attribute, next.getAttribute(attribute));
+  }
+}
+function requestFullscreenFromGesture(explicit = false) {
+  // Call before rendering, audio, or any await can consume the tap's activation.
+  const pending = explicit && fullscreenActive() ? exitGameFullscreen() : enterGameFullscreen();
+  if (menu.open) menu.close();
+  pending.then(result => {
+    syncFullscreenControls();
+    if (!result.ok && explicit) show('ملء الشاشة', `<p>${result.reason === 'unsupported' ? 'هذا المتصفح لا يدعم ملء الشاشة لهذه الصفحة. افتح الرابط في Chrome على أندرويد لتفعيلها.' : 'لم يسمح المتصفح بملء الشاشة. اضغط زر «ملء الشاشة» مرة أخرى، أو افتح الرابط مباشرة في المتصفح.'}</p>`);
+  });
+}
+for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يُستنفد بعد التفعيل حتى المواجهة التالية.' : 'يعود للرزمة بعد اكتمال الخط ويمكن سحبه مجددًا.'}</small></section>`).join('')}</div>`); }
 function help() { show('شبكة الأوامر ٢ × ٢', `<ol><li>اختر عدوًا في الساحة.</li><li>اضغط «دائم» أو «طارئ» على بطاقة، ثم اضغط خانة فارغة.</li><li>امتلاء صف أو عمود يفعّل بطاقاته تلقائيًا ثم يزيلها. الترتيب من اليسار لليمين، ومن الأعلى للأسفل.</li><li>إذا اكتمل خطان معًا، تعمل كل بطاقة مرة واحدة. يمكنك معاينة النتيجة قبل الوضع بالمرور على الخانة أو تركيزها بلوحة المفاتيح.</li><li>الدائم يعود إلى الرزمة، والطارئ يُستنفد حتى المواجهة التالية. أيقونة الورقة المشطوبة تميّزه.</li><li>يتحرك الأعداء بعد تفعيل خط، والفوز بهزيمتهم جميعًا.</li></ol><div class="icon-legend"><span>⚔ ضرر</span><span>🔥 زخم</span><span>🛡 صدّ</span><span>♥ صحة</span></div><p>كل نقطة زخم تزيد السهم ضررًا واحدًا. أول سهم يصرف الرصيد كاملًا، والباقي يبقى بين الأدوار. اضغط ⓘ أو اضغط مطولًا على وجه البطاقة للتفاصيل.</p>`); }
@@ -549,12 +610,12 @@ function commit(action) {
 }
 function action(name) {
   if (name === 'close') menu.close();
-  else if (name === 'start') { s = start(s); report = begin(s); save(); render(); playSfx('select'); }
-  else if (name === 'restart') newGame();
+  else if (name === 'start') { requestFullscreenFromGesture(); s = start(s); report = begin(s); save(); render(); playSfx('select'); }
+  else if (name === 'restart') { requestFullscreenFromGesture(); newGame(); }
   else if (name === 'help') help();
-  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button('ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)} · المستنفد ${num(s.exhausted.length)}</p>`);
+  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button(fullscreenActive() ? 'الخروج من ملء الشاشة' : 'ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)} · المستنفد ${num(s.exhausted.length)}</p>`);
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
-  else if (name === 'fullscreen') { const pending = document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.(); pending?.catch(() => {}); menu.close(); }
+  else if (name === 'fullscreen') requestFullscreenFromGesture(true);
   else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. امتلاء الخط يفعّلهما ويزيلهما.</p>`);
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });

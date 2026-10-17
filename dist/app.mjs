@@ -1,7 +1,8 @@
 import { VERSION, fresh, start, activate, assertState, def, targetForAction, snapshot } from './engine.mjs?v=9';
 import { begin, record, restore, textReport } from './report.mjs?v=9';
-import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula } from './view.mjs?v=9';
+import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=9';
 import { playSfx, toggleMute, isMuted } from './audio.mjs?v=9';
+import { fullscreenActive, enterGameFullscreen, exitGameFullscreen, releaseLandscapeLock } from './fullscreen.mjs?v=9';
 const SAVE_KEY = 'shanfara-duel-v9';
 const root = document.querySelector('#app');
 const menu = document.querySelector('#menu');
@@ -12,6 +13,25 @@ let resolving = null; let resolveTimer = null; let longPressTimer = null; let lo
 try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { assertState(save.state); s = save.state; report = restore(save.report, s); } } catch {}
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
 function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : gameView(s, selection, resolving); }
+function syncFullscreenControls() {
+  const template = document.createElement('template');
+  template.innerHTML = fullscreenButton();
+  const next = template.content.firstElementChild;
+  for (const element of document.querySelectorAll('.fullscreen-button')) {
+    element.innerHTML = next.innerHTML;
+    for (const attribute of ['class', 'aria-pressed', 'aria-label']) element.setAttribute(attribute, next.getAttribute(attribute));
+  }
+}
+function requestFullscreenFromGesture(explicit = false) {
+  // Call before rendering, audio, or any await can consume the tap's activation.
+  const pending = explicit && fullscreenActive() ? exitGameFullscreen() : enterGameFullscreen();
+  if (menu.open) menu.close();
+  pending.then(result => {
+    syncFullscreenControls();
+    if (!result.ok && explicit) show('ملء الشاشة', `<p>${result.reason === 'unsupported' ? 'هذا المتصفح لا يدعم ملء الشاشة لهذه الصفحة. افتح الرابط في Chrome على أندرويد لتفعيلها.' : 'لم يسمح المتصفح بملء الشاشة. اضغط زر «ملء الشاشة» مرة أخرى، أو افتح الرابط مباشرة في المتصفح.'}</p>`);
+  });
+}
+for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يُستنفد بعد التفعيل حتى المواجهة التالية.' : 'يعود للرزمة بعد اكتمال الخط ويمكن سحبه مجددًا.'}</small></section>`).join('')}</div>`); }
 function help() { show('شبكة الأوامر ٢ × ٢', `<ol><li>اختر عدوًا في الساحة.</li><li>اضغط «دائم» أو «طارئ» على بطاقة، ثم اضغط خانة فارغة.</li><li>امتلاء صف أو عمود يفعّل بطاقاته تلقائيًا ثم يزيلها. الترتيب من اليسار لليمين، ومن الأعلى للأسفل.</li><li>إذا اكتمل خطان معًا، تعمل كل بطاقة مرة واحدة. يمكنك معاينة النتيجة قبل الوضع بالمرور على الخانة أو تركيزها بلوحة المفاتيح.</li><li>الدائم يعود إلى الرزمة، والطارئ يُستنفد حتى المواجهة التالية. أيقونة الورقة المشطوبة تميّزه.</li><li>يتحرك الأعداء بعد تفعيل خط، والفوز بهزيمتهم جميعًا.</li></ol><div class="icon-legend"><span>⚔ ضرر</span><span>🔥 زخم</span><span>🛡 صدّ</span><span>♥ صحة</span></div><p>كل نقطة زخم تزيد السهم ضررًا واحدًا. أول سهم يصرف الرصيد كاملًا، والباقي يبقى بين الأدوار. اضغط ⓘ أو اضغط مطولًا على وجه البطاقة للتفاصيل.</p>`); }
@@ -35,12 +55,12 @@ function commit(action) {
 }
 function action(name) {
   if (name === 'close') menu.close();
-  else if (name === 'start') { s = start(s); report = begin(s); save(); render(); playSfx('select'); }
-  else if (name === 'restart') newGame();
+  else if (name === 'start') { requestFullscreenFromGesture(); s = start(s); report = begin(s); save(); render(); playSfx('select'); }
+  else if (name === 'restart') { requestFullscreenFromGesture(); newGame(); }
   else if (name === 'help') help();
-  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button('ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)} · المستنفد ${num(s.exhausted.length)}</p>`);
+  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button(fullscreenActive() ? 'الخروج من ملء الشاشة' : 'ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)} · المستنفد ${num(s.exhausted.length)}</p>`);
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
-  else if (name === 'fullscreen') { const pending = document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.(); pending?.catch(() => {}); menu.close(); }
+  else if (name === 'fullscreen') requestFullscreenFromGesture(true);
   else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. امتلاء الخط يفعّلهما ويزيلهما.</p>`);
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });

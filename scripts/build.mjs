@@ -6,6 +6,7 @@ const files = [
   'engine.mjs',
   'report.mjs',
   'audio.mjs',
+  'fullscreen.mjs',
   'view.mjs',
   'app.mjs'
 ];
