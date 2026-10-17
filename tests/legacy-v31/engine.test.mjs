@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fresh, start, activate, assertState, actions, completedLines, migrateSave, snapshot } from '../dist/engine.mjs';
+import { fresh, start, activate, assertState, actions, completedLines, migrateSave, snapshot } from '../../dist/engine.mjs';
 import { stateWith } from './helpers.mjs';
 
 test('Fresh game has nine empty slots and three visible hand cards', () => { const s = start(fresh(1)); assert.equal(s.grid.length,9); assert.ok(s.grid.every(x=>x===null)); assert.equal(s.hand.length,3); assert.equal(s.deck.length,6); assertState(s); });

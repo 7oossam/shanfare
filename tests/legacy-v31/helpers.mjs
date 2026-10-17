@@ -1,4 +1,4 @@
-import { fresh, start, assertState } from '../dist/engine.mjs';
+import { fresh, start, assertState } from '../../dist/engine.mjs';
 export function stateWith({ grid = [], hand = [], faces = {}, momentum = 0, encounter = 1 } = {}) {
   const s = start(fresh(51));
   s.encounter = encounter;

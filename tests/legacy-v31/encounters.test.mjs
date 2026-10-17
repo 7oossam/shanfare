@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fresh, start, activate, setupEncounter, attackTargets, assertState, ENCOUNTERS } from '../dist/engine.mjs';
+import { fresh, start, activate, setupEncounter, attackTargets, assertState, ENCOUNTERS } from '../../dist/engine.mjs';
 import { stateWith } from './helpers.mjs';
 
 test('Killing all enemies wins the encounter before counterattack',()=>{const s=stateWith({grid:['focus.0'],hand:['arrow.0']});s.enemies[0].hp=1;s.enemies[1].hp=1;const r=activate(s,{card:'arrow.0',cell:3,face:0});assert.equal(r.state.screen,'reward');assert.equal(r.state.hp,s.hp);assert.equal(r.summary.enemyDamage,0);});

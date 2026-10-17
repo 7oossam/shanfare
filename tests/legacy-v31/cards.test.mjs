@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cards, alternates, fresh, activate, assertState, setupEncounter } from '../dist/engine.mjs';
+import { cards, alternates, fresh, activate, assertState, setupEncounter } from '../../dist/engine.mjs';
 import { stateWith } from './helpers.mjs';
 
 test('Every card has two defined faces and no movement card or effect remains',()=>{for(const [key,c] of Object.entries(cards)){assert.ok(alternates[key]);for(const f of [c,alternates[key]])for(const e of f.effects)assert.notEqual(e.op,'move');}for(const key of ['run','run_swift','sneak','erase','ambush'])assert.equal(cards[key],undefined);const s=fresh();for(const key of ['progress','goal','trailCells','moves'])assert.equal(Object.hasOwn(s,key),false);});

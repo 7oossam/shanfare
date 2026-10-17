@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fresh, start } from '../dist/engine.mjs';
-import { gameView, effectFormula, preview } from '../dist/view.mjs';
+import { fresh, start } from '../../dist/engine.mjs';
+import { gameView, effectFormula, preview } from '../../dist/view.mjs';
 import { stateWith } from './helpers.mjs';
 
 test('Game exposes one nine-slot grid, three dual-face cards and no manual execution control',()=>{const s=start(fresh());const html=gameView(s,{card:null,cell:null,face:0});assert.equal((html.match(/class="grid-cell /g)||[]).length,9);assert.equal((html.match(/class="card-face /g)||[]).length,6);assert.ok(!html.includes('data-action="activate"'));assert.ok(!/تقدّم|خطوات|المسار/.test(html));});
