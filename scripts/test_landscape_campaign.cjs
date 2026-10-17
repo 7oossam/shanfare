@@ -7,17 +7,21 @@ const fs=require('node:fs');
   let state=start(fresh());const trace=[];
   for(let i=0;i<180&&state.screen!=='end';i++){
     let action;
-    if(state.screen==='reward')action={kind:'draft',choice:['strong_cover','strong_arrow','knife','strong_focus','wolf','trick'].find(x=>state.draftChoices.includes(x))};
+    if(state.pendingManeuver)action={kind:'maneuver',skip:true};
+    else if(state.screen==='reward')action={kind:'draft',choice:['volley','leech','reserve','knife','strong_cover','wolf'].find(x=>state.draftChoices.includes(x))};
     else {
-      let value=-Infinity;
-      for(const a of actions(state).filter(a=>a.face===0)){
-        const r=activate(state,a);let v=score(r.state);
-        if(r.state.screen==='play'){
-          v=-Infinity;
-          for(const b of actions(r.state).filter(a=>a.face===0)){const next=activate(r.state,b);v=Math.max(v,score(next.state)-(next.summary.kind==='placement'?2:0));}
+      let beam=[{s:state,first:null,v:score(state)}];
+      for(let depth=0;depth<3;depth++){
+        const next=[];
+        for(const node of beam){
+          if(node.s.screen!=='play'){next.push(node);continue;}
+          const legal=node.s.pendingManeuver?[{kind:'maneuver',skip:true}]:actions(node.s);
+          for(const a of legal){const r=activate(node.s,a);next.push({s:r.state,first:node.first??a,v:score(r.state)});}
         }
-        if(v>value){value=v;action=a;}
+        next.sort((a,b)=>b.v-a.v);const seen=new Set();beam=[];
+        for(const node of next){const k=JSON.stringify([node.s.hp,node.s.momentum,node.s.grid,node.s.hand,node.s.draw,node.s.enemies,node.s.phaseTurn,node.s.pendingManeuver]);if(seen.has(k))continue;seen.add(k);beam.push(node);if(beam.length===10)break;}
       }
+      action=beam[0]?.first;
     }
     assert.ok(action);const r=activate(state,action);assert.ok(r.valid);state=r.state;trace.push({action,state});
   }
@@ -29,16 +33,19 @@ const fs=require('node:fs');
     await page.goto(process.env.GAME_URL||'http://127.0.0.1:8765/');await page.locator('[data-action="start"]').tap();
     for(let i=0;i<trace.length;i++){
       const {action:a,state:expected}=trace[i];
-      if(a.kind==='draft')await page.locator(`[data-action="draft-${a.choice}"]`).tap();
+      if(a.kind==='maneuver')await page.locator('[data-action="skip-maneuver"]').tap();
+      else if(a.kind==='draft')await page.locator(`[data-action="draft-${a.choice}"]`).tap();
       else {await page.locator(`[data-target="${a.target}"]`).tap();await page.locator(`.card-face[data-card="${a.card}"][data-face="${a.face}"]`).tap();await page.locator(`[data-cell="${a.cell}"]`).tap();}
+      await page.waitForFunction(()=>!document.querySelector('.duel-grid.is-resolving'));
       const actual=await page.evaluate(()=>JSON.parse(localStorage.getItem('shanfara-duel-v9')).state);
       assert.deepEqual(actual,expected,`Live state diverged at action ${i+1}`);
       if(expected.screen==='reward'){await page.screenshot({path:`${folder}/reward-${expected.encounter}.png`});console.log(`PASS live encounter ${expected.encounter}: ${expected.hp} health, ${expected.turn} rounds`);}
-      if(a.kind==='draft')await page.screenshot({path:`${folder}/encounter-${expected.encounter}.png`});
+      if(a.kind==='maneuver')await page.locator('[data-action="skip-maneuver"]').tap();
+      else if(a.kind==='draft')await page.screenshot({path:`${folder}/encounter-${expected.encounter}.png`});
     }
     await page.screenshot({path:`${folder}/victory.png`});assert.match(await page.locator('.end-screen h1').textContent(),/انتصار/);
     await page.reload();assert.match(await page.locator('.end-screen h1').textContent(),/انتصار/);
-    await page.locator('[data-action="restart"]').tap();assert.equal(await page.locator('.duel-card').count(),5);
+    await page.locator('[data-action="restart"]').tap();assert.equal(await page.locator('.duel-card').count(),3);
     const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('shanfara-duel-v9')).state);assert.equal(save.encounter,1);assert.equal(save.grid.filter(Boolean).length,0);assert.equal(save.hp,24);
     assert.deepEqual(errors,[]);fs.writeFileSync(`${folder}/campaign-report.json`,JSON.stringify({actions:trace.map(x=>x.action),final:state},null,2));
     console.log(`PASS full browser campaign: ${trace.length} placements/rewards, all four encounters, final victory, reload and restart`);

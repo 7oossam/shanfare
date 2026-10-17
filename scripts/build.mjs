@@ -7,6 +7,7 @@ const files = [
   'report.mjs',
   'audio.mjs',
   'fullscreen.mjs',
+  'combat-feedback.mjs',
   'view.mjs',
   'app.mjs'
 ];
