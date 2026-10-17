@@ -104,11 +104,25 @@ body:has(.command-app) { margin: 0; color: #251707; }
 .choice-survival .icon { width: 2.1cqw; height: 2.1cqw; }
 .choose-position { font-size: 2.5cqw; }
 .command-hand { display: flex; direction: ltr; gap: 1.65cqw; margin: 2.1cqw 0 2.4cqw; overflow-x: auto; scrollbar-width: thin; padding: .3cqw; }
-.hand-card { position: relative; flex: 0 0 calc((100% - 4.95cqw) / 4); aspect-ratio: 127 / 139; }
-.hand-card-select { position: absolute; inset: 0; padding: 0; background: #eddbb8; border: 0; border-radius: 1cqw; overflow: hidden; box-shadow: 0 1px 3px #67432377; }
-.hand-card.is-selected .hand-card-select { outline: 2px solid #d29b33; outline-offset: -2px; box-shadow: 0 0 8px #d6a13d; }
-.hand-face-toggle { position: absolute; top: -.2cqw; left: .2cqw; width: 5.4cqw; height: 5.4cqw; display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 50%; border: 2px solid #cdaa68; box-shadow: inset 0 0 0 1px #f0dbad, 0 1px 2px #57391d; color: #fff1d2 !important; background: #4e311a; font-size: 3.7cqw; line-height: 1; }
-.hand-info { position: absolute; top: .4cqw; right: .6cqw; border: 0; border-radius: 50%; background: #ead4a9e0; font-size: 3cqw; padding: 0; width: 4.5cqw; height: 4.5cqw; line-height: 1; }
+/* Both choices remain readable on every card, without a modal or flip. */
+.hand-card { position: relative; flex: 1 0 0; min-width: 0; display: grid; grid-template-rows: 58px 1fr 1fr; gap: 3px; padding: 3px; border: 1px solid #aa8250; border-radius: 5px; background: #ead6b0; box-shadow: 0 1px 3px #67432344; }
+.hand-card.is-selected { border-color: #a36e19; box-shadow: 0 0 0 1px #bd8a37; }
+.hand-card-select { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 0; background: #eddbb8; border: 0; border-radius: 3px; overflow: hidden; }
+.hand-picture { position: absolute; top: 0; left: 0; right: 0; height: 40px; overflow: hidden; }
+.hand-picture > .icon { width: 32px; height: 32px; margin: auto; color: #624422; }
+.hand-card-select > strong { position: relative; font-size: 13px; line-height: 18px; background: #f0ddbb; width: 100%; }
+.hand-face { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 5px 2px; min-height: 76px; border: 1px solid #c3a574; border-radius: 3px; background: #f5e7cc; text-align: center; direction: rtl; color: #36230f; font-family: 'Tajawal', Tahoma, sans-serif !important; }
+.hand-face-title { font-weight: 700; font-size: 12px; line-height: 1.3; }
+.hand-face-effects { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; line-height: 1.5; }
+.hand-face-effects > span { overflow-wrap: anywhere; }
+.hand-face-life { margin-top: auto; color: #795835; font-size: 10px; }
+.hand-face.is-active { border: 2px solid #9d6b18; padding: 4px 1px; background: #ffe7a1; box-shadow: inset 0 0 0 1px #fff7da; }
+.hand-face.is-active .hand-face-title { color: #744508; }
+.card-decision { position: relative; margin-top: 6px; padding: 7px 10px 7px 32px; border: 1px solid #baa071; border-right: 3px solid #9d722b; border-radius: 4px; background: #f5e7ca; font-family: 'Tajawal', Tahoma, sans-serif; font-size: 12px; line-height: 1.6; direction: rtl; }
+.card-decision > strong { display: block; color: #6c4719; font-size: 12px; }
+.card-decision p { margin: 2px 0; color: #30200e; }
+.card-decision small { display: block; color: #715637; font-size: 11px; }
+.decision-info { position: absolute; left: 2px; top: 2px; width: 28px; height: 30px; background: transparent; border: 0; padding: 0; font-size: 20px; }
 .fallback-card-art { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #ebd9b5 url('assets/reference/command-reference.png') 4.9% 36% / 1717% 2290%; border: 1px solid #aa8350; border-radius: 1cqw; }
 .fallback-card-art > .icon { width: 52%; height: 55%; color: #473019; }
 .fallback-card-art > small { font-size: 2.7cqw; }
