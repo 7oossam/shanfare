@@ -64,19 +64,19 @@ export function cardEffects(uid, s, face) {
     if (f.op === 'momentum') bits.push(stsStat('fire', num(f.n), '', 'stat-momentum'));
     if (f.op === 'hit') bits.push(stsStat('knife', num(f.n), '', 'stat-attack'));
     if (f.op === 'sniper') {
-      const bonus = s ? Math.floor(s.momentum / 2) : 0;
+      const bonus = s ? s.momentum : 0;
       if (bonus > 0) {
-        bits.push(stsStat('bow', num(f.n + bonus), `+${num(bonus)}🔥`, 'stat-attack bow-boosted'));
+        bits.push(stsStat('bow', num(f.n + bonus), `يصرف ${num(bonus)} زخم`, 'stat-attack bow-boosted'));
       } else {
-        bits.push(stsStat('bow', num(f.n), '+🔥', 'stat-attack'));
+        bits.push(stsStat('bow', num(f.n), '+ الزخم', 'stat-attack'));
       }
     }
     if (f.op === 'cyclone_shot') {
       const bonus = s ? s.momentum : 0;
       if (bonus > 0) {
-        bits.push(stsStat('bow', num(f.n + bonus), `+${num(bonus)}🔥🔥`, 'stat-attack bow-boosted'));
+        bits.push(stsStat('bow', num(f.n + bonus), `يصرف ${num(bonus)} زخم`, 'stat-attack bow-boosted'));
       } else {
-        bits.push(stsStat('bow', num(f.n), '+🔥🔥', 'stat-attack'));
+        bits.push(stsStat('bow', num(f.n), '+ الزخم', 'stat-attack'));
       }
     }
     if (f.op === 'hurt') bits.push(stsStat('heart', num(f.n), '', 'stat-danger'));
@@ -219,17 +219,26 @@ function renderBattleHand(s, p, projected) {
   </section>`;
 }
 
+function momentumMeter(s, projected) {
+  const m = projected?.summary.momentum;
+  const shots = projected?.summary.effects.filter(f => f.op === 'sniper' || f.op === 'cyclone_shot') || [];
+  return `<section class="momentum-meter" aria-label="رصيد الزخم" aria-live="polite">
+    <div class="momentum-balance">${icon('fire')}<span>الزخم الآن<strong data-momentum-current>${num(s.momentum)}</strong></span></div>
+    <div class="momentum-plan">${m ? `<span>ستجمع <b>${num(m.gained)}</b> · ستصرف <b>${num(m.spent)}</b> · سيبقى <b data-momentum-after>${num(m.after)}</b></span>${shots.map(f => `<small>سهم الخانة ${num(f.cell + 1)}: ${num(f.amount)} أساس + ${num(f.momentumSpent)} زخم${(f.boost || 0) > f.momentumSpent ? ` + ${num(f.boost - f.momentumSpent)} تعزيز` : ''} = <b>${num(f.amount + (f.boost || 0))} ضرر</b></small>`).join('')}` : '<span>كل ١ زخم = +١ ضرر للسهم</span><small>يبقى للدور التالي حتى يصرفه سهم.</small>'}</div>
+  </section>`;
+}
+
 function learningGuide(s) {
   if (s.encounter === 1) {
     const example = s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1];
-    return `<aside class="learning-guide"><strong>الدرس الأول: الزخم يقوّي السهم</strong><span>ركض: +٢ زخم ← سهم: ٢ + ١ = ٣ ضرر. بعدها الزخم يصير ${s.relics.includes('sandals') ? '٤' : '٢'} صدّ ويُصفّر.</span>${example ? '<button data-action="momentum-example">جرّب المثال</button>' : '<small>نفّذ الركض قبل السهم في الخط نفسه. الأرقام على الخانات تبين الترتيب.</small>'}</aside>`;
+    return `<aside class="learning-guide"><strong>الدرس الأول: الزخم يقوّي السهم</strong><span>ركض يجمع ٢ زخم، ثم السهم: ٢ أساس + ٢ زخم = ٤ ضرر. يصرف السهم الرصيد كاملًا.</span>${example ? '<button data-action="momentum-example">جرّب المثال</button>' : '<small>نفّذ الركض قبل السهم في الخط نفسه. الأرقام على الخانات تبين الترتيب.</small>'}</aside>`;
   }
-  return `<details class="learning-guide"><summary>كيف يعمل النهش والزخم؟</summary><p>الزخم يقوّي السهم: كل نقطتين تضيفان ١ ضرر؛ لا يستهلكه السهم. المتبقي يتحول إلى صدّ آخر الدور ثم يُصفّر.</p><p>النهش (وجه الذئب الطارئ): ٤ ضرر عادةً، أو ٦ إذا كان هناك نزيف أو سم. مثال: فعّل وجه السكين الطارئ أولًا لإحداث النزيف، ثم الذئب في الخط نفسه. بطاقة الذئب الطارئة تُطرح بعد التنفيذ.</p></details>`;
+  return `<details class="learning-guide"><summary>كيف يعمل النهش والزخم؟</summary><p>كل ١ زخم = +١ ضرر للسهم. أول سهم يصرف الرصيد كاملًا. إن لم تطلق سهمًا يبقى رصيدك للدور التالي، ويُصفّر عند بدء مواجهة جديدة.</p><p>النهش (وجه الذئب الطارئ): ٤ ضرر عادةً، أو ٦ إذا كان هناك نزيف أو سم. مثال: فعّل وجه السكين الطارئ أولًا لإحداث النزيف، ثم الذئب في الخط نفسه. بطاقة الذئب الطارئة تُطرح بعد التنفيذ.</p></details>`;
 }
 
 export function gameView(s, p, feedback = '') {
   const projected = preview(s, p);
-  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${enemyStrip(s, p, projected)}${learningGuide(s)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
+  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${momentumMeter(s, projected)}${enemyStrip(s, p, projected)}${learningGuide(s)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
 }
 
 // -------------------------------------------------------------
