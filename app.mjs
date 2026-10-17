@@ -1,392 +1,80 @@
-import { comboModel } from './combos.mjs?v=8';
-import { VERSION, fresh, start, activate, assertState, def, stage, targetForAction, ENCOUNTERS, goal } from './engine.mjs?v=8';
-import { begin, record, restore, exported, textReport } from './report.mjs?v=8';
-import {
-  gameView,
-  endView,
-  titleView,
-  rewardView,
-  relicView,
-  interludeView,
-  comboView,
-  cardEffects,
-  bestAxis,
-  button as btn,
-  esc,
-  num,
-  ratio
-} from './view.mjs?v=8';
-import { playSfx, toggleMute, isMuted } from './audio.mjs?v=8';
-
+import { VERSION, fresh, start, activate, assertState, def, targetForAction, snapshot } from './engine.mjs?v=9';
+import { begin, record, restore, textReport } from './report.mjs?v=9';
+import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula } from './view.mjs?v=9';
+import { playSfx, toggleMute, isMuted } from './audio.mjs?v=9';
+const SAVE_KEY = 'shanfara-duel-v9';
 const root = document.querySelector('#app');
 const menu = document.querySelector('#menu');
-const KEY = 'shanfara-roguelike-v8';
-const LAST = 'shanfara-roguelike-last-v8';
-
-let s = fresh();
-let report = null;
-let activeReport = null;
-let selection = { card: null, cell: null, axis: null, face: null, target: null };
-let feedback = '';
-let feedbackTimer = null;
-let displayedFeedback = '';
-
-try {
-  const save = JSON.parse(localStorage.getItem(KEY));
-  if (save?.state?.version === VERSION) {
-    assertState(save.state);
-    s = save.state;
-    report = restore(save.report, s);
-  }
-} catch {}
-
-function persist() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ state: s, report }));
-    if (s.screen === 'end') localStorage.setItem(LAST, JSON.stringify(report));
-  } catch {
-    feedback = 'تعذر الحفظ على الجهاز؛ يمكنك نسخ تقرير الرن.';
-  }
-}
-
-function render() {
-  if (feedback !== displayedFeedback) {
-    clearTimeout(feedbackTimer);
-    displayedFeedback = feedback;
-    if (feedback) {
-      feedbackTimer = setTimeout(() => {
-        feedback = '';
-        displayedFeedback = '';
-        root.querySelector('.tactical-toast')?.remove();
-      }, 3500);
-    }
-  }
-  document.body.dataset.screen = s.screen;
-  if (s.screen === 'title') {
-    root.innerHTML = titleView();
-  } else if (s.screen === 'end') {
-    root.innerHTML = endView(s);
-  } else if (s.screen === 'reward') {
-    root.innerHTML = rewardView(s);
-  } else if (s.screen === 'relic') {
-    root.innerHTML = relicView(s);
-  } else if (s.screen === 'interlude') {
-    root.innerHTML = interludeView(s);
-  } else {
-    root.innerHTML = gameView(s, selection, feedback);
-  }
-}
-
-const focus = q => {
-  if (typeof window !== 'undefined' && window.innerWidth >= 900) {
-    root.querySelector(q)?.focus({ preventScroll: true });
-  }
-};
-
-function reset(seed = s.seed) {
-  if (menu.open) menu.close();
-  s = start(fresh(seed));
-  report = begin(s);
-  selection = { card: null, cell: null, axis: null, face: null, target: null };
-  feedback = '';
-  persist();
-  render();
-  focus('[data-card]');
-}
-
-function show(title, body) {
-  menu.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn('×', 'close')}</div>${body}`;
-  if (!menu.open) menu.showModal();
-  menu.querySelector('button')?.focus();
-}
-
-function rules() {
-  show(
-    'دليل ملحمة السَّراة وقوانين البناءات',
-    `
-    <ol class="steps">
-      <li><strong>مساحة التخطيط:</strong> الأعداء في ساحة القتال، وتحتها ثلاث سلاسل أوامر من ثلاثة مواضع. اضغط بطاقة لتوسيع التخطيط، واختر وجهها بالضغط على سطر «دائم» أو «طارئ». «سلسلة كاملة» تقابل الصف، و«الموضع نفسه» يقابل العمود. الهدف المختار في الساحة ثابت عند تبديل الخطة. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
-      <li><strong>مسارات البناء الأربعة:</strong>
-        <ul>
-          <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> رصيد هجوم تجمعه بالركض والدروب. كل ١ زخم يضيف ١ ضرر؛ أول سهم يصرف الرصيد كاملًا. يبقى المتبقي بين الأدوار ويُصفّر عند بدء مواجهة جديدة. العداد يعرض الرصيد الحالي ومعاينة ما ستجمعه وتصرفه.</li>
-          <li><b style="color:#e64a38">النَّزْف والسُّمُوم:</b> إدماء الأعداء، وتطبيق السم الذي يتجاوز الدروع، وتفجير النزف بضربات قاضية.</li>
-          <li><b style="color:#4aaed9">الصَّخْر والجَلَد:</b> غرس السواتر المتينة، واستفاف الترب لتحويل الجراح لدروع ورد هجومي.</li>
-          <li><b style="color:#ba7ae8">مِيثَاق الضَّوَارِي:</b> انقضاض الذئب، وكمائن النمر، واسترداد غنائم الضبعة.</li>
-        </ul>
-      </li>
-      <li><strong>الآثار كاسرة القواعد:</strong> تمنحك مزايا خارقة تغيّر قوانين المعركة (مثل تفجير السواتر، وتطبيق النزف الجماعي عند تفريغ الخط).</li>
-      <li><strong>المراحل الأربع:</strong> مَضِيق الصَّفَا ➔ قَلْت المَاءِ (المورد والشفاء) ➔ شِعَاب الغَبَش (الضباب والسموم) ➔ مُعَسْكَر سَلامَان (نزال الزعيم عوف بن صخر).</li>
-    </ol>
-    `
-  );
-}
-
-function commit(chosen = selection) {
-  const action = s.screen === 'play' ? { ...chosen, target: targetForAction(s, chosen) } : { ...chosen };
-  const result = activate(s, action);
-  if (!result.valid) return;
-
-  report = record(report || begin(s), s, action, result);
-  s = result.state;
-  selection = { card: null, cell: null, axis: null, face: null, target: null };
-
-  if (result.summary.kind === 'reward') {
-    feedback = result.summary.choice === 'purge' ? '✨ تطهرت رزمتك من بطاقة زائدة.' : '✨ ظفرتَ ببطاقة جديدة للمسير!';
-  } else if (result.summary.kind === 'relic') {
-    feedback = '🏆 اكتسبتَ أثراً صعلوكياً جديداً!';
-  } else if (result.summary.kind === 'transition') {
-    feedback = '⚔️ اقتحمتَ المعبر التالي.';
-  } else {
-    const hits = result.summary.hits || 0;
-    const block = result.summary.block || 0;
-    const moves = result.summary.moves || 0;
-    const dmg = result.summary.enemyDamage || 0;
-    const cleared = result.summary.cleared?.length === 3;
-    feedback = `${hits ? `💥 ضربت ${num(hits)} ضرر` : 'لم تضرب'} • ${block ? `🛡️ صدَدت ${num(block)}` : 'بلا درع'} • ${moves ? `👟 تقدّمت ${num(moves)}` : 'ثابت'}${dmg ? ` • 💔 خسرت ${num(dmg)} صحة` : ' • 🛡️ لم تصبك جراح'}${cleared ? ' • ⚡ فرّغت الخط!' : ''}`;
-  }
-
-  persist();
-  render();
-
+let s = fresh(); let report = null;
+let selection = { card: null, face: 0, cell: null, target: null };
+let inputModality = 'pointer';
+let resolving = null; let resolveTimer = null; let longPressTimer = null; let longPressConsumed = false;
+try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { assertState(save.state); s = save.state; report = restore(save.report, s); } } catch {}
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
+function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : gameView(s, selection, resolving); }
+function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
+function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يُستنفد بعد التفعيل حتى المواجهة التالية.' : 'يعود للرزمة بعد اكتمال الخط ويمكن سحبه مجددًا.'}</small></section>`).join('')}</div>`); }
+function help() { show('شبكة الأوامر ٢ × ٢', `<ol><li>اختر عدوًا في الساحة.</li><li>اضغط «دائم» أو «طارئ» على بطاقة، ثم اضغط خانة فارغة.</li><li>امتلاء صف أو عمود يفعّل بطاقاته تلقائيًا ثم يزيلها. الترتيب من اليسار لليمين، ومن الأعلى للأسفل.</li><li>إذا اكتمل خطان معًا، تعمل كل بطاقة مرة واحدة. يمكنك معاينة النتيجة قبل الوضع بالمرور على الخانة أو تركيزها بلوحة المفاتيح.</li><li>الدائم يعود إلى الرزمة، والطارئ يُستنفد حتى المواجهة التالية. أيقونة الورقة المشطوبة تميّزه.</li><li>يتحرك الأعداء بعد تفعيل خط، والفوز بهزيمتهم جميعًا.</li></ol><div class="icon-legend"><span>⚔ ضرر</span><span>🔥 زخم</span><span>🛡 صدّ</span><span>♥ صحة</span></div><p>كل نقطة زخم تزيد السهم ضررًا واحدًا. أول سهم يصرف الرصيد كاملًا، والباقي يبقى بين الأدوار. اضغط ⓘ أو اضغط مطولًا على وجه البطاقة للتفاصيل.</p>`); }
+function newGame() { clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
+function commit(action) {
+  if (resolving) return;
+  const a = s.screen === 'play' ? { ...action, target: targetForAction(s, action) } : action;
+  const before = s; const result = activate(before, a); if (!result.valid) return;
+  report = record(report || begin(before), before, a, result); s = result.state;
+  selection = { card: null, face: 0, cell: null, target: a.target ?? null };
+  save();
   if (result.summary.kind === 'turn' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    if (result.summary.hits) {
-      root.querySelector('.actor-hero .actor-art')?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(8%)' }, { transform: 'translateX(0)' }], { duration: 420 });
-      root.querySelector(`[data-target="${action.target}"] .actor-art`)?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.8)', transform: 'translateX(6%)' }, { filter: 'brightness(1)' }], { duration: 500 });
-    }
-  }
-
-  // Play appropriate audio SFX
-  if (result.summary.hits) playSfx('hit');
-  else if (result.summary.selfDamage) playSfx('knife');
-  else if (result.summary.block) playSfx('block');
-  else if (result.summary.moves) playSfx('move');
-  else playSfx('select');
-
-  if (s.outcome === 'victory' || s.outcome === 'full') playSfx('victory');
-  else if (s.outcome === 'dead' || s.outcome === 'caught') playSfx('defeat');
+    const grid = [...before.grid]; grid[a.cell] = a.card;
+    resolving = { grid, faces: { ...before.faces, [a.card]: a.face } };
+    // Show activation before the committed removal, including a lethal final line.
+    root.innerHTML = gameView({ ...s, screen: 'play' }, selection, resolving);
+    resolveTimer = setTimeout(() => { resolving = null; render(); }, 420);
+  } else render();
+  playSfx(result.summary.hits ? 'hit' : result.summary.block ? 'block' : 'select');
+  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّل الخط: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
 }
-
-function action(a) {
-  if (a === 'close') {
-    menu.close();
-  } else if (a === 'toggle-audio') {
-    toggleMute();
-    render();
-    playSfx('select');
-  } else if (a === 'start') {
-    s = start(s);
-    report = begin(s);
-    if (menu.open) menu.close();
-    persist();
-    render();
-    playSfx('select');
-  } else if (a === 'restart') {
-    reset();
-    playSfx('select');
-  } else if (a === 'new-seed') {
-    reset(Date.now() >>> 0);
-    playSfx('select');
-  } else if (a === 'plan') {
-    selection = { ...selection, planning: true };
-    render();
-    playSfx('select');
-  } else if (a === 'momentum-info') {
-    show('الزخم: رصيد هجوم', `<p>رصيدك الآن: <strong>${num(s.momentum)}</strong></p><p>كل ١ زخم = +١ ضرر للسهم. أول سهم يصرف الرصيد كاملًا، وغير المصروف يبقى للدور التالي. يبدأ كل لقاء برصيد صفر.</p><p>مثال: ركض يولّد ٢ زخم، ثم سهم أساسه ٢ يصيب بـ٤ ضرر.</p>${s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && !s.grid[1] ? btn('جرّب المثال', 'momentum-example') : ''}`);
-  } else if (a === 'journey') {
-    show(ENCOUNTERS[s.encounter - 1].name, `<p>المواجهة ${num(s.encounter)} من ٤ · الدور ${num(s.phaseTurn)}</p><p>التقدم: ${num(s.progress)} / ${num(goal(s))}. تكتمل المواجهة ببلوغ المسار أو إسقاط الأعداء.</p>`);
-  } else if (a === 'cancel') {
-    selection = { card: null, cell: null, axis: null, face: null, target: null };
-    render();
-    playSfx('select');
-  } else if (a === 'momentum-example') {
-    if (s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1]) {
-      if (menu.open) menu.close();
-      selection = { card: 'arrow.0', cell: 1, axis: 'row', face: 0, target: 'scout' };
-      render();
-    }
-  } else if (a === 'activate') {
-    commit();
-  } else if (a === 'continue') {
-    commit({ kind: 'continue' });
-  } else if (a === 'purge') {
-    commit({ kind: 'purge' });
-  } else if (a === 'skip') {
-    commit({ kind: 'skip' });
-  } else if (a.startsWith('draft-')) {
-    const cardId = a.replace('draft-', '');
-    commit({ kind: 'draft', choice: cardId });
-  } else if (a.startsWith('relic-')) {
-    const relicId = a.replace('relic-', '');
-    commit({ kind: 'relic', choice: relicId });
-  } else if (a === 'card-info' && selection.card) {
-    const uid = selection.card;
-    const permanent = def(uid, s, 0);
-    const instant = def(uid, s, 1);
-    show('وجها البطاقة', `<div class="quick-guide-dialog"><div class="guide-card"><div class="guide-body"><strong>دائم · ${esc(permanent.name)}</strong><p>${esc(permanent.text)}</p><div>${cardEffects(uid, s, 0)}</div></div></div><div class="guide-card"><div class="guide-body"><strong>طارئ · ${esc(instant.name)}</strong><p>${esc(instant.text)}</p><div>${cardEffects(uid, s, 1)}</div></div></div></div>`);
-  } else if (a === 'rules') {
-    rules();
-  } else if (a === 'help') {
-    show('سلاسل الأوامر', `
-      <div class="quick-guide-dialog">
-        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>المعركة أمامك</strong><p>المس العدو في الساحة لاختياره. ترى صحته وهجومه القادم فوقه؛ حاملو التراس يحمون الزعيم.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>خطّط للدور</strong><p>اضغط الزر أسفل الشاشة أو اختر بطاقة من يدك. تتوسع السلاسل الثلاث لتضع البطاقة في موضع فارغ. الوجهان وتأثيرهما ظاهران على كل بطاقة؛ اضغط «دائم» أو «طارئ» مباشرة لاختياره. يظهر فوق اليد شرح النتيجة في خطتك، وعلامة ⓘ تعرض التفاصيل.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>اختر إحدى الخطتين</strong><p>«سلسلة كاملة» تفعّل بطاقات السطر من اليسار لليمين. «الموضع نفسه» يفعّل الموضع المختار في السلاسل الثلاث من الأعلى للأسفل. المعاينة تعرض الترتيب والهجوم والصد وخسارة الصحة.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>نفّذ وشاهد القتال</strong><p>بعد التنفيذ تنطوي الخطة وتتوسع الساحة. البطاقة الدائمة تبقى في موضعها، والطارئة تُطرح بعد التفعيل. اكتمال ثلاث بطاقات في خط يفرّغه.</p></div></div>
-        <div class="guide-footer-tip">خانات الدرب ١ و٥ و٩ تمنح زخمًا وتقدمًا عندما تُفعّل فارغة. الزخم ظاهر أعلى الشاشة؛ اضغطه لشرح الرصيد وتجربة المثال.</div>
-      </div>`);
-  } else if (a === 'menu') {
-    show(
-      'ملحمة الشَّنْفَرَى',
-      `
-      <div style="display:grid;gap:8px;">
-        ${btn('أكمل اللعب', 'close', 'primary')}
-        ${btn(isMuted() ? 'تشغيل المؤثرات الصوتية' : 'كتم الصوت', 'toggle-audio')}
-        ${btn('كيف ألعب؟', 'help')}
-        ${btn('رصيد الزخم ومثال عملي', 'momentum-info')}
-        ${btn('دليل القواعد والبناءات', 'rules')}
-        ${btn('إعادة نفس الرن', 'restart')}
-        ${btn('رن جديد بتوزيع عشوائي', 'new-seed')}
-      </div>
-      `
-    );
-  }
+function action(name) {
+  if (name === 'close') menu.close();
+  else if (name === 'start') { s = start(s); report = begin(s); save(); render(); playSfx('select'); }
+  else if (name === 'restart') newGame();
+  else if (name === 'help') help();
+  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button('ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)} · المستنفد ${num(s.exhausted.length)}</p>`);
+  else if (name === 'audio') { toggleMute(); menu.close(); render(); }
+  else if (name === 'fullscreen') { const pending = document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.(); pending?.catch(() => {}); menu.close(); }
+  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. امتلاء الخط يفعّلهما ويزيلهما.</p>`);
+  else if (name === 'continue') commit({ kind: 'continue' });
+  else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });
+  else if (name === 'export') { const url = URL.createObjectURL(new Blob([textReport(report)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'shanfara-report.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
-
 document.addEventListener('click', e => {
-  const b = e.target.closest('button') || e.target.closest('[data-cell]');
-  if (!b || b.disabled) return;
-
-  if (b.dataset.action === 'flip-card') {
-    const card = b.dataset.card;
-    if (!s.faces) s.faces = {};
-    const cur = s.faces[card] !== undefined ? s.faces[card] : 0;
-    const nextFace = cur === 1 ? 0 : 1;
-    s.faces[card] = nextFace;
-    if (selection.card === card) {
-      selection.face = nextFace;
-      if (selection.cell !== null) {
-        selection.axis = bestAxis(s, card, selection.cell, nextFace, selection.target);
-      }
-    }
-    render();
-    playSfx('select');
-    return;
-  }
-
-  if (b.dataset.action) {
-    action(b.dataset.action);
-    return;
-  }
-
-  if (s.screen !== 'play') return;
-
-  if (b.dataset.target) {
-    selection.target = selection.target === b.dataset.target ? null : b.dataset.target;
-    render();
-    playSfx('select');
-    return;
-  }
-
-  // Face toggle or card selection in hand
-  if (b.dataset.face !== undefined && b.dataset.card) {
-    const face = Number(b.dataset.face);
-    const card = b.dataset.card;
-    if (selection.cell !== null) {
-      const axis = bestAxis(s, card, selection.cell, face, selection.target);
-      selection = { ...selection, card, face, cell: selection.cell, axis };
-    } else {
-      selection = { ...selection, card, face, cell: null, axis: null };
-    }
-    render();
-    playSfx('select');
-    return;
-  }
-
-  // Card select without specific face
-  if (b.dataset.card) {
-    const card = b.dataset.card;
-    const face = selection.face ?? 0;
-    if (selection.cell !== null) {
-      const axis = bestAxis(s, card, selection.cell, face, selection.target);
-      selection = { ...selection, card, face, cell: selection.cell, axis };
-    } else {
-      selection = { ...selection, card, face, cell: null, axis: null };
-    }
-    render();
-    playSfx('select');
-    return;
-  }
-
-  // Grid cell select: inspecting placed cards or placing selected card
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (longPressConsumed && b.dataset.card) { longPressConsumed = false; return; }
+  longPressConsumed = false;
+  if (b.dataset.action) { action(b.dataset.action); return; }
+  if (resolving || s.screen !== 'play') return;
+  if (b.dataset.info) { details(b.dataset.info); return; }
+  if (b.dataset.target) { selection.target = b.dataset.target; selection.cell = null; render(); return; }
+  if (b.dataset.card) { selection = { ...selection, card: b.dataset.card, face: Number(b.dataset.face), cell: null }; render(); playSfx('select'); return; }
   if (b.dataset.cell !== undefined) {
-    const i = Number(b.dataset.cell);
-    if (s.grid[i]) {
-      const c = def(s.grid[i], s);
-      show(
-        `«${c.name}»`,
-        `
-        <div class="card-inspect-dialog" style="text-align:right;direction:rtl;">
-          <p style="font-size:0.9rem;line-height:1.4;margin:4px 0 8px;">${esc(c.text)}</p>
-          <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;">${cardEffects(s.grid[i], s)}</div>
-          <p style="color:#efbf75;font-size:0.8rem;border-top:1px dashed #33444d;padding-top:6px;margin:8px 0 0;">
-            💡 هذه البطاقة مستقرة في الرقعة بالخانة ${num(i + 1)}. عند تفعيل صفها أو عمودها، ستنفّذ أثرها مع باقي بطاقات الخط!
-          </p>
-        </div>
-        `
-      );
-      return;
-    }
-    if (!selection.card) {
-      selection = { ...selection, planning: true };
-      render();
-      return;
-    }
-    const face = selection.face ?? 0;
-    const axis = bestAxis(s, selection.card, i, face, selection.target);
-    selection = { ...selection, card: selection.card, face, cell: i, axis };
-    render();
-    playSfx('select');
-    return;
-  }
-
-  // Axis button (row / col toggle)
-  if (b.dataset.axis) {
-    selection.axis = b.dataset.axis;
-    render();
-    playSfx('select');
+    const cell = Number(b.dataset.cell);
+    if (s.grid[cell]) { details(s.grid[cell]); return; }
+    if (!selection.card) { document.querySelector('#live').textContent = 'اختر وجه بطاقة من اليد أولًا.'; return; }
+    commit({ card: selection.card, face: selection.face, cell, target: selection.target });
   }
 });
-
+function hover(cell) {
+  if (resolving || s.screen !== 'play' || !selection.card || s.grid[cell] || selection.cell === cell) return;
+  selection.cell = cell; render();
+}
+document.addEventListener('pointerover', e => { const cell = e.target.closest('[data-cell]'); if (cell && e.pointerType === 'mouse') hover(Number(cell.dataset.cell)); });
+document.addEventListener('pointerdown', () => { inputModality = 'pointer'; }, true);
+document.addEventListener('keydown', () => { inputModality = 'keyboard'; }, true);
+document.addEventListener('focusin', e => { if (inputModality !== 'keyboard') return; const cell = e.target.closest('[data-cell]'); if (cell) { const index = Number(cell.dataset.cell); if (selection.card && !s.grid[index] && selection.cell !== index) { hover(index); root.querySelector(`[data-cell="${index}"]`)?.focus({preventScroll:true}); } } });
+document.addEventListener('pointerdown', e => { const b = e.target.closest('.card-face'); if (!b) return; longPressConsumed = false; longPressTimer = setTimeout(() => { longPressConsumed = true; details(b.dataset.card); }, 550); });
+for (const event of ['pointerup', 'pointercancel', 'pointermove']) document.addEventListener(event, () => clearTimeout(longPressTimer));
 document.addEventListener('keydown', e => {
-  if (menu.open || s.screen !== 'play') return;
-  if (e.target.matches('input, textarea, select, [contenteditable="true"]')) return;
-  const cell = e.target.closest('[data-cell]');
-  if (cell && e.target === cell && (e.key === 'Enter' || e.key === ' ')) {
-    e.preventDefault();
-    cell.click();
-    return;
-  }
-  // Native buttons must retain their own Enter/Space activation.
-  if (e.target.closest('button') && (e.key === 'Enter' || e.key === ' ')) return;
-  if (e.key === 'Escape') action('cancel');
-  if (e.key >= '1' && e.key <= String(s.hand.length) && !e.ctrlKey && !e.metaKey) {
-    const cardIdx = Number(e.key) - 1;
-    const uid = s.hand[cardIdx];
-    if (uid) {
-      const face = e.shiftKey ? 1 : (selection.card === uid && selection.face === 0 ? 1 : 0);
-      const cell = selection.cell;
-      const axis = cell !== null ? bestAxis(s, uid, cell, face, selection.target) : null;
-      selection = { ...selection, card: uid, face, cell, axis };
-      render();
-      playSfx('select');
-    }
-  }
-  if ((e.key === 'Enter' || e.key === ' ') && selection.card && selection.cell !== null && selection.axis) {
-    e.preventDefault();
-    commit();
-  }
+  if (menu.open || resolving || s.screen !== 'play') return;
+  if (e.key === 'Escape') { selection = { card: null, face: 0, cell: null, target: selection.target }; render(); }
+  if (/^[1-5]$/.test(e.key) && !e.ctrlKey && !e.metaKey && s.hand[Number(e.key) - 1]) { selection = { ...selection, card: s.hand[Number(e.key) - 1], face: e.shiftKey ? 1 : 0, cell: null }; render(); }
 });
-
 render();
-focus(s.screen === 'title' ? '[data-action="start"]' : '[data-card]');
-
