@@ -1,4 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
+export const DIRECT_ATTACK_OPS = ['hit','sniper','pounce','area','lifekill','half'];
 export const HAND_SIZE = 3;
 export const GRID_ROWS = 3;
 export const GRID_COLUMNS = 3;
@@ -59,7 +60,7 @@ export function draw(s) {
 }
 export function fresh(seed = 20261017) {
   const deck = ['arrow.0', 'cover.0', 'focus.0', 'arrow.1', 'cover.1', 'maneuver.0'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 30, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 31, riskUnlocked: false, riskCell: null, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
   s.draw = shuffle(s, deck.slice(HAND_SIZE));
   return s;
 }
@@ -73,7 +74,8 @@ export function migrateSave(before) {
   }
   if (s.grid?.length === 6) { s.grid.push(null,null,null); s.last = null; }
   if (s.screen === 'reward') s.draftChoices = [...new Set([...(s.draftChoices??[]).filter(isReward), ...rewards.filter(isReward)])].slice(0,3);
-  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 30) s.last = null; s.ruleset = 30;
+  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 31) s.last = null; s.ruleset = 31;
+  s.riskUnlocked ??= false; s.riskCell ??= null;
   if (s.hand.length > HAND_SIZE) s.draw.unshift(...s.hand.splice(HAND_SIZE));
   s.discard.push(...s.exhausted); s.exhausted = [];
   for (let i = 0; i < s.grid.length; i++) {
@@ -94,7 +96,7 @@ export function placePreview(s, a) { return activate(s, a); }
 export function setupEncounter(s, index) {
   s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(GRID_SIZE).fill(null); s.pendingManeuver = null; s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
   s.enemies = structuredClone(ENCOUNTERS[index - 1].enemies);
-  s.draw = shuffle(s, s.deck); draw(s); s.screen = 'play'; s.draftChoices = [];
+  s.draw = shuffle(s, s.deck); draw(s); s.riskCell = null; s.screen = s.riskUnlocked ? 'terrain' : 'play'; s.draftChoices = [];
 }
 export function maneuverOptions(s) {
   const pending = s.pendingManeuver;
@@ -111,6 +113,7 @@ export function maneuverOptions(s) {
   return options;
 }
 export function actions(s) {
+  if (s.screen === 'terrain') return [...s.grid.keys()].map(cell=>({kind:'place-risk',cell}));
   if (s.screen === 'reward') return [...s.draftChoices.filter(isReward).map(choice => ({ kind: 'draft', choice })), { kind: 'continue' }];
   if (s.screen !== 'play') return [];
   if (s.pendingManeuver) return [...maneuverOptions(s), {kind:'maneuver',skip:true}];
@@ -126,9 +129,16 @@ export function activate(before, a) {
     const s = structuredClone(before);
     if (a.kind === 'draft') s.deck.push(`${a.choice}.${s.cardSeq++}`);
     s.hp = Math.min(s.maxHp, s.hp + 6);
+    s.riskUnlocked = true;
     setupEncounter(s, s.encounter + 1);
     s.last = { kind: 'transition', action: structuredClone(a), choice: a.choice ?? null };
     assertState(s); return { valid: true, state: s, summary: s.last };
+  }
+  if (before.screen === 'terrain') {
+    if (a.kind !== 'place-risk' || !before.riskUnlocked || !Number.isInteger(a.cell) || a.cell < 0 || a.cell >= GRID_SIZE || before.grid[a.cell]) return invalid();
+    const s = structuredClone(before); s.riskCell = a.cell; s.screen = 'play';
+    s.last = {kind:'terrain',action:structuredClone(a),cell:a.cell};
+    assertState(s); return {valid:true,state:s,summary:s.last};
   }
   if (before.screen === 'play' && before.pendingManeuver) {
     if (a.kind !== 'maneuver') return invalid();
@@ -149,7 +159,7 @@ export function activate(before, a) {
   const lines = completedLines(s.grid, a.cell);
   const cells = [...new Set(LINES.filter(line => line.includes(a.cell)).flat())].filter(cell => s.grid[cell]).sort((x, y) => x - y);
   const clearedCells = [...new Set(lines.flat())].sort((x, y) => x - y);
-  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, clearedCells, events: [], incoming: 0, prevented: 0, unusedBlock: 0, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
+  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, clearedCells, events: [], incoming: 0, prevented: 0, unusedBlock: 0, risk: {triggered:false,cell:s.riskCell??null,bonus:0,extraIncoming:0}, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
   s.prime ??= 0;
   const hit = amount => {
     const pool = attackTargets(s);
@@ -161,22 +171,24 @@ export function activate(before, a) {
   const execute = (cell, phase) => {
     const uid = s.grid[cell];
     summary.events.push({ type: 'activate', cell, uid });
+    const terrainBoost = s.riskUnlocked && cell === s.riskCell && def(uid,s).effects.some(f=>DIRECT_ATTACK_OPS.includes(f.op)) ? 2 : 0;
+    if (terrainBoost) {summary.risk.triggered=true;summary.risk.bonus=terrainBoost;summary.events.push({type:'risk',cell,bonus:terrainBoost});}
     for (const fx of def(uid, s).effects) {
-      const record = { cell, uid, phase, op: fx.op, amount: fx.n };
+      const record = { cell, uid, phase, op: fx.op, amount: fx.n, terrainBoost: DIRECT_ATTACK_OPS.includes(fx.op) ? terrainBoost : 0 };
       if (fx.op === 'momentum') { s.momentum += fx.n; summary.momentum.gained += fx.n; summary.events.push({ type: 'momentum', amount: fx.n, value: s.momentum }); }
       else if (fx.op === 'block') { summary.block += fx.n; summary.events.push({ type: 'shield', amount: fx.n, value: summary.block }); }
       else if (fx.op === 'prime') s.prime += fx.n;
       else if (fx.op === 'recall_grid' || fx.op === 'shift_grid') s.pendingManeuver = {mode: fx.op === 'recall_grid' ? 'recall' : 'shift',source:uid};
       else if (fx.op === 'convert') {const amount=s.momentum;record.converted=amount;summary.block+=amount;summary.momentum.spent+=amount;s.momentum=0;summary.events.push({type:'momentum-spend',amount,value:0});if(amount)summary.events.push({type:'shield',amount,value:summary.block});}
-      else if (fx.op === 'area') {let dealt=0;const credit=fx.consume===false?0:s.momentum;record.momentumSpent=credit;if(fx.consume!==false){summary.momentum.spent+=credit;s.momentum=0;summary.events.push({type:'momentum-spend',amount:credit,value:0});}const boost=s.prime+credit;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
-      else if (fx.op === 'lifekill') {const target=s.enemies.find(e=>e.id===targetForAction(s,action));const hp=target?.hp??0;const power=fx.n+s.prime;s.prime=0;record.damage=hit(power);if(hp>0&&hp<=power){const amount=Math.min(2,s.maxHp-s.hp);s.hp+=amount;if(amount)summary.events.push({type:'heal',amount,hp:s.hp});}}
-      else if (fx.op === 'half') {const amount=Math.ceil(s.momentum/2);record.momentumSpent=amount;s.momentum-=amount;summary.momentum.spent+=amount;summary.events.push({type:'momentum-spend',amount,value:s.momentum});record.damage=hit(fx.n+amount+s.prime);s.prime=0;}
+      else if (fx.op === 'area') {let dealt=0;const credit=fx.consume===false?0:s.momentum;record.momentumSpent=credit;if(fx.consume!==false){summary.momentum.spent+=credit;s.momentum=0;summary.events.push({type:'momentum-spend',amount:credit,value:0});}const boost=s.prime+credit+terrainBoost;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
+      else if (fx.op === 'lifekill') {const target=s.enemies.find(e=>e.id===targetForAction(s,action));const hp=target?.hp??0;const power=fx.n+s.prime+terrainBoost;s.prime=0;record.damage=hit(power);if(hp>0&&hp<=power){const amount=Math.min(2,s.maxHp-s.hp);s.hp+=amount;if(amount)summary.events.push({type:'heal',amount,hp:s.hp});}}
+      else if (fx.op === 'half') {const amount=Math.ceil(s.momentum/2);record.momentumSpent=amount;s.momentum-=amount;summary.momentum.spent+=amount;summary.events.push({type:'momentum-spend',amount,value:s.momentum});record.damage=hit(fx.n+amount+s.prime+terrainBoost);s.prime=0;}
       else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; summary.events.push({ type: 'bleed', target: e.id, amount: fx.n, value: e.bleed }); } }
       else {
         let extra = 0;
         if (fx.op === 'sniper') { extra = s.momentum; record.momentumSpent = extra; summary.momentum.spent += extra; s.momentum = 0; summary.events.push({ type: 'momentum-spend', amount: extra, value: 0 }); }
         if (fx.op === 'pounce' && s.enemies.find(e => e.id === targetForAction(s, action))?.bleed > 0) extra = 3;
-        record.boost = extra + s.prime; record.damage = hit(fx.n + record.boost); s.prime = 0;
+        record.boost = extra + s.prime + terrainBoost; record.damage = hit(fx.n + record.boost); s.prime = 0;
       }
       summary.effects.push(record);
     }
@@ -196,13 +208,17 @@ export function activate(before, a) {
       else { s.screen = 'reward'; s.draftChoices = s.encounter === 1 ? rewards.slice(0, 3) : shuffle(s, rewards).slice(0, 3); }
     } else {
       let shield = summary.block;
+      let riskPending = summary.risk.triggered ? 1 : 0;
       for (const [i, e] of s.enemies.entries()) {
-        const incoming = getEnemyIntent(e, i, s.phaseTurn).damage;
+        if (e.hp <= 0) continue;
+        const riskBonus = riskPending; riskPending = 0;
+        summary.risk.extraIncoming += riskBonus;
+        const incoming = getEnemyIntent(e, i, s.phaseTurn).damage + riskBonus;
         if (!incoming) continue;
         const blocked = Math.min(shield, incoming); shield -= blocked;
         const damage = Math.min(s.hp, incoming - blocked); s.hp -= damage;
         summary.incoming += incoming; summary.prevented += blocked; summary.enemyDamage += damage;
-        summary.events.push({ type: 'enemy-attack', source: e.id, target: 'hero', incoming, blocked, damage, hp: s.hp, shield });
+        summary.events.push({ type: 'enemy-attack', source: e.id, target: 'hero', riskBonus, incoming, blocked, damage, hp: s.hp, shield });
         if (!s.hp) break;
       }
       if (!s.hp) { s.screen = 'end'; s.outcome = 'defeat'; }
@@ -220,6 +236,8 @@ export function activate(before, a) {
 }
 export function assertState(s) {
   const check = (ok, text) => { if (!ok) throw new Error(text); };
+  check(typeof s.riskUnlocked === 'boolean' && (s.riskCell === null || (s.riskUnlocked && Number.isInteger(s.riskCell) && s.riskCell >= 0 && s.riskCell < GRID_SIZE)), 'Invalid risk tile');
+  check(s.screen !== 'terrain' || (s.riskUnlocked && s.riskCell === null && s.grid.every(uid=>!uid)), 'Invalid terrain placement phase');
   check(s.version === VERSION, 'Invalid version'); check(s.grid.length === GRID_SIZE, 'Grid must have nine slots');
   check(Number.isInteger(s.hp) && s.hp >= 0 && s.hp <= s.maxHp, 'Invalid health');
   check(Number.isInteger(s.momentum) && s.momentum >= 0, 'Invalid momentum');

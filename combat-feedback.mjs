@@ -34,6 +34,7 @@ export function playCombatFeedback({root,summary,onComplete,onSound = () => {},r
   const setShield=value=>{const {x,y}=anchor('hero');shield.style.left=`${x-45}px`;shield.style.top=`${y+45}px`;shield.querySelector('b').textContent=combatNumber(value);shield.classList.toggle('is-visible',value>0);};
   const process=event=>{
     if(event.type==='activate')pulse(root.querySelector(`[data-cell="${event.cell}"]`),'is-firing');
+    else if(event.type==='risk')pulse(root.querySelector(`[data-cell="${event.cell}"]`),'is-risk-triggered',400);
     else if(event.type==='damage'){hp(event.target,event.hp);pop(event.target,event.amount,event.source==='bleed'?'bleed':'damage',event.source==='bleed'?'نزيف':'ضرر',event.source==='bleed'?'bleed':'swords');impact(event.target,event.source==='bleed'?'bleed':'hit');pulse(unit(event.target),'is-hit');onSound(event.source==='bleed'?'knife':'hit');if(event.fatal)later(()=>unit(event.target)?.classList.add('is-fallen'),150);}
     else if(event.type==='shield'){setShield(event.value);pop('hero',event.amount,'shield','درع','shield');pulse(shield,'shield-gained');onSound('guard');}
     else if(event.type==='momentum'){const count=root.querySelector('[data-momentum]');if(count)count.textContent=combatNumber(event.value);pulse(root.querySelector('.momentum-count'),'resource-pulse');pop('hero',event.amount,'momentum','زخم','fire');}

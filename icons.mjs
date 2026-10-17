@@ -1,4 +1,5 @@
 const paths = {
+  risk: 'M12 3L23 22H1L12 3zM12 9v6M12 18h.01',
   expand: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5',
   contract: 'M3 8h5V3M16 3v5h5M8 21v-5H3M21 16h-5v5',
   exhaust: 'M6 2h10l4 4v16H4V2h2M14 2v6h6M2 2l20 20',

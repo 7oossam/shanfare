@@ -1,6 +1,6 @@
 import { VERSION, migrateSave, fresh, start, activate, assertState, def, targetForAction, snapshot } from './engine.mjs?v=9';
 import { begin, record, restore, textReport } from './report.mjs?v=9';
-import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=9';
+import { gameView, titleView, rewardView, riskPlacementView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=9';
 import { playSfx, toggleMute, isMuted } from './audio.mjs?v=9';
 import { fullscreenActive, enterGameFullscreen, exitGameFullscreen, releaseLandscapeLock } from './fullscreen.mjs?v=9';
 import { playCombatFeedback } from './combat-feedback.mjs?v=9';
@@ -14,7 +14,7 @@ let cancelCombat = null;
 let resolving = null; let resolveTimer = null; let longPressTimer = null; let longPressConsumed = false;
 try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { s = migrateSave(save.state); report = restore(save.report, s); } } catch {}
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
-function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : gameView(s, selection, resolving); }
+function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : s.screen === 'terrain' ? riskPlacementView(s,selection) : gameView(s, selection, resolving); }
 function syncFullscreenControls() {
   const template = document.createElement('template');
   template.innerHTML = fullscreenButton();
@@ -37,7 +37,8 @@ for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.add
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 function details(uid) {
   const maneuver = def(uid,s,0).name === 'مناورة';
-  show(esc(def(uid,s,0).name), `<div class="card-explanation">${[0,1].map(f=>`<section><h3>${f?'طارئ':'دائم'}</h3><div>${effectFormula(uid,s,f)}</div><p>${esc(def(uid,s,f).text)}</p><small>${f?'يتفعّل مع الصف والعمود ثم يختفي إلى الرزمة.':'يتفعّل عند وضعه ومع كل بطاقة توضع في صفّه أو عموده. الاكتمال يحدد إزالة الخط.'}</small></section>`).join('')}</div>${maneuver?'<p class="maneuver-example"><b>مثال بالسهم:</b> الوجه الدائم يرجّع سهمًا من الشبكة إلى يدك لتلعبه لاحقًا بمكان أو وجه آخر. الوجه الطارئ ينقل السهم لخانة فارغة لتغيّر ترتيب تجهيزك. النقل والاسترجاع لا يفعّلان السهم مرة ثانية، ولا يأخذان دورًا آخر.</p>':''}`);
+  const danger = s.riskUnlocked && s.grid[s.riskCell] === uid;
+  show(esc(def(uid,s,0).name), `<div class="card-explanation">${[0,1].map(f=>`<section><h3>${f?'طارئ':'دائم'}</h3><div>${effectFormula(uid,s,f)}</div><p>${esc(def(uid,s,f).text)}</p><small>${f?'يتفعّل مع الصف والعمود ثم يختفي إلى الرزمة.':'يتفعّل عند وضعه ومع كل بطاقة توضع في صفّه أو عموده. الاكتمال يحدد إزالة الخط.'}</small></section>`).join('')}</div>${danger?'<p class="risk-card-note">هذه الورقة على خانة الخطر: ضرباتها المباشرة +٢، ومجموع ردّ الأعداء +١ عند تفعيل هجومها. الدفاع والنزيف وحده لا يشغّلانها.</p>':''}${maneuver?'<p class="maneuver-example"><b>مثال بالسهم:</b> الوجه الدائم يرجّع سهمًا من الشبكة إلى يدك لتلعبه لاحقًا بمكان أو وجه آخر. الوجه الطارئ ينقل السهم لخانة فارغة لتغيّر ترتيب تجهيزك. النقل والاسترجاع لا يفعّلان السهم مرة ثانية، ولا يأخذان دورًا آخر.</p>':''}`);
 }
 function help() { show('شبكة الأوامر ٣ × ٣', '<ol><li>بطاقة واحدة في الدور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>الوضع يُفعّل البطاقة وكل البطاقات الموجودة في صفّها وعمودها، حتى لو لم يكتمل الخط.</li><li>كل بطاقة تعمل مرة واحدة فقط، بما فيها البطاقة المشتركة بين الصف والعمود. الترتيب من اليسار لليمين ثم من الأعلى للأسفل.</li><li>الدائمة تبقى بين الأدوار، والطارئة تختفي بعد التفعيل.</li><li>الاكتمال يحدد الإزالة فقط: يُزال الخط المكتمل، وتبقى الدائمات في الخط الناقص الذي تفعّل. صف أو عمود من ٣ بطاقات.</li><li>يرد الأعداء مرة واحدة بعد كل بطاقة. معاينة الخانة تعرض النتيجة كاملة. اليد ثلاث أوراق، والبداية سهمان ودرعان وعزم ومناورة.</li></ol>'); }
 function newGame() { cancelCombat?.(); cancelCombat = null; clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
@@ -66,6 +67,8 @@ function action(name) {
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
   else if (name === 'fullscreen') requestFullscreenFromGesture(true);
   else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: إذا كان رصيدك ٢ 🔥 وتفعّل عزم ٢ 🔥 قبل سهم ٢ ⚔ في الصف، يصبح رصيدك ٤ 🔥 ثم يضرب السهم ٦ ⚔ ويصرف الرصيد.</p>`);
+  else if (name === 'confirm-risk') commit({kind:'place-risk',cell:selection.riskCell});
+  else if (name === 'risk-info') show('خانة الخطر', '<p>الهجوم المباشر الموجود فيها يزيد ضرره ٢ عند تفعيله. بالمقابل يزيد مجموع رد الأعداء ١ في هذا الدور، ويمكن للدرع منعه.</p><p>مثال: سهم ٢ يصبح ٤ قبل إضافة الزخم. الوابل يضيف ٢ لكل عدو. النزيف وحده والدفاع والمهارات لا يشغّلونها.</p><p>تظل الخانة بعد اختفاء الطارئ أو تفريغ الخط. المناورة تنقل الورقة فقط. تختار مكان الخطر مجددًا قبل كل مواجهة لاحقة.</p>');
   else if (name === 'skip-maneuver') commit({kind:'maneuver',skip:true});
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });
@@ -76,7 +79,9 @@ document.addEventListener('click', e => {
   if (longPressConsumed && b.dataset.card) { longPressConsumed = false; return; }
   longPressConsumed = false;
   if (b.dataset.action) { action(b.dataset.action); return; }
-  if (resolving || s.screen !== 'play') return;
+  if (resolving) return;
+  if (s.screen === 'terrain') { if (b.dataset.riskCell !== undefined) { selection.riskCell=Number(b.dataset.riskCell);render();if(inputModality==='keyboard')root.querySelector('[data-action="confirm-risk"]')?.focus({preventScroll:true}); } return; }
+  if (s.screen !== 'play') return;
   if (s.pendingManeuver) {
     if (b.dataset.maneuverCard) { if (s.pendingManeuver.mode === 'recall') commit({kind:'maneuver',card:b.dataset.maneuverCard,to:'hand'}); else { selection.utilityCard = b.dataset.maneuverCard; render(); } }
     else if (b.dataset.maneuverCell !== undefined && selection.utilityCard) commit({kind:'maneuver',card:selection.utilityCard,cell:Number(b.dataset.maneuverCell)});
