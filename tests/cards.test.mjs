@@ -82,8 +82,10 @@ test('Momentum Build: Arrow scales with accumulated momentum', () => {
   const enemyBefore = s.enemy;
   const res = activate(s, { card: 'arrow.0', cell: 2, axis: 'row', face: 0 });
   assert.ok(res.valid);
-  // Base 2 + floor(6/2) = 5 damage
-  assert.ok(enemyBefore - res.state.enemy >= 5);
+  // Opening run adds 2 to the existing 6; the bow spends all 8.
+  assert.equal(res.summary.hits, 10);
+  assert.equal(res.summary.momentum.spent, 8);
+  assert.equal(res.state.momentum, 0);
 });
 
 test('Bleed Build: Flint blade applies bleed and rend flesh doubles it', () => {

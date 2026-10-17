@@ -10,10 +10,10 @@ export const ARCHETYPES = {
 
 export const cards = {
   // Starter Deck (10 Cards)
-  run: { name: 'عَدْوُ الشَّنْفَرَى', build: 'momentum', icon: 'run', short: 'زخم ٢', text: '«أعدى من الشنفرى»؛ رصيد زخم خطوتين؛ الفائض يتحول لصد بنهاية الدور.', effects: [{ op: 'momentum', n: 2 }, { op: 'move', n: 2 }] },
+  run: { name: 'عَدْوُ الشَّنْفَرَى', build: 'momentum', icon: 'run', short: 'زخم ٢', text: '«أعدى من الشنفرى»؛ تجمع ٢ زخم للهجوم القادم. يبقى الرصيد حتى يصرفه السهم، ويُصفّر عند بدء مواجهة جديدة.', effects: [{ op: 'momentum', n: 2 }, { op: 'move', n: 2 }] },
   run_swift: { name: 'خَبَبُ العَدَّاء', build: 'momentum', icon: 'run', short: 'زخم ٢', text: 'خَبَبٌ كعدو الذئب نحو الزاد والمأمن؛ يولد خطوتين من الزخم الحركي.', effects: [{ op: 'momentum', n: 2 }, { op: 'move', n: 2 }] },
-  arrow: { name: 'هَتَافُ العَيْطَل', build: 'momentum', icon: 'bow', short: 'أصب ٢ (+نصف الزخم)', text: 'رماية القوس الهتوف؛ تصيب بـ ٢ ضرر زائد نصف الزخم المخزن كضرر إضافي.', effects: [{ op: 'sniper', n: 2 }] },
-  arrow_scout: { name: 'سَهْمُ السَّرَاة', build: 'momentum', icon: 'bow', short: 'أصب ٢ (+نصف الزخم)', text: 'سهم يقطع دجى الليل؛ يصيب بـ ٢ ضرر ويتعاظم بزيادة سرعة الشنفرى.', effects: [{ op: 'sniper', n: 2 }] },
+  arrow: { name: 'هَتَافُ العَيْطَل', build: 'momentum', icon: 'bow', short: '٢ + كل الزخم · يصرفه', text: 'رماية القوس الهتوف؛ ٢ ضرر + رصيد الزخم كاملًا؛ كل ١ زخم يضيف ١ ضرر، ثم يُصرف الرصيد.', effects: [{ op: 'sniper', n: 2 }] },
+  arrow_scout: { name: 'سَهْمُ السَّرَاة', build: 'momentum', icon: 'bow', short: '٢ + كل الزخم · يصرفه', text: 'سهم يقطع دجى الليل؛ ٢ ضرر + رصيد الزخم كاملًا، ثم يصرفه.', effects: [{ op: 'sniper', n: 2 }] },
   knife: { name: 'حَدُّ الإصْلِيت', build: 'bleed', icon: 'knife', short: 'أصب ٣ · جرح ١', text: '«وأبيض إصليت»؛ تجرد النصل بـ ٣ أضرار وتجرح يدك كبرياءً وعزة.', effects: [{ op: 'hurt', n: 1 }, { op: 'hit', n: 3 }] },
   knife_outlaw: { name: 'نَصْلُ الصَّعْلُوك', build: 'bleed', icon: 'knife', short: 'أصب ٣ · جرح ١', text: 'ضربة قاطعة من حديد السَّراة الصقيل تكلف نقطة صحة وتوقع ٣ أضرار.', effects: [{ op: 'hurt', n: 1 }, { op: 'hit', n: 3 }] },
   cover: { name: 'عِيَاذُ الصَّفَا', build: 'rock', icon: 'cover', short: 'صدّ ٣', text: 'تلوذ بحيد صخرٍ أصم؛ تصد ٣ أضرار من هجمات العدو هذا الدور.', effects: [{ op: 'block', n: 3 }] },
@@ -23,8 +23,8 @@ export const cards = {
 
   // Reward Draft Pool (12 Cards across 4 Builds)
   // 1. Momentum & Bow
-  sniper_wind: { name: 'وَتَرُ الهِقْل', build: 'momentum', icon: 'bow', short: 'أصب ٣ (+نصف الزخم)', text: 'وتر مشدود كجناح النعامة؛ ٣ ضرر + نصف رصيد الزخم كضرر ساحق.', effects: [{ op: 'sniper', n: 3 }] },
-  gale_surge: { name: 'رِيَاحُ السَّرَاة', build: 'momentum', icon: 'run', short: 'زخم +٣ · تحويل مضاعف', text: 'عاصفة جبلية تمنح +٣ زخم، وتجعل كل فائض زخم يتحول لضعفي الدرع.', effects: [{ op: 'momentum', n: 3 }, { op: 'surge_block', n: 2 }] },
+  sniper_wind: { name: 'وَتَرُ الهِقْل', build: 'momentum', icon: 'bow', short: '٣ + كل الزخم · يصرفه', text: 'وتر مشدود كجناح النعامة؛ ٣ ضرر + رصيد الزخم كاملًا، ثم يصرفه.', effects: [{ op: 'sniper', n: 3 }] },
+  gale_surge: { name: 'رِيَاحُ السَّرَاة', build: 'momentum', icon: 'run', short: 'زخم +٣ · صدّ ٢', text: 'تجمع ٣ زخم محفوظًا للهجوم القادم وتمنح ٢ صد لهذا الدور.', effects: [{ op: 'momentum', n: 3 }, { op: 'block', n: 2 }] },
   push_bow: { name: 'مَقْبِضُ الصَّدّ', build: 'momentum', icon: 'bow', short: 'أصب ٢ · دفع العدو', text: 'ضربة بقوس العيطل تدفع العدو خانتين وتتيح مسافة رماية آمنة.', effects: [{ op: 'hit', n: 2 }, { op: 'push', n: 2 }] },
 
   // 2. Bleed & Poison
@@ -99,7 +99,7 @@ export const RELICS = {
     name: 'نَعْلا العَدَّاء',
     icon: 'sandals',
     title: 'نَعْلا العَدَّاء (The Runner\'s Sandals)',
-    desc: 'كل نقطة زخم فائضة بنهاية الدور تمنح +٢ صد بدلاً من +١. وإذا بلغ الفائض ٤+ يُدفع العدو خانة للخلف!'
+    desc: 'تمنحك ٢ صد في كل دور، دون استهلاك الزخم.'
   },
   wolf_skin: {
     id: 'wolf_skin',
@@ -599,6 +599,9 @@ export function activate(state, a) {
     name: def(s.grid[i], s).name
   }));
 
+  const momentumBefore = s.momentum;
+  let momentumGained = 0;
+  let momentumSpent = 0;
   let block = 0;
   let prime = 0;
   let hits = 0;
@@ -613,6 +616,7 @@ export function activate(state, a) {
     if (emptyCount > 0) {
       prime += emptyCount * 2;
       s.momentum += emptyCount;
+      momentumGained += emptyCount;
       log.push(`«مِعْصَمُ تَأَبَّطَ» يمنح +${emptyCount * 2} ضرر و+${emptyCount} زخم من فراغ الخانات.`);
     }
   }
@@ -646,6 +650,7 @@ export function activate(state, a) {
       if (trailCells.includes(cell)) {
         const moved = doMove(1);
         s.momentum += 1;
+        momentumGained += 1;
         effects.push({ cell, uid: null, op: 'trail', amount: moved });
       }
       if (s.wards[cell]) {
@@ -664,11 +669,13 @@ export function activate(state, a) {
     for (const fx of c.effects) {
       let amount = fx.n;
       let boost = 0;
+      let spent = 0;
 
       if (fx.op === 'move') {
         amount = doMove(amount);
       } else if (fx.op === 'momentum') {
         s.momentum += amount;
+        momentumGained += amount;
       } else if (fx.op === 'hit' || fx.op === 'ambush') {
         if (fx.op === 'ambush') {
           amount = pos < 2 && !s.grid[cells[pos + 1]] ? 4 : 1;
@@ -678,21 +685,16 @@ export function activate(state, a) {
         prime = 0;
         applyDamageToEnemies(s, totalHit);
         hits += totalHit;
-      } else if (fx.op === 'sniper') {
-        const bonus = Math.floor(s.momentum / 2);
-        boost = prime;
-        const totalHit = amount + prime + bonus;
-        prime = 0;
-        applyDamageToEnemies(s, totalHit);
-        hits += totalHit;
-      } else if (fx.op === 'cyclone_shot') {
-        const bonus = s.momentum;
-        boost = prime;
-        const totalHit = amount + prime + bonus;
+      } else if (fx.op === 'sniper' || fx.op === 'cyclone_shot') {
+        spent = s.momentum;
+        momentumSpent += spent;
+        boost = prime + spent;
+        const totalHit = amount + boost;
         prime = 0;
         s.momentum = 0;
         applyDamageToEnemies(s, totalHit);
         hits += totalHit;
+        log.push(`السهم: ${amount} أساس + ${spent} زخم${boost > spent ? ` + ${boost - spent} تعزيز` : ''} = ${totalHit} ضرر. صُرف ${spent} زخم.`);
       } else if (fx.op === 'hurt') {
         s.hp = Math.max(0, s.hp - amount);
         selfDamage += amount;
@@ -746,7 +748,7 @@ export function activate(state, a) {
         }
       }
 
-      effects.push({ cell, uid, op: fx.op, amount, ...(boost ? { boost } : {}) });
+      effects.push({ cell, uid, op: fx.op, amount, ...(boost ? { boost } : {}), ...(['sniper', 'cyclone_shot'].includes(fx.op) ? { momentumSpent: spent } : {}) });
     }
   }
 
@@ -772,19 +774,11 @@ export function activate(state, a) {
     log.push('«قِرْبَةُ الذِّئْبِ»؛ تفريغ الخط يجذب الذئب ليطبق ٣ نزف و٣ ضرر نهش!');
   }
 
-  // Unspent Momentum converted to Block
-  const blockPerPoint = s.relics.includes('sandals') ? 2 : 1;
-  const momentumBlock = s.momentum * blockPerPoint;
-  block += momentumBlock;
-  if (s.momentum > 0) {
-    log.push(`«الزخم الفائض» (${s.momentum}) تحول إلى +${momentumBlock} صد.`);
+  // Momentum is attack credit: retain it until a bow spends it.
+  if (s.relics.includes('sandals')) {
+    block += 2;
+    log.push('«نَعْلا العَدَّاء»: +٢ صد لهذا الدور.');
   }
-
-  // Sandals push trigger
-  if (s.relics.includes('sandals') && s.momentum >= 4) {
-    log.push('«نَعْلا العَدَّاء»؛ عاصفة الزخم تدفع طليعة الأعداء للخلف وتشتت هجومهم!');
-  }
-  s.momentum = 0;
 
   if (wardSeeds.length) log.push('أقمتَ ساترَ صخرٍ وراءك يصدّ عنك في الكرّة القادمة.');
   if (erasedWard) log.push('غطّت خُطوتك موضعَ الصخرة؛ زال ستر الخانة.');
@@ -864,6 +858,7 @@ export function activate(state, a) {
   s.last = {
     action: structuredClone(a),
     kind: 'turn',
+    momentum: { before: momentumBefore, gained: momentumGained, spent: momentumSpent, after: s.momentum },
     line,
     effects,
     cleared,

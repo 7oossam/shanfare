@@ -37,7 +37,7 @@ export function comboModel(s, a, result = activate(s, a)) {
           targetName: def(fx.uid, shown).name,
           cell: fx.cell,
           base,
-          boost: fx.boost || 0,
+          boost: (fx.boost || 0) - (fx.momentumSpent || 0),
           power: base + (fx.boost || 0),
           damage: fx.amount
         });

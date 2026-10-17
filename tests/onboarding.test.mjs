@@ -19,14 +19,14 @@ test('First encounter teaches momentum without bleed or pounce; advanced cards u
   assertState(s);
 });
 
-test('Guided example gives exactly three damage and four block, with no actors in grid', () => {
+test('Guided example gives exactly four damage and two block, with no actors in grid', () => {
   const s = start(fresh(93));
   const r = activate(s, { card: 'arrow.0', cell: 1, axis: 'row', face: 0, target: 'scout' });
   assert.ok(r.valid);
-  assert.equal(r.summary.hits, 3);
-  assert.equal(r.summary.block, 4);
+  assert.equal(r.summary.hits, 4);
+  assert.equal(r.summary.block, 2);
   assert.equal(r.state.momentum, 0);
-  assert.equal(r.state.enemies[1].hp, s.enemies[1].hp - 3);
+  assert.equal(r.state.enemies[1].hp, s.enemies[1].hp - 4);
   const html = gameView(s, {card:null, cell:null, axis:null, face:null, target:null});
   assert.ok(html.includes('momentum-example'));
   assert.ok(!html.includes('board-fighter'));

@@ -99,7 +99,7 @@ test('Invariant: Card conservation holds across turn activations', () => {
 // ----------------------------------------------------
 // 2. Relic 1: Runner's Sandals (نَعْلا العَدَّاء)
 // ----------------------------------------------------
-test('Relic Sandals: Unspent momentum converts to +2 block per point', () => {
+test('Relic Sandals: Flat block preserves accumulated attack credit', () => {
   let s = start(fresh(777, false));
   s.relics = ['sandals'];
   putInHand(s, 'run.0');
@@ -107,8 +107,9 @@ test('Relic Sandals: Unspent momentum converts to +2 block per point', () => {
   // Face 0 gives +2 momentum and +2 movement
   const res = activate(s, { card: 'run.0', cell: 1, axis: 'row', face: 0 });
   assert.ok(res.valid);
-  // Unspent momentum (2) * 2 = 4 block
-  assert.ok(res.summary.block >= 4);
+  // Sandals grant a flat 2 block without spending attack credit.
+  assert.equal(res.summary.block, 2);
+  assert.ok(res.state.momentum >= 2);
 });
 
 // ----------------------------------------------------
