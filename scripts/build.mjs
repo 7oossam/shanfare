@@ -4,7 +4,6 @@ import path from 'path';
 const files = [
   'icons.mjs',
   'engine.mjs',
-  'combos.mjs',
   'report.mjs',
   'audio.mjs',
   'view.mjs',

@@ -1,139 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  cards,
-  alternates,
-  def,
-  cardType,
-  fresh,
-  start,
-  activate,
-  assertState,
-  ARCHETYPES,
-  DRAFT_POOL
-} from '../dist/engine.mjs';
+import { cards, alternates, fresh, activate, assertState, setupEncounter } from '../dist/engine.mjs';
+import { stateWith } from './helpers.mjs';
 
-function putInHand(s, uid) {
-  if (s.hand.includes(uid)) return;
-  const drawIdx = s.draw.indexOf(uid);
-  if (drawIdx >= 0) {
-    const replaced = s.hand.pop();
-    s.hand.push(s.draw.splice(drawIdx, 1)[0]);
-    s.draw.push(replaced);
-    return;
-  }
-  const discardIdx = s.discard.indexOf(uid);
-  if (discardIdx >= 0) {
-    const replaced = s.hand.pop();
-    s.hand.push(s.discard.splice(discardIdx, 1)[0]);
-    s.discard.push(replaced);
-    return;
-  }
-  const gridIdx = s.grid.indexOf(uid);
-  if (gridIdx >= 0) {
-    const replaced = s.hand.pop();
-    s.grid[gridIdx] = replaced;
-    delete s.faces[uid];
-    s.faces[replaced] = 0;
-    s.hand.push(uid);
-    return;
-  }
-}
-
-// ----------------------------------------------------
-// 1. Definition & Alternates Parity across all 22+ Cards
-// ----------------------------------------------------
-test('Cards: Every base card and reward card has an alternate face definition', () => {
-  const allCardKeys = [
-    'run', 'run_swift', 'arrow', 'arrow_scout', 'knife', 'knife_outlaw', 'cover', 'cover_granite', 'trick', 'wolf',
-    'sniper_wind', 'gale_surge', 'push_bow',
-    'flint_blade', 'desert_venom', 'rend_flesh',
-    'eat_dirt', 'granite_spire', 'rock_avalanche',
-    'leopard_ambush', 'hyena_patience', 'pack_frenzy'
-  ];
-
-  for (const k of allCardKeys) {
-    assert.ok(cards[k], `Missing base definition for ${k}`);
-    assert.ok(alternates[k], `Missing alternate definition for ${k}`);
-    assert.equal(typeof cards[k].name, 'string');
-    assert.equal(typeof alternates[k].name, 'string');
-    assert.ok(Array.isArray(cards[k].effects));
-    assert.ok(Array.isArray(alternates[k].effects));
-    assert.ok(cards[k].build, `Card ${k} must declare its build archetype`);
-  }
-});
-
-test('Face Commitment: Face is committed on placement and retained on grid', () => {
-  let s = start(fresh(12345, false));
-  putInHand(s, 'trick.0');
-
-  // Place face 1 (vanish face)
-  const res = activate(s, { card: 'trick.0', cell: 1, axis: 'row', face: 1 });
-  assert.ok(res.valid);
-  assert.equal(res.summary.vanished.includes('trick.0'), true);
-  assert.equal(res.state.faces['trick.0'], undefined);
-});
-
-test('Momentum Build: Arrow scales with accumulated momentum', () => {
-  let s = start(fresh(12345, false));
-  s.momentum = 6;
-  putInHand(s, 'arrow.0');
-
-  const enemyBefore = s.enemy;
-  const res = activate(s, { card: 'arrow.0', cell: 2, axis: 'row', face: 0 });
-  assert.ok(res.valid);
-  // Opening run adds 2 to the existing 6; the bow spends all 8.
-  assert.equal(res.summary.hits, 10);
-  assert.equal(res.summary.momentum.spent, 8);
-  assert.equal(res.state.momentum, 0);
-});
-
-test('Bleed Build: Flint blade applies bleed and rend flesh doubles it', () => {
-  let s = start(fresh(12345, false));
-  putInHand(s, 'flint_blade.0');
-  s.upgrades['knife.0'] = 'flint_blade';
-
-  const res1 = activate(s, { card: 'knife.0', cell: 1, axis: 'row', face: 0 });
-  assert.ok(res1.valid);
-  assert.ok(res1.state.bleed >= 2);
-
-  // Now double bleed with rend flesh
-  s.upgrades['knife.1'] = 'rend_flesh';
-  putInHand(res1.state, 'knife.1');
-  const res2 = activate(res1.state, { card: 'knife.1', cell: 2, axis: 'row', face: 0 });
-  assert.ok(res2.valid);
-  assert.ok(res2.state.bleed >= 4);
-});
-
-test('Poison Build: Desert venom applies poison that ticks on enemy', () => {
-  let s = start(fresh(12345, false));
-  s.upgrades['knife.0'] = 'desert_venom';
-  putInHand(s, 'knife.0');
-
-  const res = activate(s, { card: 'knife.0', cell: 1, axis: 'row', face: 0 });
-  assert.ok(res.valid);
-  // Desert venom applies 2 poison, ticks down by 1 at end of turn
-  assert.ok(res.state.poison >= 1);
-});
-
-test('Rock Build: Granite spire places stone ward', () => {
-  let s = start(fresh(12345, false));
-  s.upgrades['cover.0'] = 'granite_spire';
-  putInHand(s, 'cover.0');
-
-  const res = activate(s, { card: 'cover.0', cell: 1, axis: 'row', face: 1 });
-  assert.ok(res.valid);
-  assert.equal(res.state.wards[1], true);
-});
-
-test('Beast Build: Wolf pounces and deals extra damage to bleeding target', () => {
-  let s = start(fresh(12345, false));
-  s.bleed = 3;
-  putInHand(s, 'wolf.0');
-
-  const enemyBefore = s.enemy;
-  const res = activate(s, { card: 'wolf.0', cell: 1, axis: 'row', face: 1 });
-  assert.ok(res.valid);
-  // Base 4 + 2 bonus = 6 damage
-  assert.equal(enemyBefore - res.state.enemy, 6);
-});
+test('Every card has two defined faces and no movement card or effect remains',()=>{for(const [key,c] of Object.entries(cards)){assert.ok(alternates[key]);for(const f of [c,alternates[key]])for(const e of f.effects)assert.notEqual(e.op,'move');}for(const key of ['run','run_swift','sneak','erase','ambush'])assert.equal(cards[key],undefined);const s=fresh();for(const key of ['progress','goal','trailCells','moves'])assert.equal(Object.hasOwn(s,key),false);});
+test('The fixed emergency arrow preserves momentum',()=>{const s=stateWith({grid:['focus.0'],hand:['arrow.0'],momentum:3});const r=activate(s,{card:'arrow.0',cell:1,face:1});assert.equal(r.summary.hits,4);assert.equal(r.state.momentum,5);assert.ok(r.state.exhausted.includes('arrow.0'));});
+test('Only the first permanent bow spends all credit',()=>{const s=stateWith({grid:['arrow.0'],hand:['arrow.1'],momentum:3});const r=activate(s,{card:'arrow.1',cell:1,face:0});assert.equal(r.summary.hits,7);assert.deepEqual(r.summary.effects.map(x=>x.momentumSpent),[3,0]);assert.equal(r.state.momentum,0);});
+test('Credit generated after a shot remains for a later line',()=>{const s=stateWith({grid:['arrow.0'],hand:['focus.0'],momentum:3});const r=activate(s,{card:'focus.0',cell:1,face:0});assert.equal(r.summary.hits,5);assert.equal(r.state.momentum,2);});
+test('Defense is applied before one enemy counterattack',()=>{const s=stateWith({grid:['cover.0'],hand:['arrow.0']});const r=activate(s,{card:'arrow.0',cell:1,face:0});assert.equal(r.summary.block,3);assert.equal(r.summary.enemyDamage,0);assert.equal(r.state.hp,24);});
+test('Permanent cards return to circulation and emergencies remain exhausted',()=>{const s=stateWith({grid:['focus.0'],hand:['cover.0'],faces:{'focus.0':1}});const r=activate(s,{card:'cover.0',cell:1,face:0});assert.ok(r.state.exhausted.includes('focus.0'));assert.ok([...r.state.hand,...r.state.draw,...r.state.discard].includes('cover.0'));assertState(r.state);});
+test('Next encounter restores exhausted cards and clears momentum',()=>{const s=stateWith({grid:['focus.0'],hand:['cover.0'],faces:{'focus.0':1}});const r=activate(s,{card:'cover.0',cell:1,face:0});setupEncounter(r.state,2);assert.equal(r.state.exhausted.length,0);assert.equal(r.state.momentum,0);assert.equal(r.state.grid.filter(Boolean).length,0);assertState(r.state);});
+test('Bleed is stored only on the targeted enemy',()=>{const s=stateWith({grid:['cover.0'],hand:['knife.0']});const r=activate(s,{card:'knife.0',cell:1,face:1,target:'scout'});assert.equal(r.state.enemies[0].bleed,0);assert.equal(r.state.enemies[1].bleed,3);assert.equal(r.state.enemies[1].hp,8);});
+test('Pounce uses the bleeding condition from earlier in the same line',()=>{const s=stateWith({grid:['knife.0'],hand:['wolf.0']});const r=activate(s,{card:'wolf.0',cell:1,face:1,target:'guard'});const p=r.summary.effects.find(x=>x.op==='pounce');assert.equal(p.amount+p.boost,7);assert.equal(r.summary.hits,10);});
+test('A setup card boosts only the following attack',()=>{const s=stateWith({grid:['trick.0'],hand:['arrow.0']});const r=activate(s,{card:'arrow.0',cell:1,face:0});assert.equal(r.summary.hits,4);});
+test('Exhausting every remaining attack cannot leave an endless unwinnable fight',()=>{const s=stateWith({grid:['cover.0'],hand:['arrow.0']});for(const uid of s.deck.filter(x=>x.startsWith('arrow.')&&x!=='arrow.0')){s.draw=s.draw.filter(x=>x!==uid);s.exhausted.push(uid);}const r=activate(s,{card:'arrow.0',cell:1,face:1});assert.equal(r.state.outcome,'exhausted');assert.equal(r.state.screen,'end');assertState(r.state);});

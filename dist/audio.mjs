@@ -68,26 +68,6 @@ export function playSfx(type) {
         break;
       }
 
-      case 'move':
-      case 'step': {
-        // Soft desert footstep: filtered noise burst on gravel/sand
-        const noise = c.createBufferSource();
-        noise.buffer = createNoiseBuffer(c, 0.12);
-        const filter = c.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(550, now);
-        filter.Q.setValueAtTime(1.8, now);
-        const gain = c.createGain();
-        gain.gain.setValueAtTime(0.18, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(c.destination);
-        noise.start(now);
-        noise.stop(now + 0.1);
-        break;
-      }
-
       case 'bow':
       case 'hit': {
         // Arrow string release twang + impact thrum

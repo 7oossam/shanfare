@@ -1,124 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  fresh,
-  start,
-  activate,
-  assertState,
-  goal,
-  ENCOUNTERS
-} from '../dist/engine.mjs';
+import { fresh, start, activate, setupEncounter, attackTargets, assertState, ENCOUNTERS } from '../dist/engine.mjs';
+import { stateWith } from './helpers.mjs';
 
-function putInHand(s, uid) {
-  // Always clear grid if uid was on grid
-  const gridIdx = s.grid.indexOf(uid);
-  if (gridIdx >= 0) {
-    s.grid[gridIdx] = null;
-    delete s.faces[uid];
-  }
-  if (s.hand.includes(uid)) return;
-
-  const drawIdx = s.draw.indexOf(uid);
-  if (drawIdx >= 0) {
-    const replaced = s.hand.pop();
-    s.hand.push(s.draw.splice(drawIdx, 1)[0]);
-    s.draw.push(replaced);
-    return;
-  }
-  const discardIdx = s.discard.indexOf(uid);
-  if (discardIdx >= 0) {
-    const replaced = s.hand.pop();
-    s.hand.push(s.discard.splice(discardIdx, 1)[0]);
-    s.discard.push(replaced);
-    return;
-  }
-  s.hand.push(uid);
-}
-
-// ----------------------------------------------------
-// 1. Encounter 1: Granite Chokepoint (مَضِيقُ الصَّفَا)
-// ----------------------------------------------------
-test('Encounter 1: Progress reaches 10 transitions to reward drafting', () => {
-  let s = start(fresh(4001, false));
-  s.progress = 9;
-  putInHand(s, 'run.0');
-
-  const res = activate(s, { card: 'run.0', cell: 6, axis: 'row', face: 0 });
-  assert.ok(res.valid);
-  assert.ok(res.state.progress >= 10);
-  assert.equal(res.state.screen, 'reward');
-  assert.equal(res.state.draftChoices.length, 3);
-  assert.ok(assertState(res.state));
-});
-
-test('Encounter 1: Defeating all enemies transitions to reward drafting', () => {
-  let s = start(fresh(4002, false));
-  s.enemies.forEach(e => e.hp = 0);
-  s.enemy = 0;
-  putInHand(s, 'run.0');
-
-  const res = activate(s, { card: 'run.0', cell: 6, axis: 'row', face: 0 });
-  assert.ok(res.valid);
-  assert.equal(res.state.screen, 'reward');
-  assert.ok(assertState(res.state));
-});
-
-// ----------------------------------------------------
-// 2. Encounter 2: Oasis Pool & Relic Selection
-// ----------------------------------------------------
-test('Encounter 2 Transition: Spring heals health and offers Relic on completion', () => {
-  let s = start(fresh(4003, false));
-  s.encounter = 2;
-  s.screen = 'play';
-  s.hp = 15;
-  putInHand(s, 'run.0');
-
-  // Trigger empty trail/spring at cell 4 in row 1
-  s.grid[4] = null; // empty spring cell
-  const res = activate(s, { card: 'run.0', cell: 3, axis: 'row', face: 0 });
-  assert.ok(res.valid);
-  // Oasis spring in cell 4 heals +4 HP
-  assert.ok(res.state.hp > 15);
-
-  // Complete Encounter 2
-  res.state.enemies.forEach(e => e.hp = 0);
-  res.state.enemy = 0;
-  putInHand(res.state, 'run.0');
-  const resWin = activate(res.state, { card: 'run.0', cell: 5, axis: 'row', face: 0 });
-  assert.equal(resWin.state.screen, 'reward');
-
-  // Pick draft reward
-  const resDraft = activate(resWin.state, { kind: 'draft', choice: resWin.state.draftChoices[0] });
-  assert.equal(resDraft.state.screen, 'interlude');
-
-  // Continue from interlude triggers Relic selection screen!
-  const resRelic = activate(resDraft.state, { kind: 'continue' });
-  assert.equal(resRelic.state.screen, 'relic');
-
-  // Pick wolf skin relic
-  const resRelicPick = activate(resRelic.state, { kind: 'relic', choice: 'wolf_skin' });
-  assert.ok(resRelicPick.state.relics.includes('wolf_skin'));
-  assert.equal(resRelicPick.state.encounter, 3);
-  assert.equal(resRelicPick.state.screen, 'play');
-});
-
-// ----------------------------------------------------
-// 3. Encounter 3 & 4 Progression to Victory
-// ----------------------------------------------------
-test('Encounter 4: Defeating Boss Awf ibn Sakhr wins the full run', () => {
-  let s = start(fresh(4004, false));
-  s.encounter = 4;
-  s.screen = 'play';
-  s.enemies = ENCOUNTERS[3].enemies.map(e => ({ ...e }));
-  s.enemy = s.enemies.reduce((acc, e) => acc + e.hp, 0);
-
-  // Defeat warlord and shields
-  s.enemies.forEach(e => e.hp = 0);
-  s.enemy = 0;
-  putInHand(s, 'run.0');
-
-  const res = activate(s, { card: 'run.0', cell: 6, axis: 'row', face: 0 });
-  assert.ok(res.valid);
-  assert.equal(res.state.screen, 'end');
-  assert.equal(res.state.outcome, 'full');
-});
+test('Killing all enemies wins the encounter before counterattack',()=>{const s=stateWith({grid:['focus.0'],hand:['arrow.0']});s.enemies[0].hp=1;s.enemies[1].hp=1;const r=activate(s,{card:'arrow.0',cell:1,face:0});assert.equal(r.state.screen,'reward');assert.equal(r.state.hp,s.hp);assert.equal(r.summary.enemyDamage,0);});
+test('No escape or progress victory exists: resource generation alone cannot win',()=>{const s=stateWith({grid:['focus.0'],hand:['focus.1'],momentum:100});const r=activate(s,{card:'focus.1',cell:1,face:0});assert.equal(r.state.screen,'play');assert.equal(r.state.enemies[0].hp,16);assert.equal(r.state.enemies[1].hp,12);});
+test('First rewards avoid advanced status cards',()=>{const s=stateWith({grid:['focus.0'],hand:['arrow.0']});s.enemies.forEach(e=>e.hp=1);const r=activate(s,{card:'arrow.0',cell:1,face:0});assert.deepEqual(r.state.draftChoices,['strong_arrow','strong_cover','strong_focus']);});
+test('Reward choice adds exactly one card, heals, and starts the next encounter',()=>{const s=start(fresh(2));s.screen='reward';s.draftChoices=['strong_arrow'];s.hp=10;const r=activate(s,{kind:'draft',choice:'strong_arrow'});assert.ok(r.valid);assert.equal(r.state.encounter,2);assert.equal(r.state.hp,16);assert.equal(r.state.deck.length,11);assert.equal(r.state.screen,'play');assertState(r.state);});
+test('Skipping reward advances without adding cards',()=>{const s=start(fresh());s.screen='reward';const r=activate(s,{kind:'continue'});assert.equal(r.state.encounter,2);assert.equal(r.state.deck.length,10);});
+test('Only killing all final enemies wins the run',()=>{const s=stateWith({grid:['focus.0'],hand:['arrow.0'],encounter:4});s.enemies=structuredClone(ENCOUNTERS[3].enemies);s.enemies[0].hp=1;s.enemies[1].hp=0;s.enemies[2].hp=0;const r=activate(s,{card:'arrow.0',cell:1,face:0,target:'warlord'});assert.equal(r.state.outcome,'victory');assert.equal(r.state.screen,'end');assert.equal(r.summary.enemyDamage,0);});
+test('Boss targeting cannot bypass shield bearers',()=>{const s=start(fresh());setupEncounter(s,4);assert.deepEqual(attackTargets(s).map(e=>e.id),['shield_r','shield_l']);assert.equal(activate(s,{card:s.hand[0],cell:0,face:0,target:'warlord'}).valid,false);s.enemies[1].hp=0;s.enemies[2].hp=0;assert.equal(attackTargets(s)[0].id,'warlord');});
+test('Dead enemies do not counterattack and damage can spill to the next enemy',()=>{const s=stateWith({grid:['focus.0'],hand:['arrow.0']});s.enemies[0].hp=1;const r=activate(s,{card:'arrow.0',cell:1,face:0,target:'guard'});assert.equal(r.state.enemies[0].hp,0);assert.equal(r.state.enemies[1].hp,9);assert.equal(r.summary.enemyDamage,1);});
+test('Lethal counterattack ends the run',()=>{const s=stateWith({grid:['focus.0'],hand:['focus.1']});s.hp=1;const r=activate(s,{card:'focus.1',cell:1,face:0});assert.equal(r.state.hp,0);assert.equal(r.state.outcome,'defeat');});
