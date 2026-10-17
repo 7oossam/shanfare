@@ -102,7 +102,7 @@ const alternates = {
   cover: { name: 'سَاتِرٌ عَاجِل', build: 'rock', icon: 'cover', short: 'ساتر ١ لاحقاً · تُطرح', text: 'تغرس متراساً صخرياً يدوم في الخانة للتفعيلات القادمة.', effects: [{ op: 'ward', n: 1 }, { op: 'vanish', n: 1 }] },
   cover_granite: { name: 'حَذَرُ السَّارِي', build: 'rock', icon: 'cover', short: 'زخم ١ · صدّ ١', text: 'تخطو كذئب وجل؛ زخم خطوة وصد ضرر واحد.', effects: [{ op: 'momentum', n: 1 }, { op: 'move', n: 1 }, { op: 'block', n: 1 }] },
   trick: { name: 'انْسِلالُ الغَبَش', build: 'general', icon: 'sneak', short: 'زخم ١ · صدّ ٢ · تُطرح', text: 'تنسل في غبش الفجر بين الصخور وتتوارى عن الأنظار.', effects: [{ op: 'momentum', n: 1 }, { op: 'move', n: 1 }, { op: 'block', n: 2 }, { op: 'vanish', n: 1 }] },
-  wolf: { name: 'انْقِضَاضُ السِّيد', build: 'beast', icon: 'wolf', short: 'أصب ٤ للنازف · تُطرح', text: 'وثبة الذئب الكاسر؛ ٤ أضرار، أو ٦ أضرار إن كان العدو ينزف أو مسموماً.', effects: [{ op: 'wolf_pounce', n: 4 }, { op: 'vanish', n: 1 }] },
+  wolf: { name: 'انْقِضَاضُ السِّيد', build: 'beast', icon: 'wolf', short: '٤ ضرر · ٦ مع نزيف/سم · تُطرح', text: 'وثبة الذئب الكاسر؛ ٤ أضرار، أو ٦ أضرار إن كان العدو ينزف أو مسموماً.', effects: [{ op: 'wolf_pounce', n: 4 }, { op: 'vanish', n: 1 }] },
 
   // Reward Alternates
   sniper_wind: { name: 'إِطْلاقُ الإِعْصَار', build: 'momentum', icon: 'bow', short: '٥ + كامل الزخم ضرر · تُطرح', text: 'تفريغ كامل الزخم المتراكم كضرر صاعق واحد يقضي على الأعداء.', effects: [{ op: 'cyclone_shot', n: 5 }, { op: 'vanish', n: 1 }] },
@@ -325,6 +325,12 @@ function incoming(s) {
 }
 
 function setupEncounter(s, encIdx) {
+  if (s.learning && !s.advancedUnlocked && encIdx >= 2) {
+    const unlocked = ['knife.0', 'knife.1', 'trick.0', 'wolf.0'];
+    s.deck.push(...unlocked);
+    s.discard.push(...unlocked);
+    s.advancedUnlocked = true;
+  }
   s.encounter = encIdx;
   const enc = ENCOUNTERS[encIdx - 1];
   s.progress = 0;
@@ -355,7 +361,7 @@ const STARTER_DECK = [
   'trick.0', 'wolf.0'
 ];
 
-function fresh(seed = 20261016) {
+function fresh(seed = 20261016, guided = true) {
   const s = {
     v: 8,
     version: VERSION,
@@ -378,7 +384,8 @@ function fresh(seed = 20261016) {
     wards: Array(9).fill(false),
     faces: {},
     upgrades: {},
-    deck: [...STARTER_DECK],
+    deck: guided ? ['run.0', 'run.1', 'arrow.0', 'arrow.1', 'cover.0', 'cover.1', 'arrow.2', 'arrow.3', 'cover.2', 'cover.3'] : [...STARTER_DECK],
+    learning: guided,
     hand: [],
     draw: [],
     discard: [],
@@ -473,10 +480,6 @@ function attackTargets(s) {
 function targetForAction(s, a = {}) {
   const pool = attackTargets(s);
   if (a.target && pool.some(e => e.id === a.target)) return a.target;
-  if (Number.isInteger(a.cell) && a.axis === 'col') {
-    const aligned = pool.find(e => enemyCell(s.enemies.indexOf(e)) % 3 === a.cell % 3);
-    if (aligned) return aligned.id;
-  }
   return pool[0]?.id ?? null;
 }
 
@@ -1495,15 +1498,11 @@ function renderBattleBoard(s, p, projected) {
     <div class="combat-grid" role="group" aria-label="رقعة التخطيط، تسع خانات">
     ${grid.map((uid, cell) => {
       const c = uid ? def(uid, shown) : null;
-      const enemy = s.enemies.find((e, i) => enemyCell(i) === cell && e.hp > 0);
       const staged = p.cell === cell;
-      const isHero = cell === 7;
-      const kind = enemy ? /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard' : 'hero';
-      return `<div class="battle-tile ${enemy || isHero ? 'has-fighter' : ''} ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
+      return `<div class="battle-tile ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
         <button type="button" data-cell="${cell}" class="tile-action ${c ? 'has-card card-' + c.build : ''}" aria-pressed="${staged}" aria-label="خانة ${num(cell + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}" ${!uid && !p.card ? 'disabled' : ''}>
           ${c ? `<span class="action-token token-${c.build}">${icon(c.icon)}<small>${esc(c.short)}</small></span>` : `<span class="empty-action">${s.wards[cell] ? icon('cover') : trailCells.includes(cell) ? icon('foot') : '◇'}<small>${s.wards[cell] ? 'ساتر' : trailCells.includes(cell) ? 'درب' : p.card ? '＋' : ''}</small></span>`}
         </button>
-        ${enemy || isHero ? `<span class="board-fighter ${isHero ? 'hero-fighter' : 'enemy-fighter'} ${enemy?.id === target ? 'is-target' : ''}" aria-hidden="true">${fighterArt(kind)}${isHero ? `<span class="hero-mini-health"><i style="width:${(projected?.state.hp ?? s.hp) / s.maxHp * 100}%"></i></span>` : ''}</span>` : ''}
         ${line.includes(cell) ? `<span class="path-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
       </div>`;
     }).join('')}</div>
@@ -1547,9 +1546,17 @@ function renderBattleHand(s, p, projected) {
   </section>`;
 }
 
+function learningGuide(s) {
+  if (s.encounter === 1) {
+    const example = s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1];
+    return `<aside class="learning-guide"><strong>الدرس الأول: الزخم يقوّي السهم</strong><span>ركض: +٢ زخم ← سهم: ٢ + ١ = ٣ ضرر. بعدها الزخم يصير ${s.relics.includes('sandals') ? '٤' : '٢'} صدّ ويُصفّر.</span>${example ? '<button data-action="momentum-example">جرّب المثال</button>' : '<small>نفّذ الركض قبل السهم في الخط نفسه. الأرقام على الخانات تبين الترتيب.</small>'}</aside>`;
+  }
+  return `<details class="learning-guide"><summary>كيف يعمل النهش والزخم؟</summary><p>الزخم يقوّي السهم: كل نقطتين تضيفان ١ ضرر؛ لا يستهلكه السهم. المتبقي يتحول إلى صدّ آخر الدور ثم يُصفّر.</p><p>النهش (وجه الذئب الطارئ): ٤ ضرر عادةً، أو ٦ إذا كان هناك نزيف أو سم. مثال: فعّل وجه السكين الطارئ أولًا لإحداث النزيف، ثم الذئب في الخط نفسه. بطاقة الذئب الطارئة تُطرح بعد التنفيذ.</p></details>`;
+}
+
 function gameView(s, p, feedback = '') {
   const projected = preview(s, p);
-  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${enemyStrip(s, p, projected)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
+  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${enemyStrip(s, p, projected)}${learningGuide(s)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
 }
 
 // -------------------------------------------------------------
@@ -1818,7 +1825,7 @@ function rules() {
     'دليل ملحمة السَّراة وقوانين البناءات',
     `
     <ol class="steps">
-      <li><strong>مساحة التخطيط:</strong> الأعداء في الشريط العلوي، والرقعة المصغرة تعرض مواقع الشخصيات والبطاقات. اضغط العدو في الشريط لتحديد الهدف. وجها البطاقة ظاهران معًا أسفل ألسنة البطاقات؛ اضغط أحدهما ثم اختر موضعًا. العمود يفضّل العدو المحاذي له ما لم تحدد هدفًا يدويًا. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
+      <li><strong>مساحة التخطيط:</strong> الأعداء في الشريط العلوي، والرقعة المصغرة للبطاقات فقط. اضغط العدو في الشريط لتحديد الهدف. وجها البطاقة ظاهران معًا أسفل ألسنة البطاقات؛ اضغط أحدهما ثم اختر موضعًا. الهدف المختار في الشريط ثابت عند تبديل الصف والعمود. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
       <li><strong>مسارات البناء الأربعة:</strong>
         <ul>
           <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> مراكمة السرعة الحركية وتحويل فائض الزخم لصد (+٢ لكل خطوة) ومضاعفة ضرر رميات القوس.</li>
@@ -1896,6 +1903,11 @@ function action(a) {
     selection = { card: null, cell: null, axis: null, face: null, target: null };
     render();
     playSfx('select');
+  } else if (a === 'momentum-example') {
+    if (s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1]) {
+      selection = { card: 'arrow.0', cell: 1, axis: 'row', face: 0, target: 'scout' };
+      render();
+    }
   } else if (a === 'activate') {
     commit();
   } else if (a === 'continue') {
@@ -1922,9 +1934,9 @@ function action(a) {
       <div class="quick-guide-dialog">
         <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>اقرأ الأعداء في الشريط العلوي</strong><p>فوق كل عدو هجومه القادم، وتحته صحته. المس شخصيته لتحديده هدفًا. حاملو التراس يحمون الزعيم.</p></div></div>
         <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>اختر بطاقة ووجهًا من يدك</strong><p>المس لسان بطاقة لعرضها. أمامك لوحتان: تأثير دائم وتأثير فوري. اختر اللوحة المناسبة؛ الدائم يبقى ليتكرر أثره، والفوري يُطرح بعد تفعيله.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>ضعها في موضع بطاقة فارغ</strong><p>كل خانة تستقبل بطاقة حتى لو كانت فيها شخصية؛ موضع البطاقة تحت الشخصية مستقل عنها. وجود الشخصية لا يغلق الخانة.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>ضعها في موضع بطاقة فارغ</strong><p>الشبكة للبطاقات فقط. الشخصيات في الشريط العلوي؛ موضع البطاقة يحدد ترتيب تفعيلها، وليس موقع عدو.</p></div></div>
         <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>قارن الصف والعمود ثم نفّذ</strong><p>لوحتا أفقي وعمودي تعرضان الضرر والدروع وخسارة الصحة. الخط المضيء يوضح ترتيب التنفيذ، وصحة الأعداء في الشريط تعرض النتيجة المتوقعة. يمكنك تبديل وجه البطاقة أو الهدف قبل التنفيذ.</p></div></div>
-        <div class="guide-footer-tip">العمود يختار عدوًا محاذيًا تلقائيًا إن وجد. ترتيب تنفيذ الصفوف من اليسار لليمين والأعمدة من الأعلى للأسفل. اكتمال خط بثلاث بطاقات يفرّغه. الزخم الفائض يتحوّل إلى دروع.</div>
+        <div class="guide-footer-tip">اختر هدفك من شريط الأعداء. ترتيب تنفيذ الصفوف من اليسار لليمين والأعمدة من الأعلى للأسفل. اكتمال خط بثلاث بطاقات يفرّغه. الزخم الفائض يتحوّل إلى دروع.</div>
       </div>`);
   } else if (a === 'menu') {
     show(
