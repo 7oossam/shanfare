@@ -69,7 +69,7 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .board-feedback > strong { font-size: clamp(12px, 2.4dvh, 24px); line-height: 1.2; }
 .board-feedback > small { font-size: clamp(10px, 1.7dvh, 17px); }
 .preview-totals { display: flex; gap: 12px; font-size: clamp(12px, 2.2dvh, 22px); }
-.is-resolving .has-card { animation: clear-line .42s ease-in both; }
+.is-resolving .is-clearing { animation: clear-line .42s ease-in both; }
 @keyframes clear-line { 0%, 50% { opacity: 1; filter: brightness(1.2); transform: scale(1); } 100% { opacity: 0; transform: scale(.85); } }
 .hand-panel { position: relative; isolation: isolate; min-height: 0; border-top: 2px solid #94642b; padding: clamp(4px, .8dvh, 8px) clamp(5px, .7vw, 12px); }
 .hand-cards { height: 100%; display: flex; gap: clamp(5px, .8vw, 14px); direction: ltr; }

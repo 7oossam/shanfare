@@ -49,21 +49,21 @@ const cards = {
   cover: face('احتماء', 'shield', [{ op: 'block', n: 3 }], 'تصد ثلاثة أضرار من الهجوم القادم.'),
   knife: face('جرح', 'knife', [{ op: 'hit', n: 2 }, { op: 'bleed', n: 1 }], 'ضرران ونقطة نزيف على العدو المستهدف.'),
   wolf: face('نهش', 'wolf', [{ op: 'hit', n: 3 }], 'ثلاثة أضرار للعدو المستهدف.'),
-  trick: face('خدعة', 'spark', [{ op: 'prime', n: 2 }], 'يزيد الهجوم التالي في الخط بضررين.'),
+  trick: face('خدعة', 'spark', [{ op: 'prime', n: 2 }], 'يزيد الهجوم التالي بضررين.'),
   strong_arrow: face('سهم صقيل', 'bow', [{ op: 'sniper', n: 3 }], 'ثلاثة أضرار زائد الزخم كله، ثم يصرفه.'),
   strong_cover: face('حصن', 'shield', [{ op: 'block', n: 4 }], 'تصد أربعة أضرار من الهجوم القادم.'),
   strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 3 }], 'تجمع ثلاث نقاط زخم.')
 };
 const alternates = {
-  focus: face('عزم', 'fire', [{ op: 'momentum', n: 4 }], 'تجمع أربع نقاط زخم وتستنفد البطاقة لهذه المواجهة.'),
-  arrow: face('سهم', 'bow', [{ op: 'hit', n: 4 }], 'أربعة أضرار دون استهلاك الزخم، وتستنفد البطاقة.'),
-  cover: face('احتماء', 'shield', [{ op: 'block', n: 6 }], 'تصد ستة أضرار وتستنفد البطاقة.'),
-  knife: face('جرح', 'knife', [{ op: 'bleed', n: 4 }], 'أربع نقاط نزيف على العدو المستهدف وتستنفد البطاقة.'),
-  wolf: face('نهش', 'wolf', [{ op: 'pounce', n: 4 }], 'أربعة أضرار، أو سبعة إذا كان الهدف ينزف؛ تستنفد البطاقة.'),
-  trick: face('خدعة', 'spark', [{ op: 'prime', n: 4 }], 'يزيد الهجوم التالي بأربعة أضرار وتستنفد البطاقة.'),
-  strong_arrow: face('سهم صقيل', 'bow', [{ op: 'hit', n: 6 }], 'ستة أضرار دون استهلاك الزخم وتستنفد البطاقة.'),
-  strong_cover: face('حصن', 'shield', [{ op: 'block', n: 8 }], 'تصد ثمانية أضرار وتستنفد البطاقة.'),
-  strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 5 }], 'تجمع خمس نقاط زخم وتستنفد البطاقة.')
+  focus: face('عزم', 'fire', [{ op: 'momentum', n: 4 }], 'تجمع أربع نقاط زخم وتختفي من الشبكة.'),
+  arrow: face('سهم', 'bow', [{ op: 'hit', n: 4 }], 'أربعة أضرار دون استهلاك الزخم، وتختفي من الشبكة.'),
+  cover: face('احتماء', 'shield', [{ op: 'block', n: 6 }], 'تصد ستة أضرار وتختفي من الشبكة.'),
+  knife: face('جرح', 'knife', [{ op: 'bleed', n: 4 }], 'أربع نقاط نزيف على العدو المستهدف وتختفي من الشبكة.'),
+  wolf: face('نهش', 'wolf', [{ op: 'pounce', n: 4 }], 'أربعة أضرار، أو سبعة إذا كان الهدف ينزف وتختفي من الشبكة.'),
+  trick: face('خدعة', 'spark', [{ op: 'prime', n: 4 }], 'يزيد الهجوم التالي بأربعة أضرار وتختفي من الشبكة.'),
+  strong_arrow: face('سهم صقيل', 'bow', [{ op: 'hit', n: 6 }], 'ستة أضرار دون استهلاك الزخم وتختفي من الشبكة.'),
+  strong_cover: face('حصن', 'shield', [{ op: 'block', n: 8 }], 'تصد ثمانية أضرار وتختفي من الشبكة.'),
+  strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 5 }], 'تجمع خمس نقاط زخم وتختفي من الشبكة.')
 };
 const rewards = ['strong_arrow', 'strong_cover', 'strong_focus', 'knife', 'wolf', 'trick'];
 const enemy = (id, name, hp, attack, shield = 0) => ({ id, name, hp, maxHp: hp, attack, shield, bleed: 0 });
@@ -86,7 +86,7 @@ function draw(s) {
 }
 function fresh(seed = 20261017) {
   const deck = ['focus.0', 'arrow.0', 'cover.0', 'focus.1', 'arrow.1', 'focus.2', 'arrow.2', 'cover.1', 'arrow.3', 'cover.2'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(4).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(4).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
   s.draw = shuffle(s, deck.slice(5));
   return s;
 }
@@ -100,7 +100,7 @@ function getEnemyIntent(e, index, turn) {
 function completedLines(grid, cell) { return LINES.filter(line => line.includes(cell) && line.every(i => grid[i])); }
 function placePreview(s, a) { return activate(s, a); }
 function setupEncounter(s, index) {
-  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.faces = {}; s.grid = Array(4).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
+  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(4).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
   s.enemies = structuredClone(ENCOUNTERS[index - 1].enemies);
   s.draw = shuffle(s, s.deck); draw(s); s.screen = 'play'; s.draftChoices = [];
 }
@@ -127,10 +127,10 @@ function activate(before, a) {
   const s = structuredClone(before);
   const action = { card: a.card, cell: a.cell, face: a.face, target: targetForAction(s, a) };
   s.hand.splice(s.hand.indexOf(a.card), 1); s.grid[a.cell] = a.card; s.faces[a.card] = a.face; s.placements++;
-  const lines = completedLines(s.grid, a.cell);
+  const lines = a.face === 0 ? completedLines(s.grid, a.cell) : [];
   const cells = [...new Set(lines.flat())].sort((x, y) => x - y);
-  const summary = { kind: lines.length ? 'turn' : 'placement', action, lines: structuredClone(lines), cells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
-  let prime = 0;
+  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
+  s.prime ??= 0;
   const hit = amount => {
     const pool = attackTargets(s);
     pool.sort((x, y) => Number(y.id === action.target) - Number(x.id === action.target));
@@ -138,29 +138,32 @@ function activate(before, a) {
     for (const e of pool) { const n = Math.min(e.hp, left); e.hp -= n; left -= n; if (!left) break; }
     const dealt = amount - left; summary.hits += dealt; return dealt;
   };
-  for (const cell of cells) {
+  const execute = (cell, phase) => {
     const uid = s.grid[cell];
     for (const fx of def(uid, s).effects) {
-      const record = { cell, uid, op: fx.op, amount: fx.n };
+      const record = { cell, uid, phase, op: fx.op, amount: fx.n };
       if (fx.op === 'momentum') { s.momentum += fx.n; summary.momentum.gained += fx.n; }
       else if (fx.op === 'block') summary.block += fx.n;
-      else if (fx.op === 'prime') prime += fx.n;
+      else if (fx.op === 'prime') s.prime += fx.n;
       else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; } }
       else {
         let extra = 0;
         if (fx.op === 'sniper') { extra = s.momentum; record.momentumSpent = extra; summary.momentum.spent += extra; s.momentum = 0; }
         if (fx.op === 'pounce' && s.enemies.find(e => e.id === targetForAction(s, action))?.bleed > 0) extra = 3;
-        record.boost = extra + prime; record.damage = hit(fx.n + record.boost); prime = 0;
+        record.boost = extra + s.prime; record.damage = hit(fx.n + record.boost); s.prime = 0;
       }
       summary.effects.push(record);
     }
-  }
+  };
+  execute(a.cell, 'placement');
+  if (a.face === 1) { s.grid[a.cell] = null; delete s.faces[a.card]; s.discard.push(a.card); summary.cleared.push(a.card); }
+  for (const cell of cells) execute(cell, 'line');
   for (const cell of cells) {
     const uid = s.grid[cell]; summary.cleared.push(uid);
-    if (s.faces[uid] === 1) { s.exhausted.push(uid); summary.exhausted.push(uid); } else s.discard.push(uid);
+    s.discard.push(uid);
     delete s.faces[uid]; s.grid[cell] = null;
   }
-  if (lines.length) {
+  {
     for (const e of s.enemies) if (e.hp > 0 && e.bleed > 0) { const dealt = Math.min(e.hp, e.bleed); e.hp -= dealt; summary.hits += dealt; summary.effects.push({ op: 'bleed_tick', target: e.id, amount: dealt }); e.bleed--; }
     if (s.enemies.every(e => e.hp <= 0)) {
       if (s.encounter === 4) { s.screen = 'end'; s.outcome = 'victory'; }
@@ -524,12 +527,12 @@ function board(s, p, projected, animation) {
     <div class="duel-grid ${animation ? 'is-resolving' : ''}" role="group" aria-label="شبكة صفين وعمودين">${grid.map((uid, cell) => {
       const c = uid ? def(uid, { ...s, faces }, faces[uid] ?? 0) : null;
       const isPreview = p.card && p.cell === cell;
-      return `<button class="grid-cell ${uid ? 'has-card' : ''} ${chosen.includes(cell) ? 'in-line' : ''} ${isPreview ? 'is-preview' : ''}" data-cell="${cell}" aria-label="الخانة ${num(cell + 1)}${c ? '، ' + esc(c.name) : ' فارغة'}" ${animation ? 'disabled' : ''}>
+      return `<button class="grid-cell ${uid ? 'has-card' : ''} ${chosen.includes(cell) ? 'in-line' : ''} ${animation?.cells?.includes(cell) ? 'is-clearing' : ''} ${isPreview ? 'is-preview' : ''}" data-cell="${cell}" aria-label="الخانة ${num(cell + 1)}${c ? '، ' + esc(c.name) : ' فارغة'}" ${animation ? 'disabled' : ''}>
         ${c ? `<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>${(faces[uid] ?? 0) === 1 ? '<small class="instant-mark">طارئ</small>' : ''}` : '<span class="empty-plus">+</span>'}
         ${chosen.includes(cell) ? `<b class="line-order">${num(chosen.indexOf(cell) + 1)}</b>` : ''}
       </button>`;
     }).join('')}</div>
-    <div class="board-feedback" aria-live="polite">${projected ? projected.summary.kind === 'turn' ? `<strong>${projected.summary.lines.length > 1 ? 'يكتمل الصف والعمود' : projected.summary.lines[0][1] - projected.summary.lines[0][0] === 1 ? 'يكتمل الصف' : 'يكتمل العمود'}</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>تُفعّل ثم تُزال</small>` : '<strong>تُحفظ البطاقة هنا</strong><small>أكمل صفًا أو عمودًا لتفعيله</small>' : animation ? '<strong>تُفعّل البطاقات ثم تُزال</strong>' : `<strong>${p.card ? 'اختر خانة فارغة' : 'اختر بطاقة ووجهًا'}</strong><small>امتلاء الخط يفعّله ويزيله</small>`}</div>
+    <div class="board-feedback" aria-live="polite">${projected ? projected.summary.lines.length ? `<strong>${projected.summary.lines.length > 1 ? 'يكتمل الصف والعمود' : projected.summary.lines[0][1] - projected.summary.lines[0][0] === 1 ? 'يكتمل الصف' : 'يكتمل العمود'}</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>تفعيل فوري + إعادة تفعيل الخط</small>` : `<strong>تتفعّل فورًا ${p.face ? 'وتختفي' : 'وتبقى'}</strong><div class="preview-totals">${stat(projected.summary.hits, 'swords')}${stat(projected.summary.block, 'shield')}${stat(projected.summary.enemyDamage, 'heart')}</div><small>بطاقة واحدة في الدور</small>` : animation ? '<strong>تُفعّل البطاقات ثم تُزال</strong>' : `<strong>${p.card ? 'اختر خانة فارغة' : 'اختر بطاقة ووجهًا'}</strong><small>تفعيل فوري · الدائم يبقى · الطارئ يختفي</small>`}</div>
   </aside>`;
 }
 function hand(s, p, projected, busy) {
@@ -545,9 +548,9 @@ function gameView(s, p, animation = null) {
   const projected = animation ? null : preview(s, p);
   return `<main class="duel-app" data-version="9">${header(s)}<div class="main-stage">${arena(s, p, projected)}${board(s, p, projected, animation)}</div>${hand(s, p, projected, !!animation)}${rotationHint()}</main>`;
 }
-function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>اختر وجه البطاقة. أكمل صفًا أو عمودًا. اهزم خصومك.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>شبكة ٢ × ٢ · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
+function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>بطاقة واحدة في الدور، تتفعّل فورًا. أكمل خطًا لتفعيل الدائم مجددًا.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>شبكة ٢ × ٢ · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
 function rewardView(s) { return `<main class="screen-panel"><h1>حُسمت المواجهة</h1><p>اختر بطاقة جديدة · تستعيد ${stat(Math.min(6, s.maxHp - s.hp), 'heart')}</p><div class="reward-cards">${s.draftChoices.map(key => `<article class="reward-card"><h2>${esc(cards[key].name)}</h2>${cardArt(key + '.reward', s, 'reward-art')}<div><b>دائم</b>${effectFormula(key + '.reward', s, 0)}</div><div><b>طارئ</b>${effectFormula(key + '.reward', s, 1)}</div>${button('اختر البطاقة', 'draft-' + key, 'gold-button')}</article>`).join('')}</div>${button('أكمل بدون بطاقة', 'continue', 'text-button')}${rotationHint()}</main>`; }
-function endView(s) { return `<main class="screen-panel end-screen"><h1>${s.outcome === 'victory' ? 'انتصار الشنفرى' : s.outcome === 'exhausted' ? 'استُنفدت الأوراق' : 'انتهت المواجهة'}</h1><p>${s.outcome === 'victory' ? 'هزمت خصومك في اللقاءات الأربعة.' : s.outcome === 'exhausted' ? 'استخدم الوجه الدائم لتعود أوراقك إلى الرزمة، واحتفظ بالطارئ للحسم.' : 'جرّب مزج الصدّ والهجوم في الخط نفسه.'}</p>${button('العب من جديد', 'restart', 'gold-button')}${rotationHint()}</main>`; }
+function endView(s) { return `<main class="screen-panel end-screen"><h1>${s.outcome === 'victory' ? 'انتصار الشنفرى' : s.outcome === 'exhausted' ? 'استُنفدت الأوراق' : 'انتهت المواجهة'}</h1><p>${s.outcome === 'victory' ? 'هزمت خصومك في اللقاءات الأربعة.' : s.outcome === 'exhausted' ? 'لم تبق بطاقات هجومية متاحة.' : 'جرّب مزج الصدّ والهجوم في الخط نفسه.'}</p>${button('العب من جديد', 'restart', 'gold-button')}${rotationHint()}</main>`; }
 
 const btn = button;
 
@@ -565,7 +568,7 @@ let s = fresh(); let report = null;
 let selection = { card: null, face: 0, cell: null, target: null };
 let inputModality = 'pointer';
 let resolving = null; let resolveTimer = null; let longPressTimer = null; let longPressConsumed = false;
-try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { assertState(save.state); s = save.state; report = restore(save.report, s); } } catch {}
+try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { assertState(save.state); s = save.state; s.discard.push(...s.exhausted); s.exhausted = []; for (let i = 0; i < 4; i++) { const uid = s.grid[i]; if (uid && s.faces[uid] === 1) { s.discard.push(uid); delete s.faces[uid]; s.grid[i] = null; } } report = restore(save.report, s); } } catch {}
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
 function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : gameView(s, selection, resolving); }
 function syncFullscreenControls() {
@@ -588,8 +591,8 @@ function requestFullscreenFromGesture(explicit = false) {
 }
 for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
-function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يُستنفد بعد التفعيل حتى المواجهة التالية.' : 'يعود للرزمة بعد اكتمال الخط ويمكن سحبه مجددًا.'}</small></section>`).join('')}</div>`); }
-function help() { show('شبكة الأوامر ٢ × ٢', `<ol><li>اختر عدوًا في الساحة.</li><li>اضغط «دائم» أو «طارئ» على بطاقة، ثم اضغط خانة فارغة.</li><li>امتلاء صف أو عمود يفعّل بطاقاته تلقائيًا ثم يزيلها. الترتيب من اليسار لليمين، ومن الأعلى للأسفل.</li><li>إذا اكتمل خطان معًا، تعمل كل بطاقة مرة واحدة. يمكنك معاينة النتيجة قبل الوضع بالمرور على الخانة أو تركيزها بلوحة المفاتيح.</li><li>الدائم يعود إلى الرزمة، والطارئ يُستنفد حتى المواجهة التالية. أيقونة الورقة المشطوبة تميّزه.</li><li>يتحرك الأعداء بعد تفعيل خط، والفوز بهزيمتهم جميعًا.</li></ol><div class="icon-legend"><span>⚔ ضرر</span><span>🔥 زخم</span><span>🛡 صدّ</span><span>♥ صحة</span></div><p>كل نقطة زخم تزيد السهم ضررًا واحدًا. أول سهم يصرف الرصيد كاملًا، والباقي يبقى بين الأدوار. اضغط ⓘ أو اضغط مطولًا على وجه البطاقة للتفاصيل.</p>`); }
+function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل فور وضعه ويبقى، ثم يتفعّل مجددًا عند اكتمال خطه ويُزال.'}</small></section>`).join('')}</div>`); }
+function help() { show('شبكة الأوامر ٢ × ٢', '<ol><li>بطاقة واحدة في كل دور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>كل بطاقة تتفعّل فور وضعها. الدائمة تبقى في الشبكة، والطارئة تختفي بعد التفعيل وتعود للرزمة.</li><li>امتلاء صف أو عمود يُفعّل بطاقاته الدائمة مرة ثانية ثم يزيل الخط كاملًا. البطاقة التي أكملت الخط تعمل فورًا ثم مجددًا مع الخط.</li><li>عند اكتمال خطين، تتفعّل كل بطاقة مشتركة مرة واحدة ضمن الخطوط.</li><li>يرد الأعداء بعد كل بطاقة تلعبها. معاينة الخانة تعرض مجموع تأثير البطاقة والخط وردّ الأعداء.</li></ol><p>العزم يجمع الزخم فورًا، والسهم الدائم يصرفه كضرر إضافي. اضغط ⓘ للتفاصيل.</p>'); }
 function newGame() { clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
 function commit(action) {
   if (resolving) return;
@@ -598,25 +601,25 @@ function commit(action) {
   report = record(report || begin(before), before, a, result); s = result.state;
   selection = { card: null, face: 0, cell: null, target: a.target ?? null };
   save();
-  if (result.summary.kind === 'turn' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if ((result.summary.lines?.length || a.face === 1) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const grid = [...before.grid]; grid[a.cell] = a.card;
-    resolving = { grid, faces: { ...before.faces, [a.card]: a.face } };
+    resolving = { grid, cells: a.face === 1 ? [a.cell] : result.summary.cells, faces: { ...before.faces, [a.card]: a.face } };
     // Show activation before the committed removal, including a lethal final line.
     root.innerHTML = gameView({ ...s, screen: 'play' }, selection, resolving);
     resolveTimer = setTimeout(() => { resolving = null; render(); }, 420);
   } else render();
   playSfx(result.summary.hits ? 'hit' : result.summary.block ? 'block' : 'select');
-  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّل الخط: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
+  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّلت البطاقة${result.summary.lines.length ? ' ثم الخط' : ''}: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
 }
 function action(name) {
   if (name === 'close') menu.close();
   else if (name === 'start') { requestFullscreenFromGesture(); s = start(s); report = begin(s); save(); render(); playSfx('select'); }
   else if (name === 'restart') { requestFullscreenFromGesture(); newGame(); }
   else if (name === 'help') help();
-  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button(fullscreenActive() ? 'الخروج من ملء الشاشة' : 'ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)} · المستنفد ${num(s.exhausted.length)}</p>`);
+  else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button(fullscreenActive() ? 'الخروج من ملء الشاشة' : 'ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)}</p>`);
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
   else if (name === 'fullscreen') requestFullscreenFromGesture(true);
-  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. امتلاء الخط يفعّلهما ويزيلهما.</p>`);
+  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. العزم يتفعّل فورًا، والسهم فور وضعه، ثم يتفعّلان مجددًا عند اكتمال خطهما.</p>`);
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });
   else if (name === 'export') { const url = URL.createObjectURL(new Blob([textReport(report)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'shanfara-report.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
