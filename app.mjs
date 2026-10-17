@@ -1,5 +1,5 @@
 import { comboModel } from './combos.mjs?v=8';
-import { VERSION, fresh, start, activate, assertState, def, stage, targetForAction } from './engine.mjs?v=8';
+import { VERSION, fresh, start, activate, assertState, def, stage, targetForAction, ENCOUNTERS, goal } from './engine.mjs?v=8';
 import { begin, record, restore, exported, textReport } from './report.mjs?v=8';
 import {
   gameView,
@@ -105,7 +105,7 @@ function rules() {
     'دليل ملحمة السَّراة وقوانين البناءات',
     `
     <ol class="steps">
-      <li><strong>مساحة التخطيط:</strong> الأعداء في الشريط العلوي، والرقعة المصغرة للبطاقات فقط. اضغط العدو في الشريط لتحديد الهدف. وجها البطاقة ظاهران معًا أسفل ألسنة البطاقات؛ اضغط أحدهما ثم اختر موضعًا. الهدف المختار في الشريط ثابت عند تبديل الصف والعمود. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
+      <li><strong>مساحة التخطيط:</strong> الأعداء في ساحة القتال، وتحتها ثلاث سلاسل أوامر من ثلاثة مواضع. اضغط بطاقة لتوسيع التخطيط، وبدّل وجهها من الرقم الدائري. «سلسلة كاملة» تقابل الصف، و«الموضع نفسه» يقابل العمود. الهدف المختار في الساحة ثابت عند تبديل الخطة. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
       <li><strong>مسارات البناء الأربعة:</strong>
         <ul>
           <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> رصيد هجوم تجمعه بالركض والدروب. كل ١ زخم يضيف ١ ضرر؛ أول سهم يصرف الرصيد كاملًا. يبقى المتبقي بين الأدوار ويُصفّر عند بدء مواجهة جديدة. العداد يعرض الرصيد الحالي ومعاينة ما ستجمعه وتصرفه.</li>
@@ -148,6 +148,13 @@ function commit(chosen = selection) {
   persist();
   render();
 
+  if (result.summary.kind === 'turn' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (result.summary.hits) {
+      root.querySelector('.actor-hero .actor-art')?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(8%)' }, { transform: 'translateX(0)' }], { duration: 420 });
+      root.querySelector(`[data-target="${action.target}"] .actor-art`)?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.8)', transform: 'translateX(6%)' }, { filter: 'brightness(1)' }], { duration: 500 });
+    }
+  }
+
   // Play appropriate audio SFX
   if (result.summary.hits) playSfx('hit');
   else if (result.summary.selfDamage) playSfx('knife');
@@ -179,12 +186,21 @@ function action(a) {
   } else if (a === 'new-seed') {
     reset(Date.now() >>> 0);
     playSfx('select');
+  } else if (a === 'plan') {
+    selection = { ...selection, planning: true };
+    render();
+    playSfx('select');
+  } else if (a === 'momentum-info') {
+    show('الزخم: رصيد هجوم', `<p>رصيدك الآن: <strong>${num(s.momentum)}</strong></p><p>كل ١ زخم = +١ ضرر للسهم. أول سهم يصرف الرصيد كاملًا، وغير المصروف يبقى للدور التالي. يبدأ كل لقاء برصيد صفر.</p><p>مثال: ركض يولّد ٢ زخم، ثم سهم أساسه ٢ يصيب بـ٤ ضرر.</p>${s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && !s.grid[1] ? btn('جرّب المثال', 'momentum-example') : ''}`);
+  } else if (a === 'journey') {
+    show(ENCOUNTERS[s.encounter - 1].name, `<p>المواجهة ${num(s.encounter)} من ٤ · الدور ${num(s.phaseTurn)}</p><p>التقدم: ${num(s.progress)} / ${num(goal(s))}. تكتمل المواجهة ببلوغ المسار أو إسقاط الأعداء.</p>`);
   } else if (a === 'cancel') {
     selection = { card: null, cell: null, axis: null, face: null, target: null };
     render();
     playSfx('select');
   } else if (a === 'momentum-example') {
     if (s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1]) {
+      if (menu.open) menu.close();
       selection = { card: 'arrow.0', cell: 1, axis: 'row', face: 0, target: 'scout' };
       render();
     }
@@ -210,13 +226,13 @@ function action(a) {
   } else if (a === 'rules') {
     rules();
   } else if (a === 'help') {
-    show('رقعة التدبير ووجها القرار', `
+    show('سلاسل الأوامر', `
       <div class="quick-guide-dialog">
-        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>اقرأ الأعداء في الشريط العلوي</strong><p>فوق كل عدو هجومه القادم، وتحته صحته. المس شخصيته لتحديده هدفًا. حاملو التراس يحمون الزعيم.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>اختر بطاقة ووجهًا من يدك</strong><p>المس لسان بطاقة لعرضها. أمامك لوحتان: تأثير دائم وتأثير فوري. اختر اللوحة المناسبة؛ الدائم يبقى ليتكرر أثره، والفوري يُطرح بعد تفعيله.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>ضعها في موضع بطاقة فارغ</strong><p>الشبكة للبطاقات فقط. الشخصيات في الشريط العلوي؛ موضع البطاقة يحدد ترتيب تفعيلها، وليس موقع عدو.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>قارن الصف والعمود ثم نفّذ</strong><p>لوحتا أفقي وعمودي تعرضان الضرر والدروع وخسارة الصحة. الخط المضيء يوضح ترتيب التنفيذ، وصحة الأعداء في الشريط تعرض النتيجة المتوقعة. يمكنك تبديل وجه البطاقة أو الهدف قبل التنفيذ.</p></div></div>
-        <div class="guide-footer-tip">اختر هدفك من شريط الأعداء. ترتيب تنفيذ الصفوف من اليسار لليمين والأعمدة من الأعلى للأسفل. اكتمال خط بثلاث بطاقات يفرّغه. كل ١ زخم يزيد السهم ١ ضرر؛ أول سهم يصرف الرصيد كاملًا، وغير المصروف يبقى للدور التالي.</div>
+        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>المعركة أمامك</strong><p>المس العدو في الساحة لاختياره. ترى صحته وهجومه القادم فوقه؛ حاملو التراس يحمون الزعيم.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>خطّط للدور</strong><p>اضغط الزر أسفل الشاشة أو اختر بطاقة من يدك. تتوسع السلاسل الثلاث لتضع البطاقة في موضع فارغ. الرقم الدائري على البطاقة يبدّل بين الوجه ١ الدائم والوجه ٢ الطارئ. علامة ⓘ تشرح الوجهين.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>اختر إحدى الخطتين</strong><p>«سلسلة كاملة» تفعّل بطاقات السطر من اليسار لليمين. «الموضع نفسه» يفعّل الموضع المختار في السلاسل الثلاث من الأعلى للأسفل. المعاينة تعرض الترتيب والهجوم والصد وخسارة الصحة.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>نفّذ وشاهد القتال</strong><p>بعد التنفيذ تنطوي الخطة وتتوسع الساحة. البطاقة الدائمة تبقى في موضعها، والطارئة تُطرح بعد التفعيل. اكتمال ثلاث بطاقات في خط يفرّغه.</p></div></div>
+        <div class="guide-footer-tip">خانات الدرب ١ و٥ و٩ تمنح زخمًا وتقدمًا عندما تُفعّل فارغة. الزخم ظاهر أعلى الشاشة؛ اضغطه لشرح الرصيد وتجربة المثال.</div>
       </div>`);
   } else if (a === 'menu') {
     show(
@@ -225,6 +241,8 @@ function action(a) {
       <div style="display:grid;gap:8px;">
         ${btn('أكمل اللعب', 'close', 'primary')}
         ${btn(isMuted() ? 'تشغيل المؤثرات الصوتية' : 'كتم الصوت', 'toggle-audio')}
+        ${btn('كيف ألعب؟', 'help')}
+        ${btn('رصيد الزخم ومثال عملي', 'momentum-info')}
         ${btn('دليل القواعد والبناءات', 'rules')}
         ${btn('إعادة نفس الرن', 'restart')}
         ${btn('رن جديد بتوزيع عشوائي', 'new-seed')}
@@ -318,7 +336,11 @@ document.addEventListener('click', e => {
       );
       return;
     }
-    if (!selection.card) return;
+    if (!selection.card) {
+      selection = { ...selection, planning: true };
+      render();
+      return;
+    }
     const face = selection.face ?? 0;
     const axis = bestAxis(s, selection.card, i, face, selection.target);
     selection = { ...selection, card: selection.card, face, cell: i, axis };

@@ -1450,117 +1450,120 @@ function comboView(s, m) {
   `;
 }
 
-// Planning desk: compact board, persistent axis comparison, and both card faces.
-function fighterArt(kind) {
-  return `<span class="fighter-art fighter-${kind}" aria-hidden="true"></span>`;
+// The approved reference is the sprite atlas: no substitute illustrations.
+// Coordinates are in its original 1374 × 1145 pixels.
+const atlasStyle = (x, y, w, h) => `background-size:${1374 / w * 100}% ${1145 / h * 100}%;background-position:${x / (1374 - w) * 100}% ${y / (1145 - h) * 100}%`;
+const atlas = (x, y, w, h, cls = '') => `<span aria-hidden="true" class="reference-piece ${cls}" style="${atlasStyle(x, y, w, h)}"></span>`;
+const artKind = c => /bow/.test(c.icon) ? 'bow' : /run|foot/.test(c.icon) ? 'run' : /shield|cover|stone/.test(c.icon) ? 'shield' : /sneak|spark/.test(c.icon) ? 'trick' : c.icon;
+const simpleName = c => ({ bow: 'سهم', run: 'ركض', shield: 'حماية', trick: 'خدعة', wolf: 'نهش', knife: 'سكين', bleed: 'نزيف', poison: 'سمّ' })[artKind(c)] || c.name;
+const handArt = { run: [758, 905, 127, 139], bow: [895, 905, 129, 139], shield: [1033, 905, 129, 139], trick: [1171, 905, 128, 139] };
+const slotArt = { run: [207, 448, 99, 74], bow: [352, 448, 99, 74], shield: [498, 448, 99, 74] };
+
+function commandIcon(c, large = false) {
+  const kind = artKind(c);
+  const rect = (large ? handArt : slotArt)[kind];
+  return rect ? atlas(...rect, large ? 'card-painting' : 'slot-painting') : `<span class="fallback-card-art">${icon(c.icon)}<small>${esc(simpleName(c))}</small></span>`;
 }
 
-function battleHeader(s, projected) {
-  const hp = projected?.state.hp ?? s.hp;
-  const enc = ENCOUNTERS[s.encounter - 1];
-  return `<header class="planner-header">
-    <div class="hero-identity"><span class="hero-portrait">${fighterArt('hero')}</span><span class="hero-vitals">${icon('heart')} ${ratio(hp, s.maxHp)}</span><span class="chapter-diamonds" aria-label="المعبر ${num(s.encounter)} من أربعة">${[1,2,3,4].map(i => `<i class="${i <= s.encounter ? 'complete' : ''}"></i>`).join('')}</span></div>
-    <div class="planner-tools">${button('؟', 'help', 'planner-tool', false, 'دليل اللعب')}${button(icon(isMuted() ? 'mute' : 'sound'), 'toggle-audio', 'planner-tool', false, 'تبديل الصوت')}${button('⋯', 'menu', 'planner-tool', false, 'القائمة')}</div>
-  </header>
-  <div class="planner-route"><span>${esc(enc.name)}</span><span>${icon('moon')} ${num(Math.max(0, 37 - s.turn))} دورًا <b>·</b> ${icon('foot')} ${num(s.progress)} / ${num(goal(s))}</span></div>`;
+function commandHeader(s, projected) {
+  const m = projected?.summary.momentum;
+  return `<header class="command-header">${atlas(741, 60, 576, 44, 'header-paper scene-clean')}
+    <span class="header-health" aria-label="الصحة ${num(s.hp)} من ${num(s.maxHp)}">${icon('heart')}${ratio(s.hp, s.maxHp)}</span>
+    <button class="header-momentum" data-action="momentum-info" aria-label="رصيد الزخم ${num(s.momentum)}، اضغط للتفاصيل">${icon('fire')}<span>الزخم <b data-momentum-current>${num(s.momentum)}</b></span></button>
+    ${button(atlas(1273, 69, 27, 27), 'menu', 'header-menu', false, 'قائمة اللعبة')}
+    ${m ? `<div class="credit-preview" role="status">ستجمع <b>${num(m.gained)}</b> · ستصرف <b>${num(m.spent)}</b> · سيبقى <b data-momentum-after>${num(m.after)}</b></div>` : ''}
+  </header>`;
 }
 
-function enemyStrip(s, p, projected) {
+function commandArena(s, p, projected, planning) {
   const target = targetForAction(s, p);
   const pool = attackTargets(s);
   const living = s.enemies.filter(e => e.hp > 0);
-  return `<section class="enemy-strip" aria-label="الأعداء ونواياهم">${s.enemies.map((enemy, index) => {
-    const intent = getEnemyIntent(enemy, index, s.phaseTurn, living.length === 1);
-    const after = projected?.state.enemies[index]?.hp ?? enemy.hp;
-    const lost = Math.max(0, enemy.hp - after);
-    const locked = enemy.hp > 0 && !pool.some(e => e.id === enemy.id);
-    const kind = /hound/.test(enemy.id) ? 'wolf' : /sniper|scout/.test(enemy.id) ? 'archer' : 'guard';
-    return `<button type="button" class="enemy-summary ${target === enemy.id ? 'is-target' : ''} ${enemy.hp <= 0 ? 'is-fallen' : ''}" data-target="${enemy.id}" aria-pressed="${target === enemy.id}" ${enemy.hp <= 0 || locked ? 'disabled' : ''} aria-label="${esc(enemy.name)}، صحة ${num(enemy.hp)}، ${locked ? 'محمي بحاملي التراس' : esc(intent.desc)}">
-      ${fighterArt(kind)}<span class="enemy-summary-data"><span class="enemy-intent">${locked ? icon('shield') + ' محمي' : enemy.hp <= 0 ? 'صريع' : icon(intent.damage ? 'swords' : 'spark') + ' ' + (intent.damage ? num(intent.damage) : 'تأهّب')}${lost ? `<b class="forecast-hit">−${num(lost)}</b>` : ''}</span><span class="enemy-name">${esc(enemy.name.replace(/\s*\(.*\)/, ''))}</span><span class="fighter-health"><i class="health-before" style="width:${enemy.hp / enemy.maxHp * 100}%"></i><i style="width:${after / enemy.maxHp * 100}%"></i><b>${num(after)} / ${num(enemy.maxHp)}</b></span></span>
-    </button>`;
-  }).join('')}</section>`;
+  const hp = projected?.state.hp ?? s.hp;
+  return `<section class="command-arena ${s.enemies.length > 2 ? 'three-enemies' : ''}" aria-label="ساحة القتال، اختر العدو المستهدف">
+    ${planning ? atlas(58, 105, 575, 269, 'scene-backdrop') : atlas(741, 105, 576, 535, 'scene-backdrop')}
+    <div class="arena-actor actor-hero">
+      ${planning ? atlas(68, 176, 270, 198, 'actor-art art-hero') : atlas(742, 281, 321, 345, 'actor-art art-hero')}
+      <div class="actor-label">${planning ? atlas(154, 119, 105, 52, 'label-paper scene-clean') : atlas(790, 182, 113, 64, 'label-paper scene-clean')}<strong>الشنفرى</strong><span class="actor-health"><i style="width:${hp / s.maxHp * 100}%"></i></span><b>${ratio(hp, s.maxHp)}</b></div>
+    </div>
+    ${s.enemies.map((e, i) => {
+      const after = projected?.state.enemies[i]?.hp ?? e.hp;
+      const locked = e.hp <= 0 || !pool.some(x => x.id === e.id);
+      const intent = getEnemyIntent(e, i, s.phaseTurn, living.length === 1);
+      const rect = planning ? i % 2 === 0 ? [375, 211, 142, 163] : [509, 210, 124, 164] : i % 2 === 0 ? [1056, 339, 145, 288] : [1187, 347, 130, 280];
+      return `<button class="arena-actor actor-enemy enemy-${i} ${target === e.id ? 'is-target' : ''} ${e.hp <= 0 ? 'is-fallen' : ''}" data-target="${e.id}" aria-pressed="${target === e.id}" ${locked ? 'disabled' : ''} aria-label="${esc(e.name)}، صحة ${num(e.hp)}، ${locked && e.hp > 0 ? 'يحميه حاملو التراس' : esc(intent.desc)}">
+        ${atlas(...rect, 'actor-art ' + (i % 2 === 0 ? 'art-guard' : 'art-scout'))}
+        <span class="actor-label">${planning ? atlas(...(i % 2 === 0 ? [387, 151, 94, 54] : [520, 151, 96, 54]), 'label-paper scene-clean') : atlas(...(i % 2 === 0 ? [1060, 264, 105, 67] : [1205, 263, 108, 65]), 'label-paper scene-clean')}<strong>${esc(e.name)}</strong><span class="actor-health"><i style="width:${after / e.maxHp * 100}%"></i></span><b>${ratio(after, e.maxHp)}</b><small class="actor-intent">${e.hp <= 0 ? 'صريع' : locked ? 'محمي' : intent.damage ? `${icon('swords')} ${num(intent.damage)}` : 'تأهّب'}</small></span>
+        ${e.hp > after ? `<span class="arena-damage">−${num(e.hp - after)}</span>` : ''}
+      </button>`;
+    }).join('')}
+    ${!planning ? `<span class="old-damage-cover">${atlas(1127, 331, 52, 31, 'scene-clean')}</span>` : ''}
+    <button class="arena-route" data-action="journey" aria-label="تقدم الرحلة">${num(s.encounter)} / ٤ · ${icon('foot')} ${num(s.progress)} / ${num(goal(s))}</button>
+  </section>`;
 }
 
-function renderBattleBoard(s, p, projected) {
+function commandChains(s, p, planning) {
   const prepared = p.card && p.cell !== null ? stage(s, p) : null;
   const grid = prepared?.grid || s.grid;
   const shown = { ...s, faces: { ...s.faces, ...prepared?.faces } };
   const line = p.cell !== null && p.axis ? lineIndices(p.cell, p.axis) : [];
-  const target = targetForAction(s, p);
   const collapse = collapseRow(s);
-  return `<section class="battle-stage" aria-label="شبكة التخطيط">
-    <div class="engraved-heading"><span>الشَّبَكَة</span></div>
-    <div class="combat-grid" role="group" aria-label="رقعة التخطيط، تسع خانات">
-    ${grid.map((uid, cell) => {
-      const c = uid ? def(uid, shown) : null;
-      const staged = p.cell === cell;
-      return `<div class="battle-tile ${line.includes(cell) ? 'in-path' : ''} ${staged ? 'is-staged' : ''} ${collapse === Math.floor(cell / 3) ? 'will-collapse' : ''}">
-        <button type="button" data-cell="${cell}" class="tile-action ${c ? 'has-card card-' + c.build : ''}" aria-pressed="${staged}" aria-label="خانة ${num(cell + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}" ${!uid && !p.card ? 'disabled' : ''}>
-          ${c ? `<span class="action-token token-${c.build}">${icon(c.icon)}<small>${esc(c.short)}</small></span>` : `<span class="empty-action">${s.wards[cell] ? icon('cover') : trailCells.includes(cell) ? icon('foot') : '◇'}<small>${s.wards[cell] ? 'ساتر' : trailCells.includes(cell) ? 'درب' : p.card ? '＋' : ''}</small></span>`}
-        </button>
-        ${line.includes(cell) ? `<span class="path-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
-      </div>`;
-    }).join('')}</div>
-    <div class="board-context">${collapse !== null ? `${icon('stone')} الصف ${num(collapse + 1)} ينهار بعد الدور` : p.card ? 'اختر موضعًا، ثم قارن الصف والعمود' : 'اختر بطاقة أو أحد وجهيها للتخطيط'}</div>
-  </section>`;
-}
-
-function axisChoices(s, p) {
-  const ready = p.card && p.cell !== null;
-  return `<section class="forecast-section" aria-label="توقع الضرر"><div class="engraved-heading"><span>تَوَقُّع الضَّرَر</span></div><div class="axis-choices">${['row', 'col'].map(axis => {
-    const result = ready ? preview(s, p, axis) : null;
-    return `<button type="button" data-axis="${axis}" aria-pressed="${!!result && p.axis === axis}" class="axis-choice ${result && p.axis === axis ? 'is-selected' : ''}" ${result ? '' : 'disabled'}>
-      <span class="axis-label"><b class="direction-arrow">${axis === 'row' ? '⟷' : '↑'}</b><strong>${axis === 'row' ? 'أفقي' : 'عمودي'}</strong></span>
-      <span class="axis-totals"><span>${icon('swords')} <b>${result ? num(result.summary.hits || 0) : '—'}</b></span><span>${icon('shield')} <b>${result ? num(result.summary.block || 0) : '—'}</b></span></span>
-      <small class="${result && result.state.hp < s.hp ? 'axis-cost' : ''}">${result ? result.state.hp < s.hp ? '−' + num(s.hp - result.state.hp) + ' صحة' : 'بلا خسارة صحة' : 'اختر موضع البطاقة'}</small>
-    </button>`;
-  }).join('')}</div></section>`;
-}
-
-function renderBattleHand(s, p, projected) {
-  const uid = p.card || s.hand[0];
-  const hpLoss = projected ? Math.max(0, s.hp - projected.state.hp) : 0;
-  return `<section class="battle-hand" aria-label="البطاقات ووجها البطاقة المختارة">
-    <div class="hand-title"><div class="engraved-heading"><span>البِطَاقَات</span></div><div class="hand-controls">${p.card ? button('×', 'cancel', 'cancel-selection', false, 'إلغاء الاختيار') + button('ⓘ', 'card-info', 'card-info-button', false, 'شرح وجهي البطاقة') : ''}</div></div>
-    <div class="card-tabs" role="group" aria-label="اختر بطاقة من يدك">${s.hand.map(card => {
-      const face = p.card === card ? p.face ?? 0 : s.faces?.[card] ?? 0;
-      const c = def(card, s, face);
-      return `<button type="button" data-card="${card}" data-face="${face}" class="card-tab tab-${c.build} ${card === uid ? 'is-selected' : ''}" aria-pressed="${p.card === card}" aria-label="${esc(c.name)}"><span class="tab-art">${icon(c.icon)}</span><small>${esc(c.name)}</small></button>`;
-    }).join('')}</div>
-    <div class="expanded-card" aria-label="وجها البطاقة">${uid ? [0, 1].map(face => {
-      const c = def(uid, s, face);
-      const active = p.card === uid && p.face === face;
-      return `<button type="button" class="card-face-panel face-${face} ${active ? 'is-active' : ''}" data-card="${uid}" data-face="${face}" aria-pressed="${active}" aria-label="${face === 0 ? 'تأثير دائم' : 'تأثير فوري'}: ${esc(c.name + '، ' + c.text)}">
-        <span class="face-heading">${face === 0 ? 'تأثير دائم' : 'تأثير فوري'}${active ? '<b>✓</b>' : ''}</span>
-        <span class="face-content"><span class="face-large-icon">${icon(c.icon)}</span><span class="face-content-text"><strong>${esc(c.name)}</strong><span class="face-effect-summary">${cardEffects(uid, s, face)}</span></span></span>
-        <span class="face-description">${esc(c.short)}</span>
+  return `<section class="command-chains" aria-label="خطة الأوامر، ثلاث سلاسل لكل منها ثلاثة مواضع">${[0, 1, 2].map(row => `<div class="command-chain ${collapse === row ? 'will-collapse' : ''}">
+    <span class="chain-ribbon"><span>السلسلة ${['الأولى', 'الثانية', 'الثالثة'][row]}</span></span>
+    <div class="chain-slots">${[0, 1, 2].map(col => {
+      const cell = row * 3 + col;
+      const c = grid[cell] ? def(grid[cell], shown) : null;
+      return `<button type="button" class="command-slot ${line.includes(cell) ? 'in-path' : ''} ${p.cell === cell ? 'is-staged' : ''}" data-cell="${cell}" aria-pressed="${p.cell === cell}" aria-label="السلسلة ${num(row + 1)}، الموضع ${num(col + 1)}، ${c ? esc(c.name) : 'ضع بطاقة هنا'}">
+        ${c ? commandIcon(c) : `<span class="slot-empty">${s.wards[cell] ? icon('cover') : '+'}</span>`}
+        ${line.includes(cell) && planning ? `<span class="execution-order">${num(line.indexOf(cell) + 1)}</span>` : ''}
+        ${s.grid[cell] && (s.faces[s.grid[cell]] ?? 0) === 1 ? '<span class="slot-instant">٢</span>' : ''}
       </button>`;
-    }).join('') : '<p>لا بطاقات في اليد</p>'}</div>
-    <div class="sr" role="status">${projected ? projected.state.hp <= 0 ? 'هذه الحركة تنهي رحلتك' : hpLoss ? `ستفقد ${num(hpLoss)} صحة` : 'صحتك آمنة هذا الدور' : 'اختر وجه البطاقة ثم موضعًا في الشبكة'}</div>
-    ${button(projected ? '▶︎ نَفِّذ ' + (p.axis === 'row' ? 'الصف' : 'العمود') : '▶︎ نَفِّذ', 'activate', 'planner-execute', !projected)}
-  </section>`;
+    }).join('')}</div>
+    ${collapse === row ? '<span class="chain-warning">ينهار بعد الدور</span>' : ''}
+  </div>`).join('')}</section>`;
 }
 
-function momentumMeter(s, projected) {
-  const m = projected?.summary.momentum;
-  const shots = projected?.summary.effects.filter(f => f.op === 'sniper' || f.op === 'cyclone_shot') || [];
-  return `<section class="momentum-meter" aria-label="رصيد الزخم" aria-live="polite">
-    <div class="momentum-balance">${icon('fire')}<span>الزخم الآن<strong data-momentum-current>${num(s.momentum)}</strong></span></div>
-    <div class="momentum-plan">${m ? `<span>ستجمع <b>${num(m.gained)}</b> · ستصرف <b>${num(m.spent)}</b> · سيبقى <b data-momentum-after>${num(m.after)}</b></span>${shots.map(f => `<small>سهم الخانة ${num(f.cell + 1)}: ${num(f.amount)} أساس + ${num(f.momentumSpent)} زخم${(f.boost || 0) > f.momentumSpent ? ` + ${num(f.boost - f.momentumSpent)} تعزيز` : ''} = <b>${num(f.amount + (f.boost || 0))} ضرر</b></small>`).join('')}` : '<span>كل ١ زخم = +١ ضرر للسهم</span><small>يبقى للدور التالي حتى يصرفه سهم.</small>'}</div>
-  </section>`;
+function commandComparison(s, p) {
+  const prepared = p.card && p.cell !== null ? stage(s, p) : null;
+  const shown = { ...s, faces: { ...s.faces, ...prepared?.faces } };
+  return `<section class="command-comparison" aria-label="اختر طريقة تفعيل الأوامر">${['row', 'col'].map(axis => {
+    const result = preview(s, p, axis);
+    const cells = p.cell !== null ? lineIndices(p.cell, axis) : [];
+    return `<button class="command-choice ${p.axis === axis && result ? 'is-selected' : ''}" data-axis="${axis}" aria-pressed="${!!result && p.axis === axis}" ${result ? '' : 'disabled'}>
+      <strong>${axis === 'row' ? 'سلسلة كاملة' : 'الموضع نفسه'}</strong>
+      <span class="choice-sequence">${cells.length ? cells.map(cell => `<span class="sequence-card">${prepared.grid[cell] ? commandIcon(def(prepared.grid[cell], shown)) : '+'}</span>`).join('<span class="sequence-arrow">→</span>') : '<span class="choose-position">اختر موضع البطاقة</span>'}</span>
+      <span class="choice-total">${icon('swords')} ${num(result?.summary.hits || 0)} <span>مجموع الهجوم</span></span>
+      ${result ? `<small class="choice-survival">${icon('shield')} ${num(result.summary.block)} · ${result.state.hp < s.hp ? `−${num(s.hp - result.state.hp)} صحة` : 'بلا جراح'}</small>` : ''}
+    </button>`;
+  }).join('')}</section>`;
 }
 
-function learningGuide(s) {
-  if (s.encounter === 1) {
-    const example = s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1];
-    return `<aside class="learning-guide"><strong>الدرس الأول: الزخم يقوّي السهم</strong><span>ركض يجمع ٢ زخم، ثم السهم: ٢ أساس + ٢ زخم = ٤ ضرر. يصرف السهم الرصيد كاملًا.</span>${example ? '<button data-action="momentum-example">جرّب المثال</button>' : '<small>نفّذ الركض قبل السهم في الخط نفسه. الأرقام على الخانات تبين الترتيب.</small>'}</aside>`;
-  }
-  return `<details class="learning-guide"><summary>كيف يعمل النهش والزخم؟</summary><p>كل ١ زخم = +١ ضرر للسهم. أول سهم يصرف الرصيد كاملًا. إن لم تطلق سهمًا يبقى رصيدك للدور التالي، ويُصفّر عند بدء مواجهة جديدة.</p><p>النهش (وجه الذئب الطارئ): ٤ ضرر عادةً، أو ٦ إذا كان هناك نزيف أو سم. مثال: فعّل وجه السكين الطارئ أولًا لإحداث النزيف، ثم الذئب في الخط نفسه. بطاقة الذئب الطارئة تُطرح بعد التنفيذ.</p></details>`;
+function commandHand(s, p) {
+  return `<section class="command-hand" aria-label="بطاقات اليد، اضغط بطاقة للتخطيط">${s.hand.map(uid => {
+    const selected = p.card === uid;
+    const face = selected ? p.face ?? 0 : 0;
+    const c = def(uid, s, face);
+    return `<div class="hand-card ${selected ? 'is-selected' : ''}">
+      <button class="hand-card-select" data-card="${uid}" data-face="${face}" aria-pressed="${selected}" aria-label="${esc(c.name)}، ${esc(c.short)}، ${face ? 'وجه طارئ' : 'وجه دائم'}">${commandIcon(c, true)}</button>
+      <button class="hand-face-toggle" data-card="${uid}" data-face="${face ? 0 : 1}" aria-label="تبديل وجه ${esc(c.name)} إلى ${face ? 'دائم' : 'طارئ'}">${num(face + 1)}</button>
+      ${selected ? `<button class="hand-info" data-action="card-info" aria-label="شرح وجهي البطاقة">ⓘ</button>` : ''}
+    </div>`;
+  }).join('')}</section>`;
 }
 
 function gameView(s, p, feedback = '') {
+  const planning = !!p.planning || !!p.card;
   const projected = preview(s, p);
-  return `<div class="battlefield-app planner-app">${battleHeader(s, projected)}${momentumMeter(s, projected)}${enemyStrip(s, p, projected)}${learningGuide(s)}${renderBattleBoard(s, p, projected)}${axisChoices(s, p)}${renderBattleHand(s, p, projected)}${feedback ? `<div class="battle-notice tactical-toast" role="status">${esc(feedback)}</div>` : ''}</div>`;
+  return `<div class="command-app ${planning ? 'is-planning' : 'is-combat'}" data-turn="${s.turn}">
+    ${commandHeader(s, projected)}${commandArena(s, p, projected, planning)}
+    <section class="command-desk">${atlas(58, 375, 575, 749, 'desk-paper scene-clean')}
+      <div class="command-title"><span></span><h2>${planning ? 'ضع البطاقة' : 'خطة الأوامر'}</h2><span></span>${planning ? button('×', 'cancel', 'desk-close', false, 'إلغاء التخطيط') : button('؟', 'help', 'desk-help', false, 'كيف ألعب؟')}</div>
+      ${commandChains(s, p, planning)}${planning ? commandComparison(s, p) : ''}
+      ${commandHand(s, p)}
+      ${button(atlas(756, 1055, 548, 62, 'execute-frame') + `<span class="execute-label">${planning ? 'نفّذ الخطة' : 'خطّط للدور'}</span>`, planning ? 'activate' : 'plan', 'command-execute', planning && !projected)}
+    </section>
+    ${feedback ? `<div class="tactical-toast" role="status">${esc(feedback)}</div>` : ''}
+  </div>`;
 }
 
 // -------------------------------------------------------------
@@ -1829,7 +1832,7 @@ function rules() {
     'دليل ملحمة السَّراة وقوانين البناءات',
     `
     <ol class="steps">
-      <li><strong>مساحة التخطيط:</strong> الأعداء في الشريط العلوي، والرقعة المصغرة للبطاقات فقط. اضغط العدو في الشريط لتحديد الهدف. وجها البطاقة ظاهران معًا أسفل ألسنة البطاقات؛ اضغط أحدهما ثم اختر موضعًا. الهدف المختار في الشريط ثابت عند تبديل الصف والعمود. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
+      <li><strong>مساحة التخطيط:</strong> الأعداء في ساحة القتال، وتحتها ثلاث سلاسل أوامر من ثلاثة مواضع. اضغط بطاقة لتوسيع التخطيط، وبدّل وجهها من الرقم الدائري. «سلسلة كاملة» تقابل الصف، و«الموضع نفسه» يقابل العمود. الهدف المختار في الساحة ثابت عند تبديل الخطة. حاملو التراس يحمون الزعيم حتى إسقاطهم.</li>
       <li><strong>مسارات البناء الأربعة:</strong>
         <ul>
           <li><b style="color:#f0b842">الزَّخَم والقَوْس:</b> رصيد هجوم تجمعه بالركض والدروب. كل ١ زخم يضيف ١ ضرر؛ أول سهم يصرف الرصيد كاملًا. يبقى المتبقي بين الأدوار ويُصفّر عند بدء مواجهة جديدة. العداد يعرض الرصيد الحالي ومعاينة ما ستجمعه وتصرفه.</li>
@@ -1872,6 +1875,13 @@ function commit(chosen = selection) {
   persist();
   render();
 
+  if (result.summary.kind === 'turn' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (result.summary.hits) {
+      root.querySelector('.actor-hero .actor-art')?.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(8%)' }, { transform: 'translateX(0)' }], { duration: 420 });
+      root.querySelector(`[data-target="${action.target}"] .actor-art`)?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.8)', transform: 'translateX(6%)' }, { filter: 'brightness(1)' }], { duration: 500 });
+    }
+  }
+
   // Play appropriate audio SFX
   if (result.summary.hits) playSfx('hit');
   else if (result.summary.selfDamage) playSfx('knife');
@@ -1903,12 +1913,21 @@ function action(a) {
   } else if (a === 'new-seed') {
     reset(Date.now() >>> 0);
     playSfx('select');
+  } else if (a === 'plan') {
+    selection = { ...selection, planning: true };
+    render();
+    playSfx('select');
+  } else if (a === 'momentum-info') {
+    show('الزخم: رصيد هجوم', `<p>رصيدك الآن: <strong>${num(s.momentum)}</strong></p><p>كل ١ زخم = +١ ضرر للسهم. أول سهم يصرف الرصيد كاملًا، وغير المصروف يبقى للدور التالي. يبدأ كل لقاء برصيد صفر.</p><p>مثال: ركض يولّد ٢ زخم، ثم سهم أساسه ٢ يصيب بـ٤ ضرر.</p>${s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && !s.grid[1] ? btn('جرّب المثال', 'momentum-example') : ''}`);
+  } else if (a === 'journey') {
+    show(ENCOUNTERS[s.encounter - 1].name, `<p>المواجهة ${num(s.encounter)} من ٤ · الدور ${num(s.phaseTurn)}</p><p>التقدم: ${num(s.progress)} / ${num(goal(s))}. تكتمل المواجهة ببلوغ المسار أو إسقاط الأعداء.</p>`);
   } else if (a === 'cancel') {
     selection = { card: null, cell: null, axis: null, face: null, target: null };
     render();
     playSfx('select');
   } else if (a === 'momentum-example') {
     if (s.encounter === 1 && s.phaseTurn === 1 && s.hand.includes('arrow.0') && s.grid[0] === 'run.0' && !s.grid[1]) {
+      if (menu.open) menu.close();
       selection = { card: 'arrow.0', cell: 1, axis: 'row', face: 0, target: 'scout' };
       render();
     }
@@ -1934,13 +1953,13 @@ function action(a) {
   } else if (a === 'rules') {
     rules();
   } else if (a === 'help') {
-    show('رقعة التدبير ووجها القرار', `
+    show('سلاسل الأوامر', `
       <div class="quick-guide-dialog">
-        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>اقرأ الأعداء في الشريط العلوي</strong><p>فوق كل عدو هجومه القادم، وتحته صحته. المس شخصيته لتحديده هدفًا. حاملو التراس يحمون الزعيم.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>اختر بطاقة ووجهًا من يدك</strong><p>المس لسان بطاقة لعرضها. أمامك لوحتان: تأثير دائم وتأثير فوري. اختر اللوحة المناسبة؛ الدائم يبقى ليتكرر أثره، والفوري يُطرح بعد تفعيله.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>ضعها في موضع بطاقة فارغ</strong><p>الشبكة للبطاقات فقط. الشخصيات في الشريط العلوي؛ موضع البطاقة يحدد ترتيب تفعيلها، وليس موقع عدو.</p></div></div>
-        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>قارن الصف والعمود ثم نفّذ</strong><p>لوحتا أفقي وعمودي تعرضان الضرر والدروع وخسارة الصحة. الخط المضيء يوضح ترتيب التنفيذ، وصحة الأعداء في الشريط تعرض النتيجة المتوقعة. يمكنك تبديل وجه البطاقة أو الهدف قبل التنفيذ.</p></div></div>
-        <div class="guide-footer-tip">اختر هدفك من شريط الأعداء. ترتيب تنفيذ الصفوف من اليسار لليمين والأعمدة من الأعلى للأسفل. اكتمال خط بثلاث بطاقات يفرّغه. كل ١ زخم يزيد السهم ١ ضرر؛ أول سهم يصرف الرصيد كاملًا، وغير المصروف يبقى للدور التالي.</div>
+        <div class="guide-card"><div class="guide-num">١</div><div class="guide-body"><strong>المعركة أمامك</strong><p>المس العدو في الساحة لاختياره. ترى صحته وهجومه القادم فوقه؛ حاملو التراس يحمون الزعيم.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٢</div><div class="guide-body"><strong>خطّط للدور</strong><p>اضغط الزر أسفل الشاشة أو اختر بطاقة من يدك. تتوسع السلاسل الثلاث لتضع البطاقة في موضع فارغ. الرقم الدائري على البطاقة يبدّل بين الوجه ١ الدائم والوجه ٢ الطارئ. علامة ⓘ تشرح الوجهين.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٣</div><div class="guide-body"><strong>اختر إحدى الخطتين</strong><p>«سلسلة كاملة» تفعّل بطاقات السطر من اليسار لليمين. «الموضع نفسه» يفعّل الموضع المختار في السلاسل الثلاث من الأعلى للأسفل. المعاينة تعرض الترتيب والهجوم والصد وخسارة الصحة.</p></div></div>
+        <div class="guide-card"><div class="guide-num">٤</div><div class="guide-body"><strong>نفّذ وشاهد القتال</strong><p>بعد التنفيذ تنطوي الخطة وتتوسع الساحة. البطاقة الدائمة تبقى في موضعها، والطارئة تُطرح بعد التفعيل. اكتمال ثلاث بطاقات في خط يفرّغه.</p></div></div>
+        <div class="guide-footer-tip">خانات الدرب ١ و٥ و٩ تمنح زخمًا وتقدمًا عندما تُفعّل فارغة. الزخم ظاهر أعلى الشاشة؛ اضغطه لشرح الرصيد وتجربة المثال.</div>
       </div>`);
   } else if (a === 'menu') {
     show(
@@ -1949,6 +1968,8 @@ function action(a) {
       <div style="display:grid;gap:8px;">
         ${btn('أكمل اللعب', 'close', 'primary')}
         ${btn(isMuted() ? 'تشغيل المؤثرات الصوتية' : 'كتم الصوت', 'toggle-audio')}
+        ${btn('كيف ألعب؟', 'help')}
+        ${btn('رصيد الزخم ومثال عملي', 'momentum-info')}
         ${btn('دليل القواعد والبناءات', 'rules')}
         ${btn('إعادة نفس الرن', 'restart')}
         ${btn('رن جديد بتوزيع عشوائي', 'new-seed')}
@@ -2042,7 +2063,11 @@ document.addEventListener('click', e => {
       );
       return;
     }
-    if (!selection.card) return;
+    if (!selection.card) {
+      selection = { ...selection, planning: true };
+      render();
+      return;
+    }
     const face = selection.face ?? 0;
     const axis = bestAxis(s, selection.card, i, face, selection.target);
     selection = { ...selection, card: selection.card, face, cell: i, axis };
