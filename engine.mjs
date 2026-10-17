@@ -1,6 +1,8 @@
 export const VERSION = 'shanfara-duel-v9';
-export const GRID_SIZE = 2;
-export const LINES = [[0, 1], [2, 3], [0, 2], [1, 3]];
+export const GRID_ROWS = 2;
+export const GRID_COLUMNS = 3;
+export const GRID_SIZE = GRID_ROWS * GRID_COLUMNS;
+export const LINES = [[0, 1, 2], [3, 4, 5], [0, 3], [1, 4], [2, 5]];
 const face = (name, icon, effects, text) => ({ name, icon, effects, text });
 export const cards = {
   focus: face('عزم', 'fire', [{ op: 'momentum', n: 2 }], 'تجمع نقطتي زخم للهجوم القادم.'),
@@ -45,9 +47,25 @@ export function draw(s) {
 }
 export function fresh(seed = 20261017) {
   const deck = ['focus.0', 'arrow.0', 'cover.0', 'focus.1', 'arrow.1', 'focus.2', 'arrow.2', 'cover.1', 'arrow.3', 'cover.2'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(4).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
   s.draw = shuffle(s, deck.slice(5));
   return s;
+}
+export function migrateSave(before) {
+  const s = structuredClone(before);
+  // Keep the relative positions of cards from the previous 2×2 board.
+  if (s.grid?.length === 4) {
+    const [a, b, c, d] = s.grid;
+    s.grid = [a, b, null, c, d, null];
+    s.last = null;
+  }
+  s.prime ??= 0;
+  s.discard.push(...s.exhausted); s.exhausted = [];
+  for (let i = 0; i < s.grid.length; i++) {
+    const uid = s.grid[i];
+    if (uid && s.faces[uid] === 1) { s.discard.push(uid); delete s.faces[uid]; s.grid[i] = null; }
+  }
+  assertState(s); return s;
 }
 export const start = s => s.screen === 'title' ? { ...structuredClone(s), screen: 'play' } : s;
 export function attackTargets(s) { const alive = s.enemies.filter(e => e.hp > 0); const shields = alive.filter(e => e.id.startsWith('shield_')); return shields.length ? shields : alive; }
@@ -59,7 +77,7 @@ export function getEnemyIntent(e, index, turn) {
 export function completedLines(grid, cell) { return LINES.filter(line => line.includes(cell) && line.every(i => grid[i])); }
 export function placePreview(s, a) { return activate(s, a); }
 export function setupEncounter(s, index) {
-  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(4).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
+  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(GRID_SIZE).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
   s.enemies = structuredClone(ENCOUNTERS[index - 1].enemies);
   s.draw = shuffle(s, s.deck); draw(s); s.screen = 'play'; s.draftChoices = [];
 }
@@ -67,7 +85,7 @@ export function actions(s) {
   if (s.screen === 'reward') return [...s.draftChoices.map(choice => ({ kind: 'draft', choice })), { kind: 'continue' }];
   if (s.screen !== 'play') return [];
   const out = [];
-  for (const card of s.hand) for (const cell of [0, 1, 2, 3]) if (!s.grid[cell]) for (const face of [0, 1]) for (const e of attackTargets(s)) out.push({ card, cell, face, target: e.id });
+  for (const card of s.hand) for (const cell of s.grid.keys()) if (!s.grid[cell]) for (const face of [0, 1]) for (const e of attackTargets(s)) out.push({ card, cell, face, target: e.id });
   return out;
 }
 export function activate(before, a) {
@@ -82,7 +100,7 @@ export function activate(before, a) {
     s.last = { kind: 'transition', action: structuredClone(a), choice: a.choice ?? null };
     assertState(s); return { valid: true, state: s, summary: s.last };
   }
-  if (before.screen !== 'play' || !before.hand.includes(a.card) || !Number.isInteger(a.cell) || a.cell < 0 || a.cell > 3 || before.grid[a.cell] || ![0, 1].includes(a.face) || (a.target && !attackTargets(before).some(e => e.id === a.target))) return invalid();
+  if (before.screen !== 'play' || !before.hand.includes(a.card) || !Number.isInteger(a.cell) || a.cell < 0 || a.cell >= GRID_SIZE || before.grid[a.cell] || ![0, 1].includes(a.face) || (a.target && !attackTargets(before).some(e => e.id === a.target))) return invalid();
   const s = structuredClone(before);
   const action = { card: a.card, cell: a.cell, face: a.face, target: targetForAction(s, a) };
   s.hand.splice(s.hand.indexOf(a.card), 1); s.grid[a.cell] = a.card; s.faces[a.card] = a.face; s.placements++;
@@ -143,7 +161,7 @@ export function activate(before, a) {
 }
 export function assertState(s) {
   const check = (ok, text) => { if (!ok) throw new Error(text); };
-  check(s.version === VERSION, 'Invalid version'); check(s.grid.length === 4, 'Grid must have four slots');
+  check(s.version === VERSION, 'Invalid version'); check(s.grid.length === GRID_SIZE, 'Grid must have six slots');
   check(Number.isInteger(s.hp) && s.hp >= 0 && s.hp <= s.maxHp, 'Invalid health');
   check(Number.isInteger(s.momentum) && s.momentum >= 0, 'Invalid momentum');
   check(s.hand.length <= 5, 'Hand exceeds five'); check(s.encounter >= 1 && s.encounter <= 4, 'Invalid encounter');
