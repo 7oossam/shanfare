@@ -216,16 +216,77 @@ function commandComparison(s, p) {
   }).join('')}</section>`;
 }
 
-function commandHand(s, p) {
-  return `<section class="command-hand" aria-label="بطاقات اليد، اضغط بطاقة للتخطيط">${s.hand.map(uid => {
+// Face summaries use the definitions; contextual totals use the resolved preview.
+export function faceEffectLines(uid, s, face) {
+  const c = def(uid, s, face);
+  const lines = [];
+  for (const f of c.effects) {
+    const n = num(f.n);
+    const label = {
+      momentum: `+${n} زخم`, move: `تقدّم ${n}`, hit: `${n} ضرر`, block: `صدّ ${n}`,
+      hurt: `−${n} صحة`, prime: `التالي +${n} ضرر`, bleed: `نزيف ${n}`, poison: `سمّ ${n}`,
+      ward: `ساتر: صدّ ${n} لاحقًا`, double_bleed: 'ضاعف النزيف', explode_bleed: 'الضرر = ضعف النزيف',
+      aoe_hit: `${n} ضرر للجميع`, detonate_wards: `${n} ضرر لكل ساتر`,
+      ambush: '٤ ضرر قبل فراغ؛ وإلا ١', wolf_pounce: `${n} ضرر؛ ٦ مع نزيف/سم`,
+      friend: 'فكّ قيد؛ ثم صدّ ٢', mark: 'وسم', push: `دفع ${n}`, blind: `هجوم العدو −${n}`,
+      grit_damage: 'ضرر حسب الجراح', frenzy: 'هجوم الضواري', scavenge: 'استرداد بطاقة'
+    }[f.op];
+    if (f.op === 'vanish') continue;
+    if (f.op === 'sniper' || f.op === 'cyclone_shot') lines.push(`${n} + الزخم ضرر`, 'يصرف الزخم');
+    else if (label) lines.push(label);
+    else if (!lines.includes(c.short)) lines.push(c.short);
+  }
+  if (cardType(uid, s) === 'shift' && face === 0) lines.unshift('تبديل موضعين');
+  return lines;
+}
+
+export function cardDecision(s, p, projected = preview(s, p)) {
+  if (!p.card) return null;
+  const c = def(p.card, s, p.face ?? 0);
+  const vanishes = c.effects.some(f => f.op === 'vanish');
+  if (!projected) return {
+    title: `${simpleName(c)} · ${p.face ? 'طارئ' : 'دائم'}`,
+    text: faceEffectLines(p.card, s, p.face ?? 0).join(' · '),
+    outcome: `${vanishes ? 'يُطرح عند التفعيل.' : 'يتكرر أثره عند تفعيل موضعه.'} اختر موضعًا لرؤية النتيجة.`
+  };
+  const effects = projected.summary.effects.filter(f => f.uid === p.card);
+  const parts = [];
+  const gained = effects.filter(f => f.op === 'momentum').reduce((n, f) => n + f.amount, 0);
+  if (gained) parts.push(`تضيف هذه البطاقة ${num(gained)} زخم`);
+  const bows = projected.summary.effects.filter(f => f.op === 'sniper' || f.op === 'cyclone_shot');
+  if (bows.length) parts.push(bows.map(f => `سهم الموضع ${num(f.cell + 1)}: ${num(f.amount)} أساس + ${num(f.momentumSpent)} زخم${(f.boost || 0) > f.momentumSpent ? ` + ${num(f.boost - f.momentumSpent)} تعزيز` : ''} = ${num(f.amount + (f.boost || 0))} ضرر`).join('؛ '));
+  if (!parts.length) parts.push(faceEffectLines(p.card, s, p.face ?? 0).join(' · '));
+  const remains = projected.state.grid.includes(p.card);
+  const lifetime = remains ? 'تبقى البطاقة لتفعيلها لاحقًا.' : projected.summary.vanished.includes(p.card) ? 'تُطرح البطاقة بعد التنفيذ.' : 'تُزال البطاقة مع اكتمال الخط.';
+  return {
+    title: `${simpleName(c)} · ${p.face ? 'طارئ' : 'دائم'} · في خطتك`,
+    text: parts.join(' ← '),
+    outcome: `${lifetime} إجمالي الخطة: ${num(projected.summary.hits)} هجوم · ${num(projected.summary.block)} صدّ · ${num(Math.max(0, s.hp - projected.state.hp))} خسارة صحة.`
+  };
+}
+
+function commandHand(s, p, projected) {
+  const decision = cardDecision(s, p, projected);
+  return `${decision ? `<aside class="card-decision" aria-live="polite"><strong>${esc(decision.title)}</strong><p>${esc(decision.text)}</p><small>${esc(decision.outcome)}</small>${button('ⓘ', 'card-info', 'decision-info', false, 'تفاصيل وجهي البطاقة')}</aside>` : ''}
+  <section class="command-hand" aria-label="بطاقات اليد، اضغط التأثير الدائم أو الطارئ لاختياره">${s.hand.map(uid => {
     const selected = p.card === uid;
     const face = selected ? p.face ?? 0 : 0;
-    const c = def(uid, s, face);
-    return `<div class="hand-card ${selected ? 'is-selected' : ''}">
-      <button class="hand-card-select" data-card="${uid}" data-face="${face}" aria-pressed="${selected}" aria-label="${esc(c.name)}، ${esc(c.short)}، ${face ? 'وجه طارئ' : 'وجه دائم'}">${commandIcon(c, true)}</button>
-      <button class="hand-face-toggle" data-card="${uid}" data-face="${face ? 0 : 1}" aria-label="تبديل وجه ${esc(c.name)} إلى ${face ? 'دائم' : 'طارئ'}">${num(face + 1)}</button>
-      ${selected ? `<button class="hand-info" data-action="card-info" aria-label="شرح وجهي البطاقة">ⓘ</button>` : ''}
-    </div>`;
+    const base = def(uid, s, 0);
+    const rect = handArt[artKind(base)];
+    const art = rect ? atlas(rect[0] + 8, rect[1] + 25, rect[2] - 16, rect[3] - 57, 'hand-thumbnail') : icon(base.icon);
+    return `<article class="hand-card ${selected ? 'is-selected' : ''}" aria-label="${esc(base.name)}">
+      <button class="hand-card-select" data-card="${uid}" data-face="${face}" aria-pressed="${selected}" aria-label="اختر ${esc(base.name)}"><span class="hand-picture">${art}</span><strong>${esc(simpleName(base))}</strong></button>
+      ${[0, 1].map(f => {
+        const c = def(uid, s, f);
+        const active = selected && face === f;
+        const vanish = c.effects.some(effect => effect.op === 'vanish');
+        return `<button class="hand-face face-${f} ${active ? 'is-active' : ''}" data-card="${uid}" data-face="${f}" aria-pressed="${active}" aria-label="${f ? 'طارئ' : 'دائم'}: ${esc(c.name)}، ${esc(faceEffectLines(uid, s, f).join('، '))}، ${vanish ? 'يُطرح' : 'يبقى'}">
+          <span class="hand-face-title">${f ? 'طارئ' : 'دائم'}${active ? ' ✓' : ''}</span>
+          <span class="hand-face-effects">${faceEffectLines(uid, s, f).map(line => `<span>${esc(line)}</span>`).join('')}</span>
+          <small class="hand-face-life">${vanish ? 'يُطرح' : 'يبقى'}</small>
+        </button>`;
+      }).join('')}
+    </article>`;
   }).join('')}</section>`;
 }
 
@@ -237,7 +298,7 @@ export function gameView(s, p, feedback = '') {
     <section class="command-desk">${atlas(58, 375, 575, 749, 'desk-paper scene-clean')}
       <div class="command-title"><span></span><h2>${planning ? 'ضع البطاقة' : 'خطة الأوامر'}</h2><span></span>${planning ? button('×', 'cancel', 'desk-close', false, 'إلغاء التخطيط') : button('؟', 'help', 'desk-help', false, 'كيف ألعب؟')}</div>
       ${commandChains(s, p, planning)}${planning ? commandComparison(s, p) : ''}
-      ${commandHand(s, p)}
+      ${commandHand(s, p, projected)}
       ${button(atlas(756, 1055, 548, 62, 'execute-frame') + `<span class="execute-label">${planning ? 'نفّذ الخطة' : 'خطّط للدور'}</span>`, planning ? 'activate' : 'plan', 'command-execute', planning && !projected)}
     </section>
     ${feedback ? `<div class="tactical-toast" role="status">${esc(feedback)}</div>` : ''}
