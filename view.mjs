@@ -1,5 +1,6 @@
 import { cards, alternates, def, cardType, activate, attackTargets, targetForAction, getEnemyIntent, ENCOUNTERS } from './engine.mjs?v=9';
 import { icon } from './icons.mjs?v=9';
+import { fullscreenActive, fullscreenSupported } from './fullscreen.mjs?v=9';
 export const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const num = n => new Intl.NumberFormat('ar-SA', { useGrouping: false }).format(n);
 export const ratio = (a, b) => `<bdi dir="ltr">${num(a)} / ${num(b)}</bdi>`;
@@ -29,10 +30,15 @@ function cardArt(uid, s, cls = '') {
   if (type.includes('focus')) return `<span class="focus-art ${cls}" aria-hidden="true">${icon('fire')}</span>`;
   return `<span class="focus-art ${cls}" aria-hidden="true">${icon(def(uid, s).icon)}</span>`;
 }
+export function fullscreenButton() {
+  const active = fullscreenActive();
+  return `<button class="fullscreen-button ${active ? 'is-fullscreen' : ''}" data-action="fullscreen" aria-pressed="${active}" aria-label="${active ? 'الخروج من ملء الشاشة' : 'إخفاء شريط المتصفح وملء الشاشة'}">${icon(active ? 'contract' : 'expand')}<span>${active ? 'تصغير' : 'ملء الشاشة'}</span></button>`;
+}
 function header(s) {
   return `<header class="game-header">${slice(0, 0, 1672, 75, 'template-art', 'blank-template.png')}
     <div class="player-resources"><span class="health-count" aria-label="الصحة">${icon('heart')}${ratio(s.hp, s.maxHp)}</span><button class="momentum-count" data-action="momentum-info" aria-label="رصيد الزخم ${num(s.momentum)}">${icon('fire')}<span>الزخم <b data-momentum>${num(s.momentum)}</b></span></button></div>
     <h1>${esc(ENCOUNTERS[s.encounter - 1].name)}<small>المواجهة ${num(s.encounter)} / ٤</small></h1>
+    ${fullscreenButton()}
     ${button(slice(1585, 19, 45, 45), 'menu', 'settings-button', false, 'قائمة اللعبة')}
   </header>`;
 }
@@ -85,6 +91,6 @@ export function gameView(s, p, animation = null) {
   const projected = animation ? null : preview(s, p);
   return `<main class="duel-app" data-version="9">${header(s)}<div class="main-stage">${arena(s, p, projected)}${board(s, p, projected, animation)}</div>${hand(s, p, projected, !!animation)}${rotationHint()}</main>`;
 }
-export function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>اختر وجه البطاقة. أكمل صفًا أو عمودًا. اهزم خصومك.</p>${button('ابدأ المواجهة', 'start', 'gold-button')}<small>شبكة ٢ × ٢ · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
+export function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>اختر وجه البطاقة. أكمل صفًا أو عمودًا. اهزم خصومك.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>شبكة ٢ × ٢ · أربعة لقاءات</small></div>${rotationHint()}</main>`; }
 export function rewardView(s) { return `<main class="screen-panel"><h1>حُسمت المواجهة</h1><p>اختر بطاقة جديدة · تستعيد ${stat(Math.min(6, s.maxHp - s.hp), 'heart')}</p><div class="reward-cards">${s.draftChoices.map(key => `<article class="reward-card"><h2>${esc(cards[key].name)}</h2>${cardArt(key + '.reward', s, 'reward-art')}<div><b>دائم</b>${effectFormula(key + '.reward', s, 0)}</div><div><b>طارئ</b>${effectFormula(key + '.reward', s, 1)}</div>${button('اختر البطاقة', 'draft-' + key, 'gold-button')}</article>`).join('')}</div>${button('أكمل بدون بطاقة', 'continue', 'text-button')}${rotationHint()}</main>`; }
 export function endView(s) { return `<main class="screen-panel end-screen"><h1>${s.outcome === 'victory' ? 'انتصار الشنفرى' : s.outcome === 'exhausted' ? 'استُنفدت الأوراق' : 'انتهت المواجهة'}</h1><p>${s.outcome === 'victory' ? 'هزمت خصومك في اللقاءات الأربعة.' : s.outcome === 'exhausted' ? 'استخدم الوجه الدائم لتعود أوراقك إلى الرزمة، واحتفظ بالطارئ للحسم.' : 'جرّب مزج الصدّ والهجوم في الخط نفسه.'}</p>${button('العب من جديد', 'restart', 'gold-button')}${rotationHint()}</main>`; }
