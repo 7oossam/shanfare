@@ -1,0 +1,963 @@
+{
+  "scope": "Experimental prototype: 6 proposed starter cards and 6 reward directions, not a finalized 10-reward set. Live gameplay untouched.",
+  "rules": "2×3, occupied row/column activate once, complete lines clear; one card per turn; emergency immediately recycles under existing rules.",
+  "checks": [
+    "Prototype preserves cross activation and complete-line-only clearing",
+    "Prototype correctly converts credit into block and consumes it",
+    "Scry has no choice in any of 720 initial six-card deck orders",
+    "100-turn no-attack stall loop is legal and preserves health",
+    "Cover then seven emergency arrows wins all 720 first-encounter starting orders at full health",
+    "Area trades focused damage for greater total damage across multiple enemies",
+    "Concentration can prevent an urgent attack while area cannot",
+    "Current bleed ticks before counterattack, so lethal bleed also prevents the immediate attack",
+    "Bleed keeps dealing damage after its card disappears",
+    "Kill-heal can be preferred at lower nominal damage",
+    "Heal card is not a universal replacement for stronger killing attack",
+    "Partial spend creates damage-versus-reserve tradeoff",
+    "Half-spend has a concrete advantage when protected boss cannot take overflow",
+    "Reducing emergency bleed to 3 restores a real immediate-kill tradeoff",
+    "Existing grid order already changes damage and saved momentum",
+    "Recall exchanges hand composition without playing a second card or changing turn rules"
+  ],
+  "structural": [
+    {
+      "orders": 720,
+      "initialScryAtLeastTwo": 0,
+      "afterOnePermanentAtLeastTwo": 0,
+      "afterTwoPermanentsAtLeastTwo": 0,
+      "afterTwoPermanentsNoExternalReplacement": 720,
+      "note": "No prior discards. Random order does not create extra available cards."
+    },
+    {
+      "name": "Constructive first-encounter solution",
+      "orders": 720,
+      "wins": 720,
+      "finalHp": 24,
+      "turns": 8,
+      "sequence": "One permanent cover at cell 0, then repeat an emergency arrow at cell 1 seven times. Row never fills, cover blocks all enemy replies, arrow returns to hand."
+    },
+    {
+      "comparison": "3 block versus lowering a single incoming hit by 3, no other triggers",
+      "threatsTested": 13,
+      "equalHpResults": 13,
+      "note": "Not equivalent for multiple enemies or future turns; names alone do not create a decision."
+    }
+  ],
+  "cases": [
+    {
+      "name": "Immediate emergency recycle loop",
+      "sequence": [
+        "cover permanent cell 0",
+        "tactics emergency cell 1, swap nothing, repeat"
+      ],
+      "turnsRepeated": 100,
+      "hpBefore": 24,
+      "hpAfter": 24,
+      "momentumAfter": 0,
+      "enemyHealth": [
+        16,
+        12
+      ],
+      "conclusion": "Safe indefinite stall in encounter 1, not a winning or infinite-power strategy. Emergency returns to hand each turn because all non-grid cards fit in hand."
+    },
+    {
+      "name": "Area attack versus concentrated attack: three enemies",
+      "outcomes": [
+        {
+          "label": "area",
+          "hits": 6,
+          "enemyReply": 5,
+          "hpAfter": 19,
+          "momentum": 0,
+          "remaining": [
+            6,
+            6,
+            6
+          ],
+          "bleed": [
+            0,
+            0,
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "volley.0",
+              "phase": "cross",
+              "op": "area",
+              "amount": 2,
+              "damage": 6
+            }
+          ]
+        },
+        {
+          "label": "concentrated",
+          "hits": 2,
+          "enemyReply": 5,
+          "hpAfter": 19,
+          "momentum": 0,
+          "remaining": [
+            6,
+            8,
+            8
+          ],
+          "bleed": [
+            0,
+            0,
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "sniper",
+              "amount": 2,
+              "momentumSpent": 0,
+              "boost": 0,
+              "damage": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Area versus concentration: urgent kill with stored momentum",
+      "outcomes": [
+        {
+          "label": "area",
+          "hits": 4,
+          "enemyReply": 6,
+          "hpAfter": 18,
+          "momentum": 3,
+          "remaining": [
+            3,
+            6
+          ],
+          "bleed": [
+            0,
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "volley.0",
+              "phase": "cross",
+              "op": "area",
+              "amount": 2,
+              "damage": 4
+            }
+          ]
+        },
+        {
+          "label": "concentrated",
+          "hits": 5,
+          "enemyReply": 1,
+          "hpAfter": 23,
+          "momentum": 0,
+          "remaining": [
+            0,
+            8
+          ],
+          "bleed": [
+            0,
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "sniper",
+              "amount": 2,
+              "momentumSpent": 3,
+              "boost": 3,
+              "damage": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bleed versus immediate hit: urgent 4-HP enemy",
+      "outcomes": [
+        {
+          "label": "bleed",
+          "hits": 4,
+          "enemyReply": 0,
+          "hpAfter": 24,
+          "momentum": 0,
+          "remaining": [
+            0
+          ],
+          "bleed": [
+            3
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "knife.0",
+              "phase": "cross",
+              "op": "bleed",
+              "amount": 4,
+              "target": "a"
+            },
+            {
+              "op": "bleed_tick",
+              "target": "a",
+              "amount": 4
+            }
+          ]
+        },
+        {
+          "label": "direct",
+          "hits": 4,
+          "enemyReply": 0,
+          "hpAfter": 24,
+          "momentum": 0,
+          "remaining": [
+            0
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "hit",
+              "amount": 4,
+              "boost": 0,
+              "damage": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bleed timing",
+      "firstTurnDamage": 4,
+      "nextTurnDamage": 3,
+      "remainingStacks": 2,
+      "conclusion": "4+3+2+1 potential damage, first 4 happens before current enemy reply. Stronger than a pure delayed damage effect."
+    },
+    {
+      "name": "Heal on kill versus higher damage: injured player and weak target",
+      "outcomes": [
+        {
+          "label": "heal",
+          "hits": 2,
+          "enemyReply": 0,
+          "hpAfter": 12,
+          "momentum": 0,
+          "remaining": [
+            0
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "leech.0",
+              "phase": "cross",
+              "op": "lifekill",
+              "amount": 2,
+              "damage": 2,
+              "healed": 2
+            }
+          ]
+        },
+        {
+          "label": "direct",
+          "hits": 2,
+          "enemyReply": 0,
+          "hpAfter": 10,
+          "momentum": 0,
+          "remaining": [
+            0
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "hit",
+              "amount": 4,
+              "boost": 0,
+              "damage": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Heal on kill versus urgency: 4-HP target",
+      "outcomes": [
+        {
+          "label": "heal",
+          "hits": 2,
+          "enemyReply": 5,
+          "hpAfter": 5,
+          "momentum": 0,
+          "remaining": [
+            2
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "leech.0",
+              "phase": "cross",
+              "op": "lifekill",
+              "amount": 2,
+              "damage": 2
+            }
+          ]
+        },
+        {
+          "label": "direct",
+          "hits": 4,
+          "enemyReply": 0,
+          "hpAfter": 10,
+          "momentum": 0,
+          "remaining": [
+            0
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "hit",
+              "amount": 4,
+              "boost": 0,
+              "damage": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Half-spend versus full-spend bow with 8 momentum",
+      "outcomes": [
+        {
+          "label": "half",
+          "hits": 6,
+          "enemyReply": 1,
+          "hpAfter": 23,
+          "momentum": 4,
+          "remaining": [
+            24
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "reserve.0",
+              "phase": "cross",
+              "op": "half",
+              "amount": 2,
+              "damage": 6
+            }
+          ]
+        },
+        {
+          "label": "full",
+          "hits": 10,
+          "enemyReply": 1,
+          "hpAfter": 23,
+          "momentum": 0,
+          "remaining": [
+            20
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "sniper",
+              "amount": 2,
+              "momentumSpent": 8,
+              "boost": 8,
+              "damage": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Partial spend when excess damage is lost behind a shield bearer",
+      "outcomes": [
+        {
+          "label": "half",
+          "hits": 2,
+          "enemyReply": 3,
+          "hpAfter": 21,
+          "momentum": 4,
+          "remaining": [
+            30,
+            0
+          ],
+          "bleed": [
+            0,
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "reserve.0",
+              "phase": "cross",
+              "op": "half",
+              "amount": 2,
+              "damage": 2
+            }
+          ]
+        },
+        {
+          "label": "full",
+          "hits": 2,
+          "enemyReply": 3,
+          "hpAfter": 21,
+          "momentum": 0,
+          "remaining": [
+            30,
+            0
+          ],
+          "bleed": [
+            0,
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "sniper",
+              "amount": 2,
+              "momentumSpent": 8,
+              "boost": 8,
+              "damage": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Revised 3-bleed versus immediate 4-damage against urgent 4-HP enemy",
+      "outcomes": [
+        {
+          "label": "bleed3",
+          "hits": 3,
+          "enemyReply": 5,
+          "hpAfter": 19,
+          "momentum": 0,
+          "remaining": [
+            1
+          ],
+          "bleed": [
+            2
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "bleed3.0",
+              "phase": "cross",
+              "op": "bleed",
+              "amount": 3,
+              "target": "a"
+            },
+            {
+              "op": "bleed_tick",
+              "target": "a",
+              "amount": 3
+            }
+          ]
+        },
+        {
+          "label": "direct",
+          "hits": 4,
+          "enemyReply": 0,
+          "hpAfter": 24,
+          "momentum": 0,
+          "remaining": [
+            0
+          ],
+          "bleed": [
+            0
+          ],
+          "effects": [
+            {
+              "cell": 0,
+              "uid": "arrow.0",
+              "phase": "cross",
+              "op": "hit",
+              "amount": 4,
+              "boost": 0,
+              "damage": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Position and activation order",
+      "focusBeforeArrow": {
+        "damage": 6,
+        "stored": 0
+      },
+      "arrowBeforeFocus": {
+        "damage": 4,
+        "stored": 2
+      },
+      "conclusion": "Position already adds a real immediate damage versus reserve choice; no extra status system needed."
+    },
+    {
+      "name": "Recall cost",
+      "discardMustExist": true,
+      "cardPlayedConsumesTurn": true,
+      "conclusion": "Distinct selection control when a useful discard exists; frequently no target in a tiny starter deck."
+    }
+  ],
+  "runs": [
+    {
+      "policy": "survive",
+      "variant": "six-proposed",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 192,
+      "faces": [
+        24,
+        168
+      ],
+      "cardPlays": {
+        "cover": 24,
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 168,
+      "emergencies": 168,
+      "minimumHand": 5,
+      "meanTurns": 8
+    },
+    {
+      "policy": "survive",
+      "variant": "six-second-focus",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 192,
+      "faces": [
+        24,
+        168
+      ],
+      "cardPlays": {
+        "cover": 24,
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 168,
+      "emergencies": 168,
+      "minimumHand": 5,
+      "meanTurns": 8
+    },
+    {
+      "policy": "survive",
+      "variant": "six-hand3",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 256,
+      "faces": [
+        157,
+        99
+      ],
+      "cardPlays": {
+        "cover": 52,
+        "arrow": 152,
+        "focus": 49,
+        "tactics": 3
+      },
+      "scryTotal": 11,
+      "scryWithChoice": 3,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 4,
+      "emergencies": 99,
+      "minimumHand": 3,
+      "meanTurns": 10.67
+    },
+    {
+      "policy": "survive",
+      "variant": "six-hand4",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 192,
+      "faces": [
+        24,
+        168
+      ],
+      "cardPlays": {
+        "cover": 24,
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 39,
+      "emergencies": 168,
+      "minimumHand": 4,
+      "meanTurns": 8
+    },
+    {
+      "policy": "survive",
+      "variant": "ten-proposed",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 264,
+      "faces": [
+        170,
+        94
+      ],
+      "cardPlays": {
+        "cover": 57,
+        "arrow": 138,
+        "focus": 64,
+        "tactics": 5
+      },
+      "scryTotal": 7,
+      "scryWithChoice": 5,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 2,
+      "emergencies": 94,
+      "minimumHand": 5,
+      "meanTurns": 11
+    },
+    {
+      "policy": "pressure",
+      "variant": "six-proposed",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 168,
+      "faces": [
+        0,
+        168
+      ],
+      "cardPlays": {
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 39,
+      "emergencies": 168,
+      "minimumHand": 5,
+      "meanTurns": 7
+    },
+    {
+      "policy": "pressure",
+      "variant": "six-second-focus",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 168,
+      "faces": [
+        0,
+        168
+      ],
+      "cardPlays": {
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 39,
+      "emergencies": 168,
+      "minimumHand": 5,
+      "meanTurns": 7
+    },
+    {
+      "policy": "pressure",
+      "variant": "six-hand3",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 253,
+      "faces": [
+        153,
+        100
+      ],
+      "cardPlays": {
+        "arrow": 152,
+        "cover": 50,
+        "focus": 48,
+        "tactics": 3
+      },
+      "scryTotal": 11,
+      "scryWithChoice": 3,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 5,
+      "emergencies": 100,
+      "minimumHand": 3,
+      "meanTurns": 10.54
+    },
+    {
+      "policy": "pressure",
+      "variant": "six-hand4",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 192,
+      "faces": [
+        24,
+        168
+      ],
+      "cardPlays": {
+        "arrow": 168,
+        "cover": 24
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 31,
+      "emergencies": 168,
+      "minimumHand": 4,
+      "meanTurns": 8
+    },
+    {
+      "policy": "pressure",
+      "variant": "ten-proposed",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 264,
+      "faces": [
+        170,
+        94
+      ],
+      "cardPlays": {
+        "arrow": 138,
+        "cover": 57,
+        "focus": 64,
+        "tactics": 5
+      },
+      "scryTotal": 7,
+      "scryWithChoice": 5,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 2,
+      "emergencies": 94,
+      "minimumHand": 5,
+      "meanTurns": 11
+    },
+    {
+      "policy": "reserve",
+      "variant": "six-proposed",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 168,
+      "faces": [
+        0,
+        168
+      ],
+      "cardPlays": {
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 39,
+      "emergencies": 168,
+      "minimumHand": 5,
+      "meanTurns": 7
+    },
+    {
+      "policy": "reserve",
+      "variant": "six-second-focus",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 168,
+      "faces": [
+        0,
+        168
+      ],
+      "cardPlays": {
+        "arrow": 168
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 39,
+      "emergencies": 168,
+      "minimumHand": 5,
+      "meanTurns": 7
+    },
+    {
+      "policy": "reserve",
+      "variant": "six-hand3",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 253,
+      "faces": [
+        153,
+        100
+      ],
+      "cardPlays": {
+        "arrow": 152,
+        "cover": 50,
+        "focus": 48,
+        "tactics": 3
+      },
+      "scryTotal": 11,
+      "scryWithChoice": 3,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 5,
+      "emergencies": 100,
+      "minimumHand": 3,
+      "meanTurns": 10.54
+    },
+    {
+      "policy": "reserve",
+      "variant": "six-hand4",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 192,
+      "faces": [
+        24,
+        168
+      ],
+      "cardPlays": {
+        "arrow": 168,
+        "cover": 24
+      },
+      "scryTotal": 0,
+      "scryWithChoice": 0,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 31,
+      "emergencies": 168,
+      "minimumHand": 4,
+      "meanTurns": 8
+    },
+    {
+      "policy": "reserve",
+      "variant": "ten-proposed",
+      "runs": 24,
+      "wins": 24,
+      "deaths": 0,
+      "timeouts": 0,
+      "totalTurns": 264,
+      "faces": [
+        170,
+        94
+      ],
+      "cardPlays": {
+        "arrow": 138,
+        "cover": 57,
+        "focus": 64,
+        "tactics": 5
+      },
+      "scryTotal": 7,
+      "scryWithChoice": 5,
+      "cycleTotal": 0,
+      "cycleChanged": 0,
+      "emergencyImmediatelyReturned": 2,
+      "emergencies": 94,
+      "minimumHand": 5,
+      "meanTurns": 11
+    }
+  ],
+  "planning": [
+    {
+      "variant": "six-proposed",
+      "depth": 3,
+      "beam": 8,
+      "seeds": 12,
+      "wins": 12,
+      "timeouts": 0,
+      "deaths": 0,
+      "cardPlays": {
+        "cover": 12,
+        "arrow": 84
+      },
+      "faces": [
+        12,
+        84
+      ],
+      "totalTurns": 96,
+      "meanTurns": 8
+    },
+    {
+      "variant": "six-hand3",
+      "depth": 3,
+      "beam": 8,
+      "seeds": 12,
+      "wins": 12,
+      "timeouts": 0,
+      "deaths": 0,
+      "cardPlays": {
+        "cover": 22,
+        "arrow": 64,
+        "focus": 16,
+        "tactics": 7
+      },
+      "faces": [
+        63,
+        46
+      ],
+      "totalTurns": 109,
+      "meanTurns": 9.08
+    }
+  ]
+}
