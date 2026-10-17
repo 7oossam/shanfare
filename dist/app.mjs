@@ -1,4 +1,4 @@
-import { VERSION, fresh, start, activate, assertState, def, targetForAction, snapshot } from './engine.mjs?v=9';
+import { VERSION, migrateSave, fresh, start, activate, assertState, def, targetForAction, snapshot } from './engine.mjs?v=9';
 import { begin, record, restore, textReport } from './report.mjs?v=9';
 import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=9';
 import { playSfx, toggleMute, isMuted } from './audio.mjs?v=9';
@@ -10,7 +10,7 @@ let s = fresh(); let report = null;
 let selection = { card: null, face: 0, cell: null, target: null };
 let inputModality = 'pointer';
 let resolving = null; let resolveTimer = null; let longPressTimer = null; let longPressConsumed = false;
-try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { assertState(save.state); s = save.state; s.discard.push(...s.exhausted); s.exhausted = []; for (let i = 0; i < 4; i++) { const uid = s.grid[i]; if (uid && s.faces[uid] === 1) { s.discard.push(uid); delete s.faces[uid]; s.grid[i] = null; } } report = restore(save.report, s); } } catch {}
+try { const save = JSON.parse(localStorage.getItem(SAVE_KEY)); if (save?.state?.version === VERSION) { s = migrateSave(save.state); report = restore(save.report, s); } } catch {}
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ state: s, report })); } catch { document.querySelector('#live').textContent = 'تعذّر الحفظ على الجهاز.'; } }
 function render() { root.innerHTML = s.screen === 'title' ? titleView(s) : s.screen === 'reward' ? rewardView(s) : s.screen === 'end' ? endView(s) : gameView(s, selection, resolving); }
 function syncFullscreenControls() {
@@ -34,7 +34,7 @@ function requestFullscreenFromGesture(explicit = false) {
 for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل فور وضعه ويبقى، ثم يتفعّل مجددًا عند اكتمال خطه ويُزال.'}</small></section>`).join('')}</div>`); }
-function help() { show('شبكة الأوامر ٢ × ٢', '<ol><li>بطاقة واحدة في كل دور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>كل بطاقة تتفعّل فور وضعها. الدائمة تبقى في الشبكة، والطارئة تُكمل الخط قبل اختفائها وتعود للرزمة.</li><li>امتلاء صف أو عمود يُفعّل بطاقاته الدائمة مرة ثانية ثم يزيل الخط كاملًا. البطاقة التي أكملت الخط تعمل فورًا ثم مجددًا مع الخط.</li><li>عند اكتمال خطين، تتفعّل كل بطاقة مشتركة مرة واحدة ضمن الخطوط.</li><li>يرد الأعداء بعد كل بطاقة تلعبها. معاينة الخانة تعرض مجموع تأثير البطاقة والخط وردّ الأعداء.</li></ol><p>العزم يجمع الزخم فورًا، والسهم الدائم يصرفه كضرر إضافي. اضغط ⓘ للتفاصيل.</p>'); }
+function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في كل دور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>كل بطاقة تتفعّل فور وضعها. الدائمة تبقى في الشبكة، والطارئة تُكمل الخط قبل اختفائها وتعود للرزمة.</li><li>اكتمال صف من ٣ بطاقات أو عمود من بطاقتين يُفعّل بطاقاته الدائمة مرة ثانية ثم يزيل الخط كاملًا. البطاقة التي أكملت الخط تعمل فورًا ثم مجددًا مع الخط.</li><li>عند اكتمال خطين، تتفعّل كل بطاقة مشتركة مرة واحدة ضمن الخطوط.</li><li>يرد الأعداء بعد كل بطاقة تلعبها. معاينة الخانة تعرض مجموع تأثير البطاقة والخط وردّ الأعداء.</li></ol><p>العزم يجمع الزخم فورًا، والسهم الدائم يصرفه كضرر إضافي. اضغط ⓘ للتفاصيل.</p>'); }
 function newGame() { clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
 function commit(action) {
   if (resolving) return;
