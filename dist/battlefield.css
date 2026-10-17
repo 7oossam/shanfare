@@ -272,3 +272,44 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .command-panel .board-feedback { min-height:clamp(28px,6dvh,56px); padding-top:2px; }
 .command-panel .board-feedback > strong { font-size:clamp(10px,1.9dvh,17px); }
 .command-panel .board-feedback > small { font-size:clamp(8px,1.4dvh,12px); }
+/* Risk is a board property: its marker remains when a card disappears. */
+.grid-cell.has-risk { border-color:#a44c29; background-color:#e4bc8b88; box-shadow:inset 0 0 0 2px #f5dcb5,inset 0 0 0 3px #ac633a; }
+.risk-marker { position:absolute; top:2px; left:2px; display:flex; color:#a64a24; z-index:2; pointer-events:none; }
+.risk-marker .icon { width:clamp(9px,1.8dvh,16px); height:clamp(9px,1.8dvh,16px); fill:#f4cb75; stroke-width:2; }
+.risk-info-button { position:absolute; left:-4px; top:0; border:0; padding:0 4px; background:none; color:#a64a24; }
+.risk-info-button .icon { width:14px; height:14px; }
+.command-panel .board-feedback > .risk-tradeoff { display:flex; align-items:center; justify-content:center; gap:3px; color:#8b3c20; font-family:Tahoma,Arial,sans-serif; }
+.risk-tradeoff .icon { width:10px; height:10px; }
+.grid-cell.is-risk-triggered { animation:risk-flare .4s ease-out; }
+@keyframes risk-flare { 35% { background:#ffd398; box-shadow:0 0 16px #cf713b,inset 0 0 0 2px #ffe4ad; transform:scale(1.05); } }
+.terrain-screen { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:4vw; padding:20px 8%; position:relative; }
+.terrain-screen > .fullscreen-button { top:10px; right:12px; height:28px; }
+.terrain-copy h1 { display:flex; gap:8px; align-items:center; justify-content:center; }
+.terrain-copy h1 .icon { color:#a64a24; width:1em; height:1em; }
+.terrain-copy p { margin:6px 0 12px; font-size:clamp(13px,2.7dvh,22px); line-height:1.5; }
+.terrain-rule { display:flex; gap:20px; align-items:center; justify-content:center; margin:12px 0; color:#8b3c20; }
+.terrain-rule > span { display:flex; flex-direction:column; align-items:center; gap:6px; font-size:clamp(20px,5dvh,40px); }
+.terrain-rule small { font:clamp(10px,1.8dvh,14px)/1.3 Tahoma,Arial,sans-serif; }
+.terrain-copy .terrain-explanation { font-size:clamp(12px,2.1dvh,18px); }
+.terrain-hand-preview { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.terrain-hand-preview > span { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border:1px solid #bea077; border-radius:4px; font-size:13px; }
+.terrain-placement { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.terrain-placement h2 { margin:0; font-size:clamp(16px,3dvh,25px); line-height:1.2; }
+.terrain-placement-grid { display:grid; grid-template:repeat(3,1fr)/repeat(3,1fr); direction:ltr; gap:7px; width:min(54dvh,34vw); aspect-ratio:1; }
+.terrain-cell { border:1px solid #b59055; border-radius:5px; background:#e6cda266; box-shadow:inset 0 0 0 2px #f0e0bf; color:#9e7136; font-size:clamp(24px,5dvh,45px); display:grid; place-items:center; }
+.terrain-cell.is-selected { background:#f5c989; border-color:#a44c29; outline:2px solid #ba6a35; color:#9b3f1c; }
+.terrain-cell .icon { width:55%; height:55%; fill:#f8dfa5; }
+.terrain-placement .gold-button { padding:6px 18px; font-size:clamp(14px,2.8dvh,22px); }
+.gold-button:disabled { opacity:.4; }
+.terrain-placement > small { font-size:clamp(10px,1.8dvh,14px); }
+.terrain-reward-note { display:flex; align-items:center; justify-content:center; gap:6px; margin:5px 0 12px; padding:5px; border:1px solid #ba86514d; background:#e7cba580; font-size:clamp(12px,2.4dvh,18px); color:#8b3c20; }
+@media (max-height:380px) and (orientation:landscape) { .terrain-screen { padding:12px 6%; gap:3vw; } .terrain-copy h1 { font-size:26px; } .terrain-copy p { margin:4px 0 6px; line-height:1.25; } .terrain-rule { margin:7px 0; gap:14px; } .terrain-placement { gap:6px; } .terrain-placement-grid { width:min(51dvh,34vw); gap:5px; } .terrain-reward-note { margin:3px 0 6px; padding:3px; } }
+.terrain-stat { display:flex; align-items:center; gap:4px; }
+.terrain-stat > b { font-family:Arial,Tahoma,sans-serif; font-size:.8em; }
+.risk-card-note { padding:7px 10px; border:1px solid #b47846; border-radius:4px; background:#e7c69a66; color:#863b20; }
+.terrain-placement-grid { grid-template:repeat(3,minmax(0,1fr))/repeat(3,minmax(0,1fr)); }
+.terrain-cell { min-height:0; min-width:0; line-height:1; }
+.is-resolving .grid-cell.has-risk.is-clearing { animation:none; }
+.is-resolving .grid-cell.has-risk.is-clearing > .slot-symbol,
+.is-resolving .grid-cell.has-risk.is-clearing > strong,
+.is-resolving .grid-cell.has-risk.is-clearing > .instant-mark { animation:clear-line .42s ease-in both; }

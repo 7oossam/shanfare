@@ -7,7 +7,8 @@ const fs=require('node:fs');
   let state=start(fresh());const trace=[];
   for(let i=0;i<180&&state.screen!=='end';i++){
     let action;
-    if(state.pendingManeuver)action={kind:'maneuver',skip:true};
+    if(state.screen==='terrain')action={kind:'place-risk',cell:4};
+    else if(state.pendingManeuver)action={kind:'maneuver',skip:true};
     else if(state.screen==='reward')action={kind:'draft',choice:['volley','leech','reserve','knife','strong_cover','wolf'].find(x=>state.draftChoices.includes(x))};
     else {
       let beam=[{s:state,first:null,v:score(state)}];
@@ -33,15 +34,15 @@ const fs=require('node:fs');
     await page.goto(process.env.GAME_URL||'http://127.0.0.1:8765/');await page.locator('[data-action="start"]').tap();
     for(let i=0;i<trace.length;i++){
       const {action:a,state:expected}=trace[i];
-      if(a.kind==='maneuver')await page.locator('[data-action="skip-maneuver"]').tap();
+      if(a.kind==='place-risk'){await page.locator(`[data-risk-cell="${a.cell}"]`).tap();await page.locator('[data-action="confirm-risk"]').tap();}
+      else if(a.kind==='maneuver')await page.locator('[data-action="skip-maneuver"]').tap();
       else if(a.kind==='draft')await page.locator(`[data-action="draft-${a.choice}"]`).tap();
       else {await page.locator(`[data-target="${a.target}"]`).tap();await page.locator(`.card-face[data-card="${a.card}"][data-face="${a.face}"]`).tap();await page.locator(`[data-cell="${a.cell}"]`).tap();}
       await page.waitForFunction(()=>!document.querySelector('.duel-grid.is-resolving'));
       const actual=await page.evaluate(()=>JSON.parse(localStorage.getItem('shanfara-duel-v9')).state);
       assert.deepEqual(actual,expected,`Live state diverged at action ${i+1}`);
       if(expected.screen==='reward'){await page.screenshot({path:`${folder}/reward-${expected.encounter}.png`});console.log(`PASS live encounter ${expected.encounter}: ${expected.hp} health, ${expected.turn} rounds`);}
-      if(a.kind==='maneuver')await page.locator('[data-action="skip-maneuver"]').tap();
-      else if(a.kind==='draft')await page.screenshot({path:`${folder}/encounter-${expected.encounter}.png`});
+      if(a.kind==='draft'||a.kind==='place-risk')await page.screenshot({path:`${folder}/encounter-${expected.encounter}.png`});
     }
     await page.screenshot({path:`${folder}/victory.png`});assert.match(await page.locator('.end-screen h1').textContent(),/انتصار/);
     await page.reload();assert.match(await page.locator('.end-screen h1').textContent(),/انتصار/);
