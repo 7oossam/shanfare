@@ -12,7 +12,7 @@ const fs=require('node:fs');
       let value=-Infinity;
       for(const a of actions(state).filter(a=>a.face===0)){
         const r=activate(state,a);let v=score(r.state);
-        if(r.summary.kind==='placement'){
+        if(r.state.screen==='play'){
           v=-Infinity;
           for(const b of actions(r.state).filter(a=>a.face===0)){const next=activate(r.state,b);v=Math.max(v,score(next.state)-(next.summary.kind==='placement'?2:0));}
         }

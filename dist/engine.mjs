@@ -8,21 +8,21 @@ export const cards = {
   cover: face('احتماء', 'shield', [{ op: 'block', n: 3 }], 'تصد ثلاثة أضرار من الهجوم القادم.'),
   knife: face('جرح', 'knife', [{ op: 'hit', n: 2 }, { op: 'bleed', n: 1 }], 'ضرران ونقطة نزيف على العدو المستهدف.'),
   wolf: face('نهش', 'wolf', [{ op: 'hit', n: 3 }], 'ثلاثة أضرار للعدو المستهدف.'),
-  trick: face('خدعة', 'spark', [{ op: 'prime', n: 2 }], 'يزيد الهجوم التالي في الخط بضررين.'),
+  trick: face('خدعة', 'spark', [{ op: 'prime', n: 2 }], 'يزيد الهجوم التالي بضررين.'),
   strong_arrow: face('سهم صقيل', 'bow', [{ op: 'sniper', n: 3 }], 'ثلاثة أضرار زائد الزخم كله، ثم يصرفه.'),
   strong_cover: face('حصن', 'shield', [{ op: 'block', n: 4 }], 'تصد أربعة أضرار من الهجوم القادم.'),
   strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 3 }], 'تجمع ثلاث نقاط زخم.')
 };
 export const alternates = {
-  focus: face('عزم', 'fire', [{ op: 'momentum', n: 4 }], 'تجمع أربع نقاط زخم وتستنفد البطاقة لهذه المواجهة.'),
-  arrow: face('سهم', 'bow', [{ op: 'hit', n: 4 }], 'أربعة أضرار دون استهلاك الزخم، وتستنفد البطاقة.'),
-  cover: face('احتماء', 'shield', [{ op: 'block', n: 6 }], 'تصد ستة أضرار وتستنفد البطاقة.'),
-  knife: face('جرح', 'knife', [{ op: 'bleed', n: 4 }], 'أربع نقاط نزيف على العدو المستهدف وتستنفد البطاقة.'),
-  wolf: face('نهش', 'wolf', [{ op: 'pounce', n: 4 }], 'أربعة أضرار، أو سبعة إذا كان الهدف ينزف؛ تستنفد البطاقة.'),
-  trick: face('خدعة', 'spark', [{ op: 'prime', n: 4 }], 'يزيد الهجوم التالي بأربعة أضرار وتستنفد البطاقة.'),
-  strong_arrow: face('سهم صقيل', 'bow', [{ op: 'hit', n: 6 }], 'ستة أضرار دون استهلاك الزخم وتستنفد البطاقة.'),
-  strong_cover: face('حصن', 'shield', [{ op: 'block', n: 8 }], 'تصد ثمانية أضرار وتستنفد البطاقة.'),
-  strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 5 }], 'تجمع خمس نقاط زخم وتستنفد البطاقة.')
+  focus: face('عزم', 'fire', [{ op: 'momentum', n: 4 }], 'تجمع أربع نقاط زخم وتختفي من الشبكة.'),
+  arrow: face('سهم', 'bow', [{ op: 'hit', n: 4 }], 'أربعة أضرار دون استهلاك الزخم، وتختفي من الشبكة.'),
+  cover: face('احتماء', 'shield', [{ op: 'block', n: 6 }], 'تصد ستة أضرار وتختفي من الشبكة.'),
+  knife: face('جرح', 'knife', [{ op: 'bleed', n: 4 }], 'أربع نقاط نزيف على العدو المستهدف وتختفي من الشبكة.'),
+  wolf: face('نهش', 'wolf', [{ op: 'pounce', n: 4 }], 'أربعة أضرار، أو سبعة إذا كان الهدف ينزف وتختفي من الشبكة.'),
+  trick: face('خدعة', 'spark', [{ op: 'prime', n: 4 }], 'يزيد الهجوم التالي بأربعة أضرار وتختفي من الشبكة.'),
+  strong_arrow: face('سهم صقيل', 'bow', [{ op: 'hit', n: 6 }], 'ستة أضرار دون استهلاك الزخم وتختفي من الشبكة.'),
+  strong_cover: face('حصن', 'shield', [{ op: 'block', n: 8 }], 'تصد ثمانية أضرار وتختفي من الشبكة.'),
+  strong_focus: face('ثبات', 'fire', [{ op: 'momentum', n: 5 }], 'تجمع خمس نقاط زخم وتختفي من الشبكة.')
 };
 export const rewards = ['strong_arrow', 'strong_cover', 'strong_focus', 'knife', 'wolf', 'trick'];
 const enemy = (id, name, hp, attack, shield = 0) => ({ id, name, hp, maxHp: hp, attack, shield, bleed: 0 });
@@ -45,7 +45,7 @@ export function draw(s) {
 }
 export function fresh(seed = 20261017) {
   const deck = ['focus.0', 'arrow.0', 'cover.0', 'focus.1', 'arrow.1', 'focus.2', 'arrow.2', 'cover.1', 'arrow.3', 'cover.2'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(4).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, 5), draw: [], discard: [], exhausted: [], grid: Array(4).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 10, draftChoices: [], last: null, outcome: null };
   s.draw = shuffle(s, deck.slice(5));
   return s;
 }
@@ -59,7 +59,7 @@ export function getEnemyIntent(e, index, turn) {
 export function completedLines(grid, cell) { return LINES.filter(line => line.includes(cell) && line.every(i => grid[i])); }
 export function placePreview(s, a) { return activate(s, a); }
 export function setupEncounter(s, index) {
-  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.faces = {}; s.grid = Array(4).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
+  s.encounter = index; s.phaseTurn = 1; s.momentum = 0; s.prime = 0; s.faces = {}; s.grid = Array(4).fill(null); s.exhausted = []; s.discard = []; s.hand = []; s.last = null;
   s.enemies = structuredClone(ENCOUNTERS[index - 1].enemies);
   s.draw = shuffle(s, s.deck); draw(s); s.screen = 'play'; s.draftChoices = [];
 }
@@ -86,10 +86,10 @@ export function activate(before, a) {
   const s = structuredClone(before);
   const action = { card: a.card, cell: a.cell, face: a.face, target: targetForAction(s, a) };
   s.hand.splice(s.hand.indexOf(a.card), 1); s.grid[a.cell] = a.card; s.faces[a.card] = a.face; s.placements++;
-  const lines = completedLines(s.grid, a.cell);
+  const lines = a.face === 0 ? completedLines(s.grid, a.cell) : [];
   const cells = [...new Set(lines.flat())].sort((x, y) => x - y);
-  const summary = { kind: lines.length ? 'turn' : 'placement', action, lines: structuredClone(lines), cells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
-  let prime = 0;
+  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
+  s.prime ??= 0;
   const hit = amount => {
     const pool = attackTargets(s);
     pool.sort((x, y) => Number(y.id === action.target) - Number(x.id === action.target));
@@ -97,29 +97,32 @@ export function activate(before, a) {
     for (const e of pool) { const n = Math.min(e.hp, left); e.hp -= n; left -= n; if (!left) break; }
     const dealt = amount - left; summary.hits += dealt; return dealt;
   };
-  for (const cell of cells) {
+  const execute = (cell, phase) => {
     const uid = s.grid[cell];
     for (const fx of def(uid, s).effects) {
-      const record = { cell, uid, op: fx.op, amount: fx.n };
+      const record = { cell, uid, phase, op: fx.op, amount: fx.n };
       if (fx.op === 'momentum') { s.momentum += fx.n; summary.momentum.gained += fx.n; }
       else if (fx.op === 'block') summary.block += fx.n;
-      else if (fx.op === 'prime') prime += fx.n;
+      else if (fx.op === 'prime') s.prime += fx.n;
       else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; } }
       else {
         let extra = 0;
         if (fx.op === 'sniper') { extra = s.momentum; record.momentumSpent = extra; summary.momentum.spent += extra; s.momentum = 0; }
         if (fx.op === 'pounce' && s.enemies.find(e => e.id === targetForAction(s, action))?.bleed > 0) extra = 3;
-        record.boost = extra + prime; record.damage = hit(fx.n + record.boost); prime = 0;
+        record.boost = extra + s.prime; record.damage = hit(fx.n + record.boost); s.prime = 0;
       }
       summary.effects.push(record);
     }
-  }
+  };
+  execute(a.cell, 'placement');
+  if (a.face === 1) { s.grid[a.cell] = null; delete s.faces[a.card]; s.discard.push(a.card); summary.cleared.push(a.card); }
+  for (const cell of cells) execute(cell, 'line');
   for (const cell of cells) {
     const uid = s.grid[cell]; summary.cleared.push(uid);
-    if (s.faces[uid] === 1) { s.exhausted.push(uid); summary.exhausted.push(uid); } else s.discard.push(uid);
+    s.discard.push(uid);
     delete s.faces[uid]; s.grid[cell] = null;
   }
-  if (lines.length) {
+  {
     for (const e of s.enemies) if (e.hp > 0 && e.bleed > 0) { const dealt = Math.min(e.hp, e.bleed); e.hp -= dealt; summary.hits += dealt; summary.effects.push({ op: 'bleed_tick', target: e.id, amount: dealt }); e.bleed--; }
     if (s.enemies.every(e => e.hp <= 0)) {
       if (s.encounter === 4) { s.screen = 'end'; s.outcome = 'victory'; }
