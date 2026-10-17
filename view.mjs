@@ -1,4 +1,4 @@
-import { cards, alternates, def, cardType, activate, attackTargets, targetForAction, getEnemyIntent, ENCOUNTERS, maneuverOptions } from './engine.mjs?v=9';
+import { cards, alternates, def, cardType, activate, attackTargets, targetForAction, getEnemyIntent, ENCOUNTERS, maneuverOptions, isReward } from './engine.mjs?v=9';
 import { icon } from './icons.mjs?v=9';
 import { fullscreenActive, fullscreenSupported } from './fullscreen.mjs?v=9';
 export const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -21,7 +21,7 @@ export function effectFormula(uid, s, face = 0, projected = null) {
     if (f.op === 'convert') { const amount=projected?.summary.effects.find(e=>e.uid===uid&&e.op==='convert')?.converted??s.momentum; return `<span class="effect-stack"><span class="formula">${stat(amount,'fire')}<b>→</b>${stat(amount,'shield')}</span><small>يصرف كل ${icon('fire')}</small></span>`; }
     if (f.op === 'recall_grid') return `<span class="effect-stack"><span class="formula">${icon('grid')}<b>→</b>${icon('bag')}</span><small>دائمة إلى اليد</small></span>`;
     if (f.op === 'shift_grid') return `<span class="effect-stack"><span class="formula">${icon('grid')}${icon('swap')}</span><small>انقل دائمة</small></span>`;
-    if (f.op === 'area') return `<span class="effect-stack">${stat(f.n,'swords')}<small>لكل عدو</small></span>`;
+    if (f.op === 'area') { const credit=projected?.summary.effects.find(e=>e.uid===uid&&e.op==='area')?.momentumSpent??s.momentum; return `<span class="effect-stack"><span class="formula">${stat(f.n,'swords')}<b>+</b>${stat(credit,'fire')}</span><small>لكل عدو · يصرف كل ${icon('fire')}</small></span>`; }
     if (f.op === 'lifekill') return `<span class="effect-stack">${stat(f.n,'swords')}<small>${stat(2,'heart')} عند القتل</small></span>`;
     if (f.op === 'half') return `<span class="effect-stack"><span class="formula">${stat(f.n,'swords')}<b>+</b>${stat(Math.ceil(s.momentum/2),'fire')}</span><small>يصرف النصف</small></span>`;
     if (f.op === 'pounce') return `<span class="effect-stack">${stat(f.n, 'swords')}<small>${stat(f.n + 3, 'swords')} مع ${icon('bleed')}</small></span>`;
@@ -80,15 +80,15 @@ function board(s, p, projected, animation) {
   const chosen = projected?.summary.cells ?? [];
   return `<aside class="command-panel">${slice(1142, 76, 526, 554, 'template-art', 'blank-template.png')}
     <div class="panel-heading"><span></span><h2>شبكة الأوامر</h2><span></span>${button('؟', 'help', 'help-button', false, 'شرح اللعب')}</div>
-    <div class="duel-grid ${animation ? 'is-resolving' : ''}" role="group" aria-label="شبكة صفين وثلاثة أعمدة">${grid.map((uid, cell) => {
+    <div class="grid-wrap"><div class="duel-grid ${animation ? 'is-resolving' : ''}" role="group" aria-label="شبكة ثلاثة صفوف وثلاثة أعمدة">${grid.map((uid, cell) => {
       const c = uid ? def(uid, { ...s, faces }, faces[uid] ?? 0) : null;
       const isPreview = p.card && p.cell === cell;
       return `<button class="grid-cell ${uid ? 'has-card' : ''} ${chosen.includes(cell) ? 'in-line' : ''} ${animation?.cells?.includes(cell) ? 'will-clear' : ''} ${isPreview ? 'is-preview' : ''}" data-cell="${cell}" aria-label="الخانة ${num(cell + 1)}${c ? '، ' + esc(c.name) : ' فارغة'}" ${animation ? 'disabled' : ''}>
         ${c ? `<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>${(faces[uid] ?? 0) === 1 ? '<small class="instant-mark">طارئ</small>' : ''}` : '<span class="empty-plus">+</span>'}
         ${chosen.includes(cell) ? `<b class="line-order">${num(chosen.indexOf(cell) + 1)}</b>` : ''}
       </button>`;
-    }).join('')}</div>
-    <div class="board-feedback" aria-live="polite">${projected ? projected.summary.lines.length ? `<strong>${projected.summary.lines.length > 1 ? 'يكتمل الصف والعمود' : projected.summary.lines[0][1] - projected.summary.lines[0][0] === 1 ? 'يكتمل الصف' : 'يكتمل العمود'}</strong>${combatForecast(projected.summary)}<small>يتفعّل الصف والعمود · المكتمل يُزال</small>` : `<strong>يتفعّل الصف والعمود</strong>${combatForecast(projected.summary)}<small>الدائم يبقى · الطارئ يختفي</small>` : animation ? '<strong>جارٍ تنفيذ التأثيرات…</strong>' : `<strong>${p.card ? 'اختر خانة فارغة' : 'اختر بطاقة ووجهًا'}</strong><small>صف ٣ · عمود ٢ · الدائم يبقى</small>`}</div>
+    }).join('')}</div></div>
+    <div class="board-feedback" aria-live="polite">${projected ? projected.summary.lines.length ? `<strong>${projected.summary.lines.length > 1 ? 'يكتمل الصف والعمود' : projected.summary.lines[0][1] - projected.summary.lines[0][0] === 1 ? 'يكتمل الصف' : 'يكتمل العمود'}</strong>${combatForecast(projected.summary)}<small>يتفعّل الصف والعمود · المكتمل يُزال</small>` : `<strong>يتفعّل الصف والعمود</strong>${combatForecast(projected.summary)}<small>الدائم يبقى · الطارئ يختفي</small>` : animation ? '<strong>جارٍ تنفيذ التأثيرات…</strong>' : `<strong>${p.card ? 'اختر خانة فارغة' : 'اختر بطاقة ووجهًا'}</strong><small>صف ٣ · عمود ٣ · الدائم يبقى</small>`}</div>
   </aside>`;
 }
 function hand(s, p, projected, busy) {
@@ -113,6 +113,6 @@ export function gameView(s, p, animation = null) {
   const projected = animation ? null : preview(s, p);
   return `<main class="duel-app" data-version="9">${header(s)}<div class="main-stage">${arena(s, p, projected, animation)}${board(s, p, projected, animation)}</div>${hand(s, p, projected, !!animation || !!s.pendingManeuver)}${!animation?maneuverView(s,p.utilityCard):''}${rotationHint()}</main>`;
 }
-export function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>كل بطاقة تُفعّل صفّها وعمودها. اكتمال الخط يزيله.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>٦ أوراق · يد من ٣ · صفّان × ٣</small></div>${rotationHint()}</main>`; }
-export function rewardView(s) { return `<main class="screen-panel"><h1>حُسمت المواجهة</h1><p>اختر بطاقة جديدة · تستعيد ${stat(Math.min(6, s.maxHp - s.hp), 'heart')}</p><div class="reward-cards">${s.draftChoices.map(key => `<article class="reward-card"><h2>${esc(cards[key].name)}</h2>${cardArt(key + '.reward', s, 'reward-art')}<div><b>دائم</b>${effectFormula(key + '.reward', s, 0)}</div><div><b>طارئ</b>${effectFormula(key + '.reward', s, 1)}</div>${button('اختر البطاقة', 'draft-' + key, 'gold-button')}</article>`).join('')}</div>${button('أكمل بدون بطاقة', 'continue', 'text-button')}${rotationHint()}</main>`; }
+export function titleView(s) { return `<main class="landing">${slice(4, 76, 1136, 552, 'landing-scene')}<div class="landing-paper"><span class="eyebrow">ملحمة الصعاليك</span><h1>الشنفرى</h1><p>كل بطاقة تُفعّل صفّها وعمودها. اكتمال الخط يزيله.</p>${button(fullscreenSupported() ? 'العب بملء الشاشة' : 'ابدأ المواجهة', 'start', 'gold-button')}<small>٦ أوراق · يد من ٣ · ٣ × ٣</small></div>${rotationHint()}</main>`; }
+export function rewardView(s) { return `<main class="screen-panel"><h1>حُسمت المواجهة</h1><p>اختر بطاقة جديدة · تستعيد ${stat(Math.min(6, s.maxHp - s.hp), 'heart')}</p><div class="reward-cards">${s.draftChoices.filter(isReward).map(key => `<article class="reward-card"><h2>${esc(cards[key].name)}</h2>${cardArt(key + '.reward', s, 'reward-art')}<div><b>دائم</b>${effectFormula(key + '.reward', s, 0)}</div><div><b>طارئ</b>${effectFormula(key + '.reward', s, 1)}</div>${button('اختر البطاقة', 'draft-' + key, 'gold-button')}</article>`).join('')}</div>${button('أكمل بدون بطاقة', 'continue', 'text-button')}${rotationHint()}</main>`; }
 export function endView(s) { return `<main class="screen-panel end-screen"><h1>${s.outcome === 'victory' ? 'انتصار الشنفرى' : s.outcome === 'exhausted' ? 'استُنفدت الأوراق' : 'انتهت المواجهة'}</h1><p>${s.outcome === 'victory' ? 'هزمت خصومك في اللقاءات الأربعة.' : s.outcome === 'exhausted' ? 'لم تبق بطاقات هجومية متاحة.' : 'جرّب مزج الصدّ والهجوم في الخط نفسه.'}</p>${button('العب من جديد', 'restart', 'gold-button')}${rotationHint()}</main>`; }

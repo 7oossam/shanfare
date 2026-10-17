@@ -1,9 +1,9 @@
 export const VERSION = 'shanfara-duel-v9';
 export const HAND_SIZE = 3;
-export const GRID_ROWS = 2;
+export const GRID_ROWS = 3;
 export const GRID_COLUMNS = 3;
 export const GRID_SIZE = GRID_ROWS * GRID_COLUMNS;
-export const LINES = [[0, 1, 2], [3, 4, 5], [0, 3], [1, 4], [2, 5]];
+export const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8]];
 const face = (name, icon, effects, text) => ({ name, icon, effects, text });
 export const cards = {
   focus: face('عزم', 'fire', [{ op: 'momentum', n: 2 }], 'تجمع نقطتي زخم للهجوم القادم.'),
@@ -29,14 +29,16 @@ export const alternates = {
 };
 cards.maneuver = face('مناورة', 'swap', [{op:'recall_grid',n:1}], 'بعد التفعيل، أعد دائمة أخرى تختارها إلى يدك.');
 alternates.maneuver = face('مناورة', 'swap', [{op:'shift_grid',n:1}], 'بعد التفعيل، انقل دائمة لخانة فارغة لا تكمل خطًا، بلا تفعيل إضافي.');
-cards.volley = face('وابل', 'bow', [{op:'area',n:2}], 'ضرران لكل عدو متاح للاستهداف.');
-alternates.volley = face('وابل', 'bow', [{op:'area',n:3}], 'ثلاثة أضرار لكل عدو متاح للاستهداف.');
+cards.volley = face('وابل', 'bow', [{op:'area',n:2}], 'ضرران زائد كل الزخم لكل عدو متاح، ثم يصرف الزخم كاملًا.');
+alternates.volley = face('وابل', 'bow', [{op:'area',n:3}], 'ثلاثة أضرار زائد كل الزخم لكل عدو متاح، ثم يصرف الزخم كاملًا.');
 cards.leech = face('اغتنام', 'knife', [{op:'lifekill',n:2}], 'ضرران؛ تستعيد صحتين إذا قتلت الهدف.');
 alternates.leech = face('اغتنام', 'knife', [{op:'lifekill',n:4}], 'أربعة أضرار؛ تستعيد صحتين إذا قتلت الهدف.');
 cards.reserve = face('سهم الصقر', 'bow', [{op:'half',n:2}], 'ضرران زائد نصف الزخم، ويصرف النصف مقربًا للأعلى.');
 alternates.reserve = face('سهم الصقر', 'bow', [{op:'hit',n:4}], 'أربعة أضرار مع الاحتفاظ بالزخم.');
 alternates.focus = face('عزم', 'fire', [{op:'convert',n:1}], 'يحوّل رصيد الزخم كله إلى درع ويصرفه.');
+export const STARTER_TYPES = ['arrow', 'cover', 'focus', 'maneuver'];
 export const rewards = ['volley', 'knife', 'leech', 'reserve', 'wolf', 'strong_cover'];
+export const isReward = type => rewards.includes(type) && !STARTER_TYPES.includes(type);
 const enemy = (id, name, hp, attack, shield = 0) => ({ id, name, hp, maxHp: hp, attack, shield, bleed: 0 });
 export const ENCOUNTERS = [
   { name: 'مضيق الصفا', enemies: [enemy('guard', 'حارس المضيق', 16, 2), enemy('scout', 'متربّص الصحراء', 12, 1)] },
@@ -57,7 +59,7 @@ export function draw(s) {
 }
 export function fresh(seed = 20261017) {
   const deck = ['arrow.0', 'cover.0', 'focus.0', 'arrow.1', 'cover.1', 'maneuver.0'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 28, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 29, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
   s.draw = shuffle(s, deck.slice(HAND_SIZE));
   return s;
 }
@@ -69,7 +71,9 @@ export function migrateSave(before) {
     s.grid = [a, b, null, c, d, null];
     s.last = null;
   }
-  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 28) s.last = null; s.ruleset = 28;
+  if (s.grid?.length === 6) { s.grid.push(null,null,null); s.last = null; }
+  if (s.screen === 'reward') s.draftChoices = [...new Set([...(s.draftChoices??[]).filter(isReward), ...rewards.filter(isReward)])].slice(0,3);
+  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 29) s.last = null; s.ruleset = 29;
   if (s.hand.length > HAND_SIZE) s.draw.unshift(...s.hand.splice(HAND_SIZE));
   s.discard.push(...s.exhausted); s.exhausted = [];
   for (let i = 0; i < s.grid.length; i++) {
@@ -107,7 +111,7 @@ export function maneuverOptions(s) {
   return options;
 }
 export function actions(s) {
-  if (s.screen === 'reward') return [...s.draftChoices.map(choice => ({ kind: 'draft', choice })), { kind: 'continue' }];
+  if (s.screen === 'reward') return [...s.draftChoices.filter(isReward).map(choice => ({ kind: 'draft', choice })), { kind: 'continue' }];
   if (s.screen !== 'play') return [];
   if (s.pendingManeuver) return [...maneuverOptions(s), {kind:'maneuver',skip:true}];
   const out = [];
@@ -118,7 +122,7 @@ export function activate(before, a) {
   const invalid = () => ({ valid: false, state: before, summary: null });
   if (!a || before.version !== VERSION) return invalid();
   if (before.screen === 'reward') {
-    if (a.kind !== 'continue' && !(a.kind === 'draft' && before.draftChoices.includes(a.choice))) return invalid();
+    if (a.kind !== 'continue' && !(a.kind === 'draft' && isReward(a.choice) && before.draftChoices.includes(a.choice))) return invalid();
     const s = structuredClone(before);
     if (a.kind === 'draft') s.deck.push(`${a.choice}.${s.cardSeq++}`);
     s.hp = Math.min(s.maxHp, s.hp + 6);
@@ -164,7 +168,7 @@ export function activate(before, a) {
       else if (fx.op === 'prime') s.prime += fx.n;
       else if (fx.op === 'recall_grid' || fx.op === 'shift_grid') s.pendingManeuver = {mode: fx.op === 'recall_grid' ? 'recall' : 'shift',source:uid};
       else if (fx.op === 'convert') {const amount=s.momentum;record.converted=amount;summary.block+=amount;summary.momentum.spent+=amount;s.momentum=0;summary.events.push({type:'momentum-spend',amount,value:0});if(amount)summary.events.push({type:'shield',amount,value:summary.block});}
-      else if (fx.op === 'area') {let dealt=0;const boost=s.prime;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
+      else if (fx.op === 'area') {let dealt=0;const credit=s.momentum;record.momentumSpent=credit;summary.momentum.spent+=credit;s.momentum=0;summary.events.push({type:'momentum-spend',amount:credit,value:0});const boost=s.prime+credit;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
       else if (fx.op === 'lifekill') {const target=s.enemies.find(e=>e.id===targetForAction(s,action));const hp=target?.hp??0;const power=fx.n+s.prime;s.prime=0;record.damage=hit(power);if(hp>0&&hp<=power){const amount=Math.min(2,s.maxHp-s.hp);s.hp+=amount;if(amount)summary.events.push({type:'heal',amount,hp:s.hp});}}
       else if (fx.op === 'half') {const amount=Math.ceil(s.momentum/2);record.momentumSpent=amount;s.momentum-=amount;summary.momentum.spent+=amount;summary.events.push({type:'momentum-spend',amount,value:s.momentum});record.damage=hit(fx.n+amount+s.prime);s.prime=0;}
       else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; summary.events.push({ type: 'bleed', target: e.id, amount: fx.n, value: e.bleed }); } }
@@ -216,7 +220,7 @@ export function activate(before, a) {
 }
 export function assertState(s) {
   const check = (ok, text) => { if (!ok) throw new Error(text); };
-  check(s.version === VERSION, 'Invalid version'); check(s.grid.length === GRID_SIZE, 'Grid must have six slots');
+  check(s.version === VERSION, 'Invalid version'); check(s.grid.length === GRID_SIZE, 'Grid must have nine slots');
   check(Number.isInteger(s.hp) && s.hp >= 0 && s.hp <= s.maxHp, 'Invalid health');
   check(Number.isInteger(s.momentum) && s.momentum >= 0, 'Invalid momentum');
   check(s.hand.length <= HAND_SIZE, 'Hand exceeds three'); check(s.encounter >= 1 && s.encounter <= 4, 'Invalid encounter');
