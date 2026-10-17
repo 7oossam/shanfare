@@ -105,8 +105,9 @@ export function activate(before, a) {
   const action = { card: a.card, cell: a.cell, face: a.face, target: targetForAction(s, a) };
   s.hand.splice(s.hand.indexOf(a.card), 1); s.grid[a.cell] = a.card; s.faces[a.card] = a.face; s.placements++;
   const lines = completedLines(s.grid, a.cell);
-  const cells = [...new Set(lines.flat())].sort((x, y) => x - y);
-  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
+  const cells = [...new Set(LINES.filter(line => line.includes(a.cell)).flat())].filter(cell => s.grid[cell]).sort((x, y) => x - y);
+  const clearedCells = [...new Set(lines.flat())].sort((x, y) => x - y);
+  const summary = { kind: 'turn', action, lines: structuredClone(lines), cells, clearedCells, effects: [], cleared: [], exhausted: [], hits: 0, block: 0, enemyDamage: 0, momentum: { before: s.momentum, gained: 0, spent: 0, after: s.momentum }, log: [] };
   s.prime ??= 0;
   const hit = amount => {
     const pool = attackTargets(s);
@@ -132,10 +133,10 @@ export function activate(before, a) {
       summary.effects.push(record);
     }
   };
-  execute(a.cell, 'placement');
-  if (a.face === 1) { s.grid[a.cell] = null; delete s.faces[a.card]; s.discard.push(a.card); summary.cleared.push(a.card); }
-  for (const cell of cells) if (s.grid[cell] && s.faces[s.grid[cell]] === 0) execute(cell, 'line');
-  for (const cell of cells) {
+  // Resolve the occupied row/column union once, including the newly placed card.
+  for (const cell of cells) execute(cell, 'cross');
+  if (a.face === 1 && !clearedCells.includes(a.cell)) clearedCells.push(a.cell);
+  for (const cell of clearedCells) {
     const uid = s.grid[cell]; if (!uid) continue; summary.cleared.push(uid);
     s.discard.push(uid);
     delete s.faces[uid]; s.grid[cell] = null;

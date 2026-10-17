@@ -33,8 +33,8 @@ function requestFullscreenFromGesture(explicit = false) {
 }
 for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
-function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل فور وضعه ويبقى، ثم يتفعّل مجددًا عند اكتمال خطه ويُزال.'}</small></section>`).join('')}</div>`); }
-function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في كل دور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>كل بطاقة تتفعّل فور وضعها. الدائمة تبقى في الشبكة، والطارئة تُكمل الخط قبل اختفائها وتعود للرزمة.</li><li>اكتمال صف من ٣ بطاقات أو عمود من بطاقتين يُفعّل بطاقاته الدائمة مرة ثانية ثم يزيل الخط كاملًا. البطاقة التي أكملت الخط تعمل فورًا ثم مجددًا مع الخط.</li><li>عند اكتمال خطين، تتفعّل كل بطاقة مشتركة مرة واحدة ضمن الخطوط.</li><li>يرد الأعداء بعد كل بطاقة تلعبها. معاينة الخانة تعرض مجموع تأثير البطاقة والخط وردّ الأعداء.</li></ol><p>العزم يجمع الزخم فورًا، والسهم الدائم يصرفه كضرر إضافي. اضغط ⓘ للتفاصيل.</p>'); }
+function details(uid) { show(esc(def(uid, s, 0).name), `<div class="card-explanation">${[0, 1].map(f => `<section><h3>${f ? 'طارئ' : 'دائم'}</h3><div>${effectFormula(uid, s, f)}</div><p>${esc(def(uid, s, f).text)}</p><small>${f ? 'يتفعّل فورًا ويختفي من الشبكة إلى الرزمة.' : 'يتفعّل عند وضعه ومع كل بطاقة توضع في صفّه أو عموده. الاكتمال يحدد إزالة الخط.'}</small></section>`).join('')}</div>`); }
+function help() { show('شبكة الأوامر: صفّان × ٣', '<ol><li>بطاقة واحدة في الدور: اختر عدوًا ووجه بطاقة ثم خانة فارغة.</li><li>الوضع يُفعّل البطاقة وكل البطاقات الموجودة في صفّها وعمودها، حتى لو لم يكتمل الخط.</li><li>كل بطاقة تعمل مرة واحدة فقط، بما فيها البطاقة المشتركة بين الصف والعمود. الترتيب من اليسار لليمين ثم من الأعلى للأسفل.</li><li>الدائمة تبقى بين الأدوار، والطارئة تختفي بعد التفعيل.</li><li>الاكتمال يحدد الإزالة فقط: يُزال الخط المكتمل، وتبقى الدائمات في الخط الناقص الذي تفعّل. صف من ٣ أو عمود من بطاقتين.</li><li>يرد الأعداء مرة واحدة بعد كل بطاقة. معاينة الخانة تعرض النتيجة كاملة.</li></ol>'); }
 function newGame() { clearTimeout(resolveTimer); resolving = null; s = start(fresh()); report = begin(s); selection = { card: null, face: 0, cell: null, target: null }; if (menu.open) menu.close(); save(); render(); }
 function commit(action) {
   if (resolving) return;
@@ -45,13 +45,13 @@ function commit(action) {
   save();
   if ((result.summary.lines?.length || a.face === 1) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const grid = [...before.grid]; grid[a.cell] = a.card;
-    resolving = { grid, cells: result.summary.cells.length ? result.summary.cells : [a.cell], faces: { ...before.faces, [a.card]: a.face } };
+    resolving = { grid, cells: result.summary.clearedCells, faces: { ...before.faces, [a.card]: a.face } };
     // Show activation before the committed removal, including a lethal final line.
     root.innerHTML = gameView({ ...s, screen: 'play' }, selection, resolving);
     resolveTimer = setTimeout(() => { resolving = null; render(); }, 420);
   } else render();
   playSfx(result.summary.hits ? 'hit' : result.summary.block ? 'block' : 'select');
-  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّلت البطاقة${result.summary.lines.length ? ' ثم الخط' : ''}: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
+  document.querySelector('#live').textContent = result.summary.kind === 'turn' ? `تفعّلت بطاقات الصف والعمود: ${num(result.summary.hits)} ضرر، ${num(result.summary.block)} صدّ.` : 'وُضعت البطاقة. أكمل الخط لتفعيله.';
 }
 function action(name) {
   if (name === 'close') menu.close();
@@ -61,7 +61,7 @@ function action(name) {
   else if (name === 'menu') show('الشنفرى', `<nav class="menu-options">${button('أكمل اللعب', 'close', 'gold-button')}${button('شرح اللعب والأيقونات', 'help')}${button(isMuted() ? 'تشغيل الصوت' : 'كتم الصوت', 'audio')}${button(fullscreenActive() ? 'الخروج من ملء الشاشة' : 'ملء الشاشة', 'fullscreen')}${button('تحميل تقرير اللعب', 'export')}${button('ابدأ من جديد', 'restart')}</nav><p>الرزمة ${num(s.draw.length)}</p>`);
   else if (name === 'audio') { toggleMute(); menu.close(); render(); }
   else if (name === 'fullscreen') requestFullscreenFromGesture(true);
-  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: عزم ٢ 🔥 ثم سهم ٢ ⚔ يساوي ٤ ⚔. العزم يتفعّل فورًا، والسهم فور وضعه، ثم يتفعّلان مجددًا عند اكتمال خطهما.</p>`);
+  else if (name === 'momentum-info') show('رصيد الزخم', `<p>رصيدك الآن: ${num(s.momentum)} 🔥</p><p>بطاقة العزم تجمع الزخم. كل ١ 🔥 = +١ ⚔ للسهم الدائم، ثم يصرف السهم الرصيد كاملًا. السهم الطارئ يحافظ عليه.</p><p>مثال: إذا كان رصيدك ٢ 🔥 وتفعّل عزم ٢ 🔥 قبل سهم ٢ ⚔ في الصف، يصبح رصيدك ٤ 🔥 ثم يضرب السهم ٦ ⚔ ويصرف الرصيد.</p>`);
   else if (name === 'continue') commit({ kind: 'continue' });
   else if (name.startsWith('draft-')) commit({ kind: 'draft', choice: name.slice(6) });
   else if (name === 'export') { const url = URL.createObjectURL(new Blob([textReport(report)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'shanfara-report.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
