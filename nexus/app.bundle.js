@@ -71,7 +71,7 @@ const alternates = {
 cards.maneuver = face('مناورة', 'swap', [{op:'recall_grid',n:1}], 'بعد التفعيل، أعد دائمة أخرى تختارها إلى يدك.');
 alternates.maneuver = face('مناورة', 'swap', [{op:'shift_grid',n:1}], 'بعد التفعيل، انقل دائمة لخانة فارغة لا تكمل خطًا، بلا تفعيل إضافي.');
 cards.volley = face('وابل', 'bow', [{op:'area',n:2}], 'ضرران زائد كل الزخم لكل عدو متاح، ثم يصرف الزخم كاملًا.');
-alternates.volley = face('وابل', 'bow', [{op:'area',n:3}], 'ثلاثة أضرار زائد كل الزخم لكل عدو متاح، ثم يصرف الزخم كاملًا.');
+alternates.volley = face('وابل', 'bow', [{op:'area',n:3,consume:false}], 'ثلاثة أضرار ثابتة لكل عدو متاح، ويحفظ رصيد الزخم.');
 cards.leech = face('اغتنام', 'knife', [{op:'lifekill',n:2}], 'ضرران؛ تستعيد صحتين إذا قتلت الهدف.');
 alternates.leech = face('اغتنام', 'knife', [{op:'lifekill',n:4}], 'أربعة أضرار؛ تستعيد صحتين إذا قتلت الهدف.');
 cards.reserve = face('سهم الصقر', 'bow', [{op:'half',n:2}], 'ضرران زائد نصف الزخم، ويصرف النصف مقربًا للأعلى.');
@@ -100,7 +100,7 @@ function draw(s) {
 }
 function fresh(seed = 20261017) {
   const deck = ['arrow.0', 'cover.0', 'focus.0', 'arrow.1', 'cover.1', 'maneuver.0'];
-  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 29, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
+  const s = { version: VERSION, seed: seed >>> 0, rng: seed >>> 0, screen: 'title', encounter: 1, turn: 1, placements: 0, phaseTurn: 1, hp: 24, maxHp: 24, momentum: 0, prime: 0, deck, hand: deck.slice(0, HAND_SIZE), draw: [], discard: [], exhausted: [], grid: Array(GRID_SIZE).fill(null), faces: {}, enemies: structuredClone(ENCOUNTERS[0].enemies), cardSeq: 6, ruleset: 30, pendingManeuver: null, draftChoices: [], last: null, outcome: null };
   s.draw = shuffle(s, deck.slice(HAND_SIZE));
   return s;
 }
@@ -114,7 +114,7 @@ function migrateSave(before) {
   }
   if (s.grid?.length === 6) { s.grid.push(null,null,null); s.last = null; }
   if (s.screen === 'reward') s.draftChoices = [...new Set([...(s.draftChoices??[]).filter(isReward), ...rewards.filter(isReward)])].slice(0,3);
-  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 29) s.last = null; s.ruleset = 29;
+  s.prime ??= 0; s.pendingManeuver ??= null; if (s.ruleset !== 30) s.last = null; s.ruleset = 30;
   if (s.hand.length > HAND_SIZE) s.draw.unshift(...s.hand.splice(HAND_SIZE));
   s.discard.push(...s.exhausted); s.exhausted = [];
   for (let i = 0; i < s.grid.length; i++) {
@@ -209,7 +209,7 @@ function activate(before, a) {
       else if (fx.op === 'prime') s.prime += fx.n;
       else if (fx.op === 'recall_grid' || fx.op === 'shift_grid') s.pendingManeuver = {mode: fx.op === 'recall_grid' ? 'recall' : 'shift',source:uid};
       else if (fx.op === 'convert') {const amount=s.momentum;record.converted=amount;summary.block+=amount;summary.momentum.spent+=amount;s.momentum=0;summary.events.push({type:'momentum-spend',amount,value:0});if(amount)summary.events.push({type:'shield',amount,value:summary.block});}
-      else if (fx.op === 'area') {let dealt=0;const credit=s.momentum;record.momentumSpent=credit;summary.momentum.spent+=credit;s.momentum=0;summary.events.push({type:'momentum-spend',amount:credit,value:0});const boost=s.prime+credit;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
+      else if (fx.op === 'area') {let dealt=0;const credit=fx.consume===false?0:s.momentum;record.momentumSpent=credit;if(fx.consume!==false){summary.momentum.spent+=credit;s.momentum=0;summary.events.push({type:'momentum-spend',amount:credit,value:0});}const boost=s.prime+credit;s.prime=0;for(const e of attackTargets(s)){const n=Math.min(e.hp,fx.n+boost);e.hp-=n;dealt+=n;if(n)summary.events.push({type:'damage',source:'hero',target:e.id,amount:n,hp:e.hp,fatal:e.hp===0});}summary.hits+=dealt;record.damage=dealt;}
       else if (fx.op === 'lifekill') {const target=s.enemies.find(e=>e.id===targetForAction(s,action));const hp=target?.hp??0;const power=fx.n+s.prime;s.prime=0;record.damage=hit(power);if(hp>0&&hp<=power){const amount=Math.min(2,s.maxHp-s.hp);s.hp+=amount;if(amount)summary.events.push({type:'heal',amount,hp:s.hp});}}
       else if (fx.op === 'half') {const amount=Math.ceil(s.momentum/2);record.momentumSpent=amount;s.momentum-=amount;summary.momentum.spent+=amount;summary.events.push({type:'momentum-spend',amount,value:s.momentum});record.damage=hit(fx.n+amount+s.prime);s.prime=0;}
       else if (fx.op === 'bleed') { const e = s.enemies.find(e => e.id === targetForAction(s, action)); if (e) { e.bleed += fx.n; record.target = e.id; summary.events.push({ type: 'bleed', target: e.id, amount: fx.n, value: e.bleed }); } }
@@ -613,7 +613,7 @@ function effectFormula(uid, s, face = 0, projected = null) {
     if (f.op === 'convert') { const amount=projected?.summary.effects.find(e=>e.uid===uid&&e.op==='convert')?.converted??s.momentum; return `<span class="effect-stack"><span class="formula">${stat(amount,'fire')}<b>→</b>${stat(amount,'shield')}</span><small>يصرف كل ${icon('fire')}</small></span>`; }
     if (f.op === 'recall_grid') return `<span class="effect-stack"><span class="formula">${icon('grid')}<b>→</b>${icon('bag')}</span><small>دائمة إلى اليد</small></span>`;
     if (f.op === 'shift_grid') return `<span class="effect-stack"><span class="formula">${icon('grid')}${icon('swap')}</span><small>انقل دائمة</small></span>`;
-    if (f.op === 'area') { const credit=projected?.summary.effects.find(e=>e.uid===uid&&e.op==='area')?.momentumSpent??s.momentum; return `<span class="effect-stack"><span class="formula">${stat(f.n,'swords')}<b>+</b>${stat(credit,'fire')}</span><small>لكل عدو · يصرف كل ${icon('fire')}</small></span>`; }
+    if (f.op === 'area') { if(f.consume===false) return `<span class="effect-stack">${stat(f.n,'swords')}<small>لكل عدو · يحفظ ${icon('fire')}</small></span>`; const credit=projected?.summary.effects.find(e=>e.uid===uid&&e.op==='area')?.momentumSpent??s.momentum; return `<span class="effect-stack"><span class="formula">${stat(f.n,'swords')}<b>+</b>${stat(credit,'fire')}</span><small>لكل عدو · يصرف كل ${icon('fire')}</small></span>`; }
     if (f.op === 'lifekill') return `<span class="effect-stack">${stat(f.n,'swords')}<small>${stat(2,'heart')} عند القتل</small></span>`;
     if (f.op === 'half') return `<span class="effect-stack"><span class="formula">${stat(f.n,'swords')}<b>+</b>${stat(Math.ceil(s.momentum/2),'fire')}</span><small>يصرف النصف</small></span>`;
     if (f.op === 'pounce') return `<span class="effect-stack">${stat(f.n, 'swords')}<small>${stat(f.n + 3, 'swords')} مع ${icon('bleed')}</small></span>`;
