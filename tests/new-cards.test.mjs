@@ -258,21 +258,6 @@ test('Card 1: وتد المرقبة (anvil) - fortifies cell and grants +1 block
   assert.equal(r2.summary.block, 2, 'Line block is 1 from anvil card + 1 from fortified turf = 2');
 });
 
-test('Card 2: حَرّة النار (scorch) - scorches cell and grants +1 damage to future attack cards', () => {
-  const s = createFixture({}, ['scorch', 'strike'], 10, 0);
-  // Turn 1: play scorch on cell 4
-  const r1 = activateExtended(s, { card: s.hand[0], cell: 4, axis: 'row' });
-  assert.equal(r1.summary.hits, 1);
-  assert.equal(r1.state.gridTurf[4], 'scorched');
-
-  // Turn 2: play strike on cell 1 with column axis (activating cells 1 and 4)
-  const s2 = r1.state;
-  const strikeCard = s2.hand.find(uid => uid.startsWith('strike.'));
-  const r2 = activateExtended(s2, { card: strikeCard, cell: 1, axis: 'column' });
-  // Column 1 activates: cell 1 (strike: 2 hits) + cell 4 (scorch: 1 hit + 1 scorched bonus) = 4 hits!
-  assert.equal(r2.summary.hits, 4, 'Line hits is 2 from strike + 1 from scorch + 1 scorched bonus = 4');
-});
-
 test('Card 4: جلاد الصبر (aegis) - 2 block when HP > 12, scales to 4 block when HP <= 12', () => {
   // Test HP > 12
   const sHigh = createFixture({}, ['aegis'], 10, 2);

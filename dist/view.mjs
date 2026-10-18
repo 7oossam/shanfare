@@ -50,8 +50,8 @@ function board(s,p,projected,animation) {
       const c=uid?def(uid,s):null;
       const turf=s.gridTurf?.[cell];
       const turfCls=turf==='fortified'?'is-fortified':turf==='scorched'?'is-scorched':'';
-      const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}</span>`:'';
-      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة':turf==='scorched'?'، مشتعلة':''}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
+      const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}${(s.gridHeat?.[cell]||1)>1?`<b class="turf-level">${num(s.gridHeat[cell])}</b>`:''}</span>`:'';
+      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة':turf==='scorched'?'، مشتعلة'+((s.gridHeat?.[cell]||1)>1?' ×'+num(s.gridHeat[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
       ${turfBadge}
       ${c?`<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>`:'<span class="empty-plus">+</span>'}
       ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}</button>`;

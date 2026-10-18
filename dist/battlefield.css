@@ -63,10 +63,13 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .grid-cell strong { font-size: clamp(11px, 2.2dvh, 22px); line-height: 1.1; }
 .empty-plus { font-family: Georgia, serif; font-size: clamp(26px, 6.5dvh, 65px); line-height: 1; font-weight: 400; color: #b58a4b; }
 .grid-cell.in-line, .grid-cell.is-preview { outline: 2px solid #e6a42e; background: #fff0c0; box-shadow: 0 0 10px #e2a43c, inset 0 0 0 3px #f6d27d; }
-.grid-cell.is-scorched { border-color: #d35400; background-color: #fcebe6; box-shadow: inset 0 0 0 2px #f8c4b4, inset 0 0 0 3px #e67e22; }
+.grid-cell.is-scorched { border-color: #b3261e; background-color: #f2a79b; box-shadow: inset 0 0 0 2px #e8756a, inset 0 0 0 3px #c0392b; }
+.grid-cell.is-scorched.in-line, .grid-cell.is-scorched.is-preview { background-color: #f6b9ac; }
 .grid-cell.is-fortified { border-color: #27ae60; background-color: #eafaf1; box-shadow: inset 0 0 0 2px #abebc6, inset 0 0 0 3px #2ecc71; }
 .turf-icon { position: absolute; top: 3px; left: 3px; width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); opacity: 0.9; pointer-events: none; z-index: 2; }
-.turf-scorched { color: #d35400; }
+.turf-scorched { color: #b3261e; display: inline-flex; align-items: center; width: auto; }
+.turf-scorched .icon { width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); }
+.turf-level { font: 700 clamp(9px, 1.6dvh, 14px)/1 sans-serif; margin-inline-start: 1px; }
 .turf-fortified { color: #27ae60; }
 .line-order { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #754b1b; color: #ffe7b2; font-size: 11px; font-family: sans-serif; }
 .instant-mark { position: absolute; bottom: 0; right: 2px; font-size: 8px; background: #6b441d; color: #ffecc9; padding: 1px 3px; border-radius: 2px; }

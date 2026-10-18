@@ -54,7 +54,7 @@ const cards = {
   scout: {name:'استطلاع الأثر',icon:'arrow',kind:'utility-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. إذا اكتمل الخط المختار وفُرّغ، اسحب ورقة إضافية.'},
   haven: {name:'عياذ الصخر',icon:'stone',kind:'defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد لرد الأعداء الحالي. إذا اكتمل الخط المختار وفُرّغ، يصبح الدرع ٣.'},
   anvil: {name:'تحصين المرقبة',icon:'stone',kind:'terrain-defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد. تصبح هذه الخانة موضعًا محصنًا؛ أي ورقة تُفعل فيها لاحقًا تمنح درعًا إضافيًا.'},
-  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا. تصبح هذه الخانة مشتعلة؛ أي ورقة هجومية تُفعل فيها لاحقًا تلحق ضررًا إضافيًا.'},
+  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا ثم تُفرَّغ فورًا وتبقى خانتها مشتعلة؛ أي ورقة تُفعَّل فيها تلحق ضررًا إضافيًا حتى يكتمل خطها. الإشعال المتكرر يتراكم.'},
   aegis: {name:'جلاد الصبر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي. يتضاعف الدرع إلى ٤ إذا كانت صحتك ١٢ أو أقل.'},
   disrupt: {name:'إضعاف البأس',icon:'swords',kind:'disrupt-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا بعدو تختاره، وخفّض هجومه المعلن لهذا الدور بمقدار ١.'},
   stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
@@ -91,7 +91,7 @@ function draw(s) {
 }
 function setupEncounter(s,index) {
   if(!ENCOUNTERS[index-1]) throw Error('Unknown encounter');
-  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.faces={};s.discard=[];s.hand=[];
+  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.gridHeat=Array(9).fill(0);s.faces={};s.discard=[];s.hand=[];
   s.hand=STARTER_TYPES.map(type=>s.deck.find(uid=>cardType(uid)===type));
   s.draw=shuffle(s,s.deck.filter(uid=>!s.hand.includes(uid)));s.enemies=structuredClone(ENCOUNTERS[index-1].enemies);
   for(const e of s.enemies) e.attack = getEnemyIntent(e, 1).damage;
@@ -105,7 +105,7 @@ function fresh(seed=20261017) {
     counts[type]++;
     return uid;
   });
-  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
+  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),gridHeat:Array(9).fill(0),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
   setupEncounter(s,1);s.screen='title';return s;
 }
 function migrateSave(before) {
@@ -143,25 +143,22 @@ function activate(before,a) {
   }
   if(before.screen!=='play'||!before.hand.includes(a.card)||!Number.isInteger(a.cell)||a.cell<0||a.cell>=9||before.grid[a.cell]||!['row','column'].includes(a.axis)||(a.face!==undefined&&a.face!==0)||(a.target!==undefined&&!attackTargets(before).some(e=>e.id===a.target)))return invalid();
   const s=structuredClone(before);
-  s.gridTurf=s.gridTurf||Array(9).fill(null);
+  s.gridTurf=s.gridTurf||Array(9).fill(null);s.gridHeat=s.gridHeat||Array(9).fill(0);
   const action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
   if(!action.target)return invalid();
   s.hand.splice(s.hand.indexOf(a.card),1);s.grid[a.cell]=a.card;s.faces[a.card]=0;s.placements++;
   const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),complete=cells.length===3;
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0};
-  let extraDraws=0;
+  let extraDraws=0;const ignitions=[];
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
     if(s.gridTurf[cell]==='fortified'){
       summary.block+=1;summary.events.push({type:'shield',cell,amount:1,value:summary.block,source:'turf-fortified',target:'hero'});
     }
-    let extraHit=0;
-    if(s.gridTurf[cell]==='scorched'&&['attack','mixed','terrain-attack','disrupt-attack','heavy-attack'].includes(d.kind)){
-      extraHit=1;
-    }
-    if(type==='anvil') s.gridTurf[cell]='fortified';
-    else if(type==='scorch') s.gridTurf[cell]='scorched';
+    const heat=s.gridTurf[cell]==='scorched'?(s.gridHeat[cell]||1):0;
+    if(type==='anvil'){s.gridTurf[cell]='fortified';s.gridHeat[cell]=0;}
+    else if(type==='scorch')ignitions.push({cell,heat:heat+1});
     for(const effect of d.effects){
       let n=effect.n;
       if(type==='advance'&&effect.op==='hit'&&qualified) n=2;
@@ -173,7 +170,6 @@ function activate(before,a) {
       else if(type==='scout'&&qualified) extraDraws++;
       else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
       else if(type==='disrupt') summary.enemyAttackReduction+=1;
-      if(effect.op==='hit') n+=extraHit;
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
@@ -183,12 +179,28 @@ function activate(before,a) {
         summary.events.push({type:'damage',cell,source:uid,target:target.id,amount,hp:target.hp,fatal:target.hp===0});
       }
     }
+    if(heat){
+      const target=s.enemies.find(e=>e.id===action.target);
+      if(target&&target.hp>0){
+        const amount=Math.min(target.hp,heat);target.hp-=amount;summary.hits+=amount;
+        summary.effects.push({uid,card:uid,cell,op:'hit',n:heat,amount,target:action.target,source:'turf-scorched'});
+        summary.events.push({type:'damage',cell,source:'turf-scorched',target:target.id,amount,hp:target.hp,fatal:target.hp===0});
+      }
+    }
   }
   const hasStagger=cells.some(c=>cardType(s.grid[c])==='stagger');
   if(hasStagger&&summary.hits>=4){
     summary.enemyAttackReduction+=2;summary.events.push({type:'stagger',amount:2});
   }
-  if(complete)for(const cell of line){const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];}
+  // A scorch card is spent as soon as it fires; a completed selected line is spent too.
+  const leaving=new Set(ignitions.map(i=>i.cell));
+  if(complete)for(const cell of line)leaving.add(cell);
+  for(const cell of line){
+    if(!leaving.has(cell)||!s.grid[cell])continue;
+    const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
+    if(!ignitions.some(i=>i.cell===cell)&&s.gridTurf[cell]==='scorched'){s.gridTurf[cell]=null;s.gridHeat[cell]=0;}
+  }
+  for(const {cell,heat} of ignitions){s.gridTurf[cell]='scorched';s.gridHeat[cell]=heat;summary.events.push({type:'ignite',cell,level:heat});}
   let shield=summary.block;
   const attackReduction=summary.enemyAttackReduction||0;
   for(const e of attackTargets(s)){
@@ -590,8 +602,8 @@ function board(s,p,projected,animation) {
       const c=uid?def(uid,s):null;
       const turf=s.gridTurf?.[cell];
       const turfCls=turf==='fortified'?'is-fortified':turf==='scorched'?'is-scorched':'';
-      const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}</span>`:'';
-      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة':turf==='scorched'?'، مشتعلة':''}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
+      const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}${(s.gridHeat?.[cell]||1)>1?`<b class="turf-level">${num(s.gridHeat[cell])}</b>`:''}</span>`:'';
+      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة':turf==='scorched'?'، مشتعلة'+((s.gridHeat?.[cell]||1)>1?' ×'+num(s.gridHeat[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
       ${turfBadge}
       ${c?`<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>`:'<span class="empty-plus">+</span>'}
       ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}</button>`;
@@ -686,7 +698,7 @@ for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.add
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 
 function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
-function help(){show('مختبر التوليفات','<ol><li>اختر بطاقة، واتجاهًا: صف أو عمود، وخانة فارغة.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
+function help(){show('مختبر التوليفات','<ol><li>اختر بطاقة، واتجاهًا: صف أو عمود، وخانة فارغة.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
 function newGame(){cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
 function commit(a){
   if(resolving)return;
