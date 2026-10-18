@@ -12,7 +12,7 @@ let cancelCombat=null,resolving=null;
 try {
   const saved=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(saved?.state?.version===VERSION){
-    if(saved.state.ruleset!==32)localStorage.setItem(SAVE_KEY+'-before-v32',JSON.stringify(saved));
+    if(saved.state.ruleset!==33)localStorage.setItem(SAVE_KEY+'-before-v33',JSON.stringify(saved));
     s=migrateSave(saved.state);report=restore(saved.report,s);
   }
 }catch{}

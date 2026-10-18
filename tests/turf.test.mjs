@@ -49,3 +49,15 @@ test('anvil guards, is spent at once, greens its cell; any card there adds block
   const c=fixture({0:'strike',1:'shelter'},['advance']);c.gridTurf[2]='fortified';c.gridLevel[2]=1;
   const r4=place(c,2,'row');assert.equal(r4.summary.block,4,'shelter 2 + advance 1 + turf 1');assert.equal(r4.state.gridTurf[2],null);
 });
+test('slam (ارتطام الترس) hits for the block gathered earlier in the line and keeps it',()=>{
+  const s=fixture({2:'shelter',1:'shelter'},['slam']);const r=place(s,0,'row');
+  assert.equal(r.summary.hits,4);assert.equal(r.summary.block,4);assert.equal(r.summary.prevented,0);
+  const first=fixture({0:'shelter'},['slam']);
+  assert.equal(place(first,1,'row').summary.hits,0,'slam before the shelter in activation order');
+  assert.equal(place(first,3,'column').summary.hits,2,'slam after the shelter');
+  const lone=fixture({},['slam']);assert.equal(place(lone,4).summary.hits,0);
+});
+test('slam counts fortified-turf block gained in its own cell',()=>{
+  const s=fixture({2:'shelter'},['slam']);s.gridTurf[1]='fortified';s.gridLevel[1]=1;
+  assert.equal(place(s,1,'row').summary.hits,3,'shelter 2 + turf 1 before the hit');
+});

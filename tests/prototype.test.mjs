@@ -7,8 +7,8 @@ function fixture(grid={},hand=['strike'],enemyHp=100){
   s.hand=hand.map(take);s.draw=pool;s.discard=[];s.enemies=[{id:'dummy',name:'هدف اختبار',hp:enemyHp,maxHp:enemyHp,attack:0,shield:0}];return s;
 }
 const place=(s,cell,axis='row',card=s.hand[0])=>activate(s,{card,cell,axis,target:s.enemies[0].id});
-test('twelve physical cards, declared laboratory enemies and valid roster',()=>{
-  const s=fresh();assert.equal(s.deck.length,12);assert.equal(s.hand.length,3);assert.equal(s.draw.length,9);assert.equal(ENCOUNTERS.length,3);assert.ok(ENCOUNTERS.every(e=>e.enemies.length===1));assertState(s);
+test('thirteen physical cards, declared laboratory enemies and valid roster',()=>{
+  const s=fresh();assert.equal(s.deck.length,13);assert.equal(s.hand.length,3);assert.equal(s.draw.length,10);assert.equal(ENCOUNTERS.length,3);assert.ok(ENCOUNTERS.every(e=>e.enemies.length===1));assertState(s);
 });
 test('axis is required and face one/invalid targets are rejected without mutation',()=>{
   const s=start(fresh()),before=snapshot(s);const a={card:s.hand[0],cell:0};
@@ -45,11 +45,11 @@ test('all twelve cards circulate without a dead hand for a sustained sequence',(
   for(let i=0;i<200;i++){assert.ok(s.hand.length);const a=actions(s)[i%actions(s).length];const r=activate(s,a);assert.ok(r.valid);s=r.state;assertState(s);}
 });
 test('old saves explicitly reset, current saves retain deterministic replay',()=>{
-  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,32);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
+  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,33);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
   const state=start(fresh(123)),a=actions(state)[0],r=activate(state,a);assert.deepEqual(snapshot(activate(migrateSave(state),a).state),snapshot(r.state));
 });
 test('laboratory progression restores full health with no card reward or terrain',()=>{
-  let s=fixture({},['strike'],1);s.hp=7;const r=place(s,0);assert.equal(r.state.screen,'reward');assert.deepEqual(actions(r.state),[{kind:'continue'}]);s=activate(r.state,{kind:'continue'}).state;assert.equal(s.hp,24);assert.equal(s.encounter,2);assert.equal(s.screen,'play');assert.equal(s.hand.length,3);assert.equal(s.deck.length,12);assert.equal(s.grid.filter(Boolean).length,0);
+  let s=fixture({},['strike'],1);s.hp=7;const r=place(s,0);assert.equal(r.state.screen,'reward');assert.deepEqual(actions(r.state),[{kind:'continue'}]);s=activate(r.state,{kind:'continue'}).state;assert.equal(s.hp,24);assert.equal(s.encounter,2);assert.equal(s.screen,'play');assert.equal(s.hand.length,3);assert.equal(s.deck.length,13);assert.equal(s.grid.filter(Boolean).length,0);
 });
 test('last laboratory victory ends campaign; loss is resolved after enemy attack',()=>{
   const s=fixture({},['strike'],1);s.encounter=3;const win=place(s,0);assert.equal(win.state.screen,'end');assert.equal(win.state.outcome,'victory');assert.equal(activate(win.state,{kind:'continue'}).valid,false);

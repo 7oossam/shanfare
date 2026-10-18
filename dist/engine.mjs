@@ -1,5 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
-export const RULESET = 32;
+export const RULESET = 33;
 export const HAND_SIZE = 3;
 export const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 export const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -15,6 +15,7 @@ export const cards = {
   scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا ثم تُفرَّغ فورًا وتبقى خانتها مشتعلة؛ أي ورقة تُفعَّل فيها تلحق ضررًا إضافيًا حتى يكتمل خطها. الإشعال المتكرر يتراكم.'},
   aegis: {name:'جلاد الصبر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي. يتضاعف الدرع إلى ٤ إذا كانت صحتك ١٢ أو أقل.'},
   disrupt: {name:'إضعاف البأس',icon:'swords',kind:'disrupt-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا بعدو تختاره، وخفّض هجومه المعلن لهذا الدور بمقدار ١.'},
+  slam: {name:'ارتطام الترس',icon:'shield',kind:'slam-attack',effects:[{op:'hit',n:0}],text:'ألحق ضررًا بعدد دِرْعك الحالي. الدرع يبقى. الترتيب مهم: يُحسب ما سبقه في الخط.'},
   stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
 };
 export const alternates = {}, rewards = [];
@@ -23,7 +24,8 @@ export const DECK_RECIPE = [
   'strike', 'shelter', 'advance',
   'strike', 'shelter', 'advance',
   'cross', 'scout', 'haven',
-  'anvil', 'scorch', 'disrupt'
+  'anvil', 'scorch', 'disrupt',
+  'slam'
 ];
 export const isReward = () => false;
 export const maneuverOptions = () => [];
@@ -125,6 +127,7 @@ export function activate(before,a) {
         n=perp.some(idx=>idx!==cell&&s.grid[idx])?3:1;
       }
       else if(type==='haven'&&effect.op==='block'&&qualified) n=3;
+      else if(type==='slam'&&effect.op==='hit') n=summary.block;
       else if(type==='scout'&&qualified) extraDraws++;
       else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
       else if(type==='disrupt') summary.enemyAttackReduction+=1;
@@ -182,7 +185,7 @@ export function assertState(s) {
   if(!Array.isArray(s.grid)||s.grid.length!==9)throw Error('Invalid grid');
   if(!Number.isInteger(s.hp)||s.hp<0||s.hp>s.maxHp)throw Error('Invalid health');
   if(!['title','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
-  if(s.deck.length!==12||new Set(s.deck).size!==12||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
+  if(s.deck.length!==DECK_RECIPE.length||new Set(s.deck).size!==s.deck.length||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
   const zones=[...s.hand,...s.draw,...s.discard,...s.grid.filter(Boolean)];
   if(zones.length!==s.deck.length||new Set(zones).size!==zones.length||zones.some(uid=>!s.deck.includes(uid)||!def(uid)))throw Error('Invalid card zones');
   if(Object.values(s.faces).some(face=>face!==0))throw Error('Alternate faces removed');
