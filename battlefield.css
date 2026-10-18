@@ -393,3 +393,36 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
   .grid-cell strong { display:none; }
 }
 .old-enemy-label-cover { position:absolute; left:57.4%; top:13.23%; width:14.09%; height:24.64%; pointer-events:none; }
+
+/* ===== Command panel v38: the grid takes the height; the side column carries direction, forecast and confirm ===== */
+.header-help { position: absolute; z-index: 3; right: calc(7.8% + 136px); width: clamp(22px, 4.2dvh, 34px); height: clamp(22px, 4.2dvh, 34px); border: 1px solid #a47734; border-radius: 50%; background: #f7e1aa; color: #6b441d; font: 700 clamp(13px, 2.4dvh, 20px)/1 Tahoma, Arial, sans-serif; padding: 0; }
+.command-panel { padding: clamp(3px, .8dvh, 8px) clamp(4px, .7vw, 10px); }
+.command-panel .panel-heading { display: none; }
+.panel-body { position: relative; z-index: 1; flex: 1; width: 100%; min-height: 0; display: flex; flex-direction: row; align-items: stretch; gap: clamp(3px, .6vw, 8px); direction: rtl; }
+.panel-body .grid-wrap { flex: 1 1 0; width: auto; min-width: 0; min-height: 0; display: grid; place-items: center; container-type: size; }
+.command-panel .duel-grid { width: min(100cqw, 100cqh); gap: clamp(3px, .9dvh, 9px); }
+.side-info { flex: 0 0 clamp(62px, 34%, 112px); display: flex; flex-direction: column; justify-content: space-between; gap: 3px; min-width: 0; direction: rtl; }
+.command-panel .side-info .axis-controls { position: static; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 0; flex-shrink: 0; }
+.command-panel .side-info .axis-controls button { min-height: 0; min-width: 0; padding: 3px 0; font-size: clamp(10px, 2.3dvh, 15px); white-space: nowrap; overflow: hidden; }
+.command-panel .side-info .board-feedback { flex: 1; min-height: 0; border-top: 0; padding: 0; justify-content: center; gap: 3px; overflow: hidden; }
+.command-panel .side-info .board-feedback > strong { font-size: clamp(11px, 2.4dvh, 16px); line-height: 1.2; }
+.command-panel .side-info .board-feedback > small { display: block; font-size: clamp(8px, 1.5dvh, 12px); line-height: 1.25; opacity: .85; }
+.side-info .preview-totals { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 4px; width: 100%; font-size: clamp(11px, 2.5dvh, 17px); }
+.side-info .forecast-stat { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 2px; }
+.side-info .forecast-stat > small { display: none; }
+.side-info .alt-hint { display: flex !important; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1px 4px; font-size: clamp(9px, 2dvh, 13px) !important; color: #6b441d; border-top: 1px dashed #b59055; padding-top: 2px; width: 100%; }
+.side-info .alt-hint .icon-stat { font-size: 1.05em; }
+.command-panel .side-info .confirm-play { position: static; width: 100%; min-height: clamp(26px, 5.4dvh, 40px); margin: 0; padding: 2px 3px; font-size: clamp(10px, 2.1dvh, 16px); line-height: 1.15; flex-shrink: 0; }
+.dir-badge { position: absolute; bottom: 1px; left: 2px; font: 700 clamp(11px, 2.6dvh, 20px)/1 Arial, sans-serif; color: #6b441d; background: #ffe7a8; border: 1px solid #b57a21; border-radius: 6px; padding: 0 3px; pointer-events: none; z-index: 3; }
+.grid-cell.is-preview { animation: cell-select .22s ease-out; }
+@keyframes cell-select { 40% { transform: scale(1.07); } }
+.duel-card { touch-action: none; user-select: none; -webkit-user-select: none; }
+.duel-card.is-dragging { opacity: .45; }
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 200; pointer-events: none; opacity: .92; filter: drop-shadow(0 6px 8px #1a0f0788); transform-origin: top left; }
+.drag-ghost .card-details, .drag-ghost .card-rule { display: none; }
+.grid-cell.is-drop-target { outline: 3px solid #e6a42e; background: #fff0c0; box-shadow: 0 0 14px #e2a43c; transform: scale(1.06); }
+@media (max-height: 340px) {
+  .side-info { gap: 2px; flex-basis: clamp(56px, 30%, 80px); }
+  .side-info .board-feedback > small { display: none !important; }
+  .command-panel .side-info .confirm-play { min-height: 22px; }
+}

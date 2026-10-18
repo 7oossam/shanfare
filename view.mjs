@@ -34,7 +34,7 @@ function header(s) {
   return `<header class="game-header">${slice(0,0,1672,75,'template-art','blank-template.png')}
     <div class="player-resources"><span class="health-count" aria-label="الصحة">${icon('heart')}<span data-player-hp>${ratio(s.hp,s.maxHp)}</span></span></div>
     <h1>${esc(ENCOUNTERS[s.encounter-1].name)}<small>اختبار ${num(s.encounter)} / ${num(ENCOUNTERS.length)}</small></h1>
-    ${fullscreenButton()}${button(slice(1585,19,45,45),'menu','settings-button',false,'قائمة اللعبة')}
+    ${button('؟','help','header-help',false,'شرح اللعب')}${fullscreenButton()}${button(slice(1585,19,45,45),'menu','settings-button',false,'قائمة اللعبة')}
   </header>`;
 }
 function board(s,p,projected,animation) {
@@ -42,23 +42,31 @@ function board(s,p,projected,animation) {
   if(projected)grid[p.cell]=p.card;
   const chosen=projected?.summary.cells??animation?.activeCells??[];
   const complete=!!projected?.summary.lines.length;
+  const otherAxis=p.axis==='row'?'column':'row';
+  const alt=projected&&!animation?preview(s,{...p,axis:otherAxis}):null;
+  const axisName=axis=>axis==='row'?'صف':'عمود';
+  const axisArrow=axis=>axis==='row'?'←':'↓';
   return `<aside class="command-panel">${slice(1142,76,526,554,'template-art','blank-template.png')}
-    <div class="panel-heading"><h2>شبكة التوليفات</h2>${button('؟','help','help-button',false,'شرح اللعب')}</div>
-    <div class="axis-controls" role="group" aria-label="اتجاه التفعيل">
-      ${['row','column'].map(axis=>`<button data-axis="${axis}" aria-pressed="${p.axis===axis}" ${animation?'disabled':''}>${axis==='row'?'صف ←':'عمود ↓'}</button>`).join('')}
-    </div>
-    <div class="grid-wrap"><div class="duel-grid ${animation?'is-resolving':''}" role="group" aria-label="شبكة ثلاثة صفوف وثلاثة أعمدة">${grid.map((uid,cell)=>{
+    <div class="panel-body">
+    <div class="grid-wrap"><div class="duel-grid ${animation?'is-resolving':''}" role="group" aria-label="شبكة ثلاثة صفوف وثلاثة أعمدة. اضغط الخانة المختارة مرة أخرى لتبديل الاتجاه بين صف وعمود">${grid.map((uid,cell)=>{
       const c=uid?def(uid,s):null;
       const turf=s.gridTurf?.[cell];
       const turfCls=turf==='fortified'?'is-fortified':turf==='scorched'?'is-scorched':'';
       const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}${(s.gridLevel?.[cell]||1)>1?`<b class="turf-level">${num(s.gridLevel[cell])}</b>`:''}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}${(s.gridLevel?.[cell]||1)>1?`<b class="turf-level">${num(s.gridLevel[cell])}</b>`:''}</span>`:'';
-      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):turf==='scorched'?'، مشتعلة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
+      const isPreview=projected&&p.cell===cell;
+      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${isPreview?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):turf==='scorched'?'، مشتعلة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}${isPreview?'، الاتجاه '+axisName(p.axis)+'، اضغط للتبديل':''}" ${animation?'disabled':''}>
       ${turfBadge}
       ${c?`<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>`:'<span class="empty-plus">+</span>'}
-      ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}</button>`;
+      ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}${isPreview?`<b class="dir-badge" aria-hidden="true">${axisArrow(p.axis)}</b>`:''}</button>`;
     }).join('')}</div></div>
-    <div class="board-feedback" aria-live="polite">${animation?'<strong>جارٍ تنفيذ التوليفة…</strong>':projected?`<strong>${complete?'خط مكتمل · يتفعّل ثم يُفرّغ':'يتفعّل المختار · البطاقات تبقى'}</strong>${combatForecast(projected.summary)}`:`<strong>${!p.card?'اختر بطاقة':!p.axis?'اختر صفًا أو عمودًا':'اختر خانة فارغة'}</strong><small>صف: يمين ← يسار · عمود: أعلى ↓ أسفل</small>`}</div>
-    ${button('نفّذ التوليفة','confirm-play','confirm-play gold-button',!projected||!!animation)}
+    <div class="side-info">
+      <div class="axis-controls" role="group" aria-label="اتجاه التفعيل">
+        ${['row','column'].map(axis=>`<button data-axis="${axis}" aria-pressed="${p.axis===axis}" ${animation?'disabled':''}>${axisArrow(axis)} ${axisName(axis)}</button>`).join('')}
+      </div>
+      <div class="board-feedback" aria-live="polite">${animation?'<strong>جارٍ التنفيذ…</strong>':projected?`<strong>${complete?'مكتمل · يُفرّغ':'ناقص · يبقى'}</strong>${combatForecast(projected.summary)}${alt?`<small class="alt-hint" title="اضغط الخانة مرة أخرى للتبديل">↻ ${axisName(otherAxis)}: ${stat(alt.summary.hits,'swords')}${stat(alt.summary.block,'shield')}${stat(alt.summary.enemyDamage,'heart')}</small>`:''}`:`<strong>${!p.card?'اختر بطاقة':'اختر خانة فارغة'}</strong><small>اسحب البطاقة إلى خانة، واضغطها لتبديل الصف والعمود</small>`}</div>
+      ${button('نفّذ التوليفة','confirm-play','confirm-play gold-button',!projected||!!animation)}
+    </div>
+    </div>
   </aside>`;
 }
 function hand(s,p,projected,busy,fresh=null) {
@@ -70,7 +78,7 @@ function hand(s,p,projected,busy,fresh=null) {
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-export function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="37">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
+export function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="38">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
 export function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٧ ورقة · ١٤ نوعًا · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
 const turnsText = n => n === 1 ? 'دور واحد' : n === 2 ? 'دورين' : n <= 10 ? `${num(n)} أدوار` : `${num(n)} دورًا`;
 export function rewardView(s){return `<main class="screen-panel"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p>المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')}</p><p class="recap-line">أنهيت الاختبار في ${turnsText(Math.max(1,s.phaseTurn-1))} · صحتك ${ratio(s.hp,s.maxHp)}</p><p>${esc(ENCOUNTERS[s.encounter]?.lesson??'')}</p><p>تستعيد صحتك كاملة وتبدأ بالشبكة والرزمة من جديد.</p>${button('ابدأ الاختبار التالي','continue','gold-button')}${rotationHint()}</main>`;}

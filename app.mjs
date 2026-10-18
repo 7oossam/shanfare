@@ -7,6 +7,10 @@ import { playCombatFeedback } from './combat-feedback.mjs?v=9';
 const SAVE_KEY='shanfara-duel-v9';
 const root=document.querySelector('#app'), menu=document.querySelector('#menu');
 const emptySelection=()=>({card:null,cell:null,axis:null,target:null});
+// The direction is a quick choice, so it is remembered: the last one used is the default for the next placement.
+let lastAxis='row';
+try{const saved=localStorage.getItem('shanfara-axis');if(saved==='row'||saved==='column')lastAxis=saved;}catch{}
+const AXIS_NAME={row:'صف',column:'عمود'};
 let s=fresh(), report=null, selection=emptySelection();
 let cancelCombat=null,resolving=null;
 try {
@@ -43,7 +47,7 @@ for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.add
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 
 function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
-function help(){show('مختبر التوليفات','<ol><li>اختر بطاقة، واتجاهًا: صف أو عمود، وخانة فارغة.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
+function help(){show('مختبر التوليفات','<ol><li>اسحب بطاقة إلى خانة فارغة (أو اضغط البطاقة ثم الخانة). اضغط الخانة المختارة مرة أخرى لتبديل التفعيل بين صف وعمود؛ ويتذكر اللعب آخر اتجاه استخدمته. مفتاح X يبدّل أيضًا.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
 let beatTimer=null;
 function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
 function commit(a){
@@ -86,13 +90,59 @@ document.addEventListener('click',e=>{
   if(resolving||s.screen!=='play')return;
   if(b.dataset.info){details(b.dataset.info);return;}
   if(b.dataset.target){selection.target=b.dataset.target;render();return;}
-  if(b.dataset.card){selection.card=b.dataset.card;selection.cell=null;render();playSfx('select');return;}
-  if(b.dataset.axis){selection.axis=b.dataset.axis;render();return;}
-  if(b.dataset.cell!==undefined){const cell=Number(b.dataset.cell);if(s.grid[cell]){details(s.grid[cell]);return;}if(!selection.card){document.querySelector('#live').textContent='اختر بطاقة أولًا.';return;}selection.cell=cell;render();}
+  if(b.dataset.card){chooseCard(b.dataset.card);return;}
+  if(b.dataset.axis){setAxis(b.dataset.axis);render();return;}
+  if(b.dataset.cell!==undefined){chooseCell(Number(b.dataset.cell));}
 });
+function setAxis(axis){selection.axis=axis;lastAxis=axis;try{localStorage.setItem('shanfara-axis',axis);}catch{}}
+// Changing the card keeps a still-valid cell and direction, so cards can be compared on the same spot.
+function chooseCard(uid){
+  selection.card=uid;if(selection.cell!==null&&s.grid[selection.cell])selection.cell=null;
+  selection.axis=selection.axis||lastAxis;render();playSfx('select');
+}
+// Pressing the chosen cell again flips row <-> column.
+function chooseCell(cell){
+  if(s.grid[cell]){details(s.grid[cell]);return;}
+  if(!selection.card){document.querySelector('#live').textContent='اختر بطاقة أولًا.';return;}
+  if(selection.cell===cell&&selection.axis){setAxis(selection.axis==='row'?'column':'row');document.querySelector('#live').textContent=`الاتجاه: ${AXIS_NAME[selection.axis]}.`;}
+  else{selection.cell=cell;if(!selection.axis)setAxis(lastAxis);}
+  render();playSfx('select');
+}
+// Dragging a hand card onto an empty cell places it in one gesture. Tapping still works as before.
+let drag=null,dragEndedAt=0;
+const cellUnder=(x,y)=>{const el=document.elementFromPoint(x,y)?.closest('.grid-cell');return el&&!el.classList.contains('has-card')?el:null;};
+function endDrag(){if(!drag)return;drag.ghost?.remove();drag.source?.classList.remove('is-dragging');document.querySelectorAll('.is-drop-target').forEach(el=>el.classList.remove('is-drop-target'));drag=null;}
+document.addEventListener('pointerdown',e=>{
+  if(resolving||s.screen!=='play'||!e.isPrimary||e.button>0)return;
+  const source=e.target.closest('[data-hand-card]');if(!source||e.target.closest('.card-details'))return;
+  drag={uid:source.dataset.handCard,source,x:e.clientX,y:e.clientY,active:false,pointer:e.pointerId,ghost:null};
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.pointer)return;
+  if(!drag.active){
+    if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<10)return;
+    drag.active=true;drag.source.classList.add('is-dragging');
+    const ghost=drag.source.cloneNode(true);ghost.removeAttribute('data-hand-card');ghost.classList.add('drag-ghost');ghost.style.width=`${Math.min(110,drag.source.offsetWidth*.7)}px`;document.body.append(ghost);drag.ghost=ghost;
+  }
+  drag.ghost.style.transform=`translate(${e.clientX-40}px,${e.clientY-30}px)`;
+  const target=cellUnder(e.clientX,e.clientY);
+  for(const el of document.querySelectorAll('.is-drop-target'))if(el!==target)el.classList.remove('is-drop-target');
+  target?.classList.add('is-drop-target');
+});
+document.addEventListener('pointerup',e=>{
+  if(!drag||e.pointerId!==drag.pointer)return;
+  if(drag.active){
+    const target=cellUnder(e.clientX,e.clientY),uid=drag.uid;dragEndedAt=Date.now();endDrag();
+    if(target&&!resolving&&s.screen==='play'){selection.card=uid;selection.cell=Number(target.dataset.cell);selection.axis=selection.axis||lastAxis;render();playSfx('select');}
+  }else endDrag();
+});
+document.addEventListener('pointercancel',endDrag);
+// A drag must not also register as a tap on whatever lies under the pointer.
+document.addEventListener('click',e=>{if(Date.now()-dragEndedAt<300){e.stopPropagation();e.preventDefault();}},true);
 document.addEventListener('keydown',e=>{
   if(menu.open||resolving||s.screen!=='play')return;
   if(e.key==='Escape'){selection=emptySelection();render();}
-  if(/^[1-3]$/.test(e.key)&&!e.ctrlKey&&!e.metaKey&&s.hand[Number(e.key)-1]){selection.card=s.hand[Number(e.key)-1];selection.cell=null;render();}
+  if(/^[1-9]$/.test(e.key)&&!e.ctrlKey&&!e.metaKey&&s.hand[Number(e.key)-1])chooseCard(s.hand[Number(e.key)-1]);
+  if((e.key==='x'||e.key==='X'||e.key==='س')&&selection.cell!==null){setAxis(selection.axis==='row'?'column':'row');render();}
 });
 render();
