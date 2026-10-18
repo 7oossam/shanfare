@@ -1,0 +1,21 @@
+E1 اختبار الإيقاع   dmg  win 20/20 turns 4.8 hpLeft 18.8 | strike:26% advance:24% shelter:17% raid:7% anvil:5% disrupt:5%
+E1 اختبار الإيقاع   safe win 20/20 turns 6.0 hpLeft 23.2 | strike:25% shelter:20% advance:19% raid:6% rampart:5% anvil:4%
+E2 كمين الممر       dmg  win 20/20 turns 8.2 hpLeft 9.2 | strike:20% advance:16% shelter:13% raid:9% scorch:7% rampart:6%
+E2 كمين الممر       safe win 20/20 turns 10.4 hpLeft 12.4 | strike:17% shelter:16% advance:15% assault:7% raid:7% haven:6%
+E3 اختبار الاستعداد dmg  win 20/20 turns 8.3 hpLeft 7.3 | strike:21% advance:17% shelter:13% raid:8% scorch:7% anvil:6%
+E3 اختبار الاستعداد safe win 18/20 turns 11.0 hpLeft 8.3 | strike:16% advance:15% shelter:15% assault:7% raid:7% rampart:7%
+E4 اختبار الاستنزاف dmg  win 20/20 turns 10.9 hpLeft 6.4 | strike:17% advance:15% shelter:14% raid:7% rampart:7% assault:7%
+E4 اختبار الاستنزاف safe win 20/20 turns 15.8 hpLeft 11.2 | shelter:14% advance:14% strike:14% rampart:7% raid:7% anvil:7%
+E5 الكمين الأخير    dmg  win 20/20 turns 8.8 hpLeft 8.0 | strike:20% advance:18% shelter:11% raid:9% assault:7% scorch:7%
+E5 الكمين الأخير    safe win 18/20 turns 11.8 hpLeft 6.3 | strike:16% shelter:14% advance:14% raid:8% assault:7% disrupt:6%
+baseline {"1":{"wins":20,"hp":23.2,"turns":5.95},"2":{"wins":20,"hp":12.45,"turns":10.45},"3":{"wins":18,"hp":8.277777777777779,"turns":11},"4":{"wins":20,"hp":11.15,"turns":15.85},"5":{"wins":18,"hp":6.333333333333333,"turns":11.8}}
+without cross    | E1: win +0 hp -0.3 turns 0.3 | E2: win +0 hp 1.5 turns -0.4 | E3: win +2 hp -0.3 turns -0.3 | E4: win +0 hp 0.5 turns 0.2 | E5: win +0 hp 0.4 turns -0.5
+without scout    | E1: win +0 hp -0.3 turns 0.3 | E2: win +0 hp 1.4 turns -0.5 | E3: win +2 hp -0.5 turns -0.5 | E4: win +0 hp -0.1 turns -0.4 | E5: win +0 hp 1.0 turns -0.8
+without haven    | E1: win +0 hp -0.4 turns 0.3 | E2: win +0 hp 1.5 turns -0.8 | E3: win +0 hp -0.7 turns -0.9 | E4: win +0 hp -0.7 turns -1.4 | E5: win +0 hp 0.2 turns -0.9
+without anvil    | E1: win +0 hp -0.5 turns 0.2 | E2: win +0 hp 0.9 turns -0.6 | E3: win -1 hp -0.5 turns -0.5 | E4: win +0 hp -1.9 turns -0.8 | E5: win +0 hp -0.6 turns -0.3
+without scorch   | E1: win +0 hp -0.4 turns 0.3 | E2: win +0 hp 1.0 turns -0.3 | E3: win +0 hp -0.1 turns -0.1 | E4: win +0 hp -0.6 turns -0.1 | E5: win +1 hp -0.8 turns 0.3
+without disrupt  | E1: win +0 hp -0.4 turns 0.2 | E2: win +0 hp 1.1 turns 0.0 | E3: win +1 hp 0.5 turns -0.5 | E4: win +0 hp 1.5 turns -1.0 | E5: win +1 hp -0.5 turns -0.2
+without slam     | E1: win +0 hp -0.2 turns 0.3 | E2: win +0 hp 1.5 turns 0.3 | E3: win +0 hp -0.1 turns -0.4 | E4: win +0 hp 1.3 turns 0.8 | E5: win -1 hp -0.3 turns 0.1
+without raid     | E1: win +0 hp -0.2 turns 0.3 | E2: win +0 hp 0.1 turns 0.2 | E3: win +0 hp -0.3 turns -0.3 | E4: win +0 hp 0.3 turns 0.1 | E5: win -2 hp -1.8 turns -0.7
+without rampart  | E1: win +0 hp -0.3 turns -0.1 | E2: win +0 hp 1.4 turns -0.7 | E3: win +1 hp -0.4 turns -0.9 | E4: win +0 hp -0.4 turns -1.1 | E5: win +0 hp -1.5 turns -1.0
+without assault  | E1: win +0 hp -0.4 turns 0.1 | E2: win +0 hp 0.8 turns -0.3 | E3: win +1 hp -0.5 turns -0.7 | E4: win +0 hp -0.8 turns -0.3 | E5: win +0 hp -0.8 turns -1.0
