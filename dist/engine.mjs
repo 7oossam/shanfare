@@ -7,17 +7,34 @@ export const DIRECT_ATTACK_OPS = ['hit'];
 export const cards = {
   strike: {name:'ضربة محسوبة',icon:'swords',kind:'attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره.'},
   shelter: {name:'ساتر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي.'},
-  advance: {name:'تقدّم محمي',icon:'swords',kind:'mixed',effects:[{op:'hit',n:1},{op:'block',n:1}],text:'ألحق ضررًا واحصل على درع. يصبح الضرر ٢ إذا اكتمل الخط المختار.'}
+  advance: {name:'تقدّم محمي',icon:'swords',kind:'mixed',effects:[{op:'hit',n:1},{op:'block',n:1}],text:'ألحق ضررًا واحصل على درع. يصبح الضرر ٢ إذا اكتمل الخط المختار.'},
+  cross: {name:'ضربة العارض',icon:'swords',kind:'attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. يصبح الضرر ٣ إذا كان المحور المتعامد يحتوي على ورقة أخرى على الأقل.'},
+  scout: {name:'استطلاع الأثر',icon:'arrow',kind:'utility-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. إذا اكتمل الخط المختار وفُرّغ، اسحب ورقة إضافية.'},
+  haven: {name:'عياذ الصخر',icon:'stone',kind:'defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد لرد الأعداء الحالي. إذا اكتمل الخط المختار وفُرّغ، يصبح الدرع ٣.'},
+  anvil: {name:'تحصين المرقبة',icon:'stone',kind:'terrain-defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد. تصبح هذه الخانة موضعًا محصنًا؛ أي ورقة تُفعل فيها لاحقًا تمنح درعًا إضافيًا.'},
+  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا. تصبح هذه الخانة مشتعلة؛ أي ورقة هجومية تُفعل فيها لاحقًا تلحق ضررًا إضافيًا.'},
+  aegis: {name:'جلاد الصبر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي. يتضاعف الدرع إلى ٤ إذا كانت صحتك ١٢ أو أقل.'},
+  disrupt: {name:'إضعاف البأس',icon:'swords',kind:'disrupt-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا بعدو تختاره، وخفّض هجومه المعلن لهذا الدور بمقدار ١.'},
+  stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
 };
 export const alternates = {}, rewards = [];
-export const STARTER_TYPES = Object.keys(cards);
+export const STARTER_TYPES = ['strike', 'shelter', 'advance'];
+export const DECK_RECIPE = [
+  'strike', 'shelter', 'advance',
+  'strike', 'shelter', 'advance',
+  'cross', 'scout', 'haven',
+  'anvil', 'scorch', 'disrupt'
+];
 export const isReward = () => false;
 export const maneuverOptions = () => [];
-const enemy = (id,name,hp,attack) => ({id,name,hp,maxHp:hp,attack,shield:0});
+const enemy = (id,name,hp,pattern) => {
+  const p = Array.isArray(pattern) ? pattern : [pattern];
+  return {id, name, hp, maxHp:hp, attack:p[0], pattern:p, shield:0};
+};
 export const ENCOUNTERS = [
-  {name:'اختبار الإيقاع',enemies:[enemy('pace','مناوش التدريب',12,2)]},
-  {name:'اختبار الضغط',enemies:[enemy('pressure','مقاتل التدريب',16,3)]},
-  {name:'اختبار الاستثمار',enemies:[enemy('investment','قائد التدريب',20,4)]}
+  {name:'اختبار الإيقاع',enemies:[enemy('pace','مناوش التدريب',14,[2,4,1])]},
+  {name:'اختبار الضغط',enemies:[enemy('pressure','مقاتل التدريب',18,[2,5,1])]},
+  {name:'اختبار الاستثمار',enemies:[enemy('investment','قائد التدريب',24,[3,4,6,1])]}
 ];
 export const cardType = uid => typeof uid === 'string' ? uid.split('.')[0] : undefined;
 export const def = (uid,s,face = 0) => face === 0 ? cards[cardType(uid)] : undefined;
@@ -32,13 +49,21 @@ export function draw(s) {
 }
 export function setupEncounter(s,index) {
   if(!ENCOUNTERS[index-1]) throw Error('Unknown encounter');
-  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.faces={};s.discard=[];s.hand=[];
+  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.faces={};s.discard=[];s.hand=[];
   s.hand=STARTER_TYPES.map(type=>s.deck.find(uid=>cardType(uid)===type));
-  s.draw=shuffle(s,s.deck.filter(uid=>!s.hand.includes(uid)));s.enemies=structuredClone(ENCOUNTERS[index-1].enemies);s.screen='play';s.outcome=null;s.last=null;
+  s.draw=shuffle(s,s.deck.filter(uid=>!s.hand.includes(uid)));s.enemies=structuredClone(ENCOUNTERS[index-1].enemies);
+  for(const e of s.enemies) e.attack = getEnemyIntent(e, 1).damage;
+  s.screen='play';s.outcome=null;s.last=null;
 }
 export function fresh(seed=20261017) {
-  const deck=Array.from({length:4},(_,i)=>STARTER_TYPES.map(type=>`${type}.${i}`)).flat();
-  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
+  const counts = {};
+  const deck = DECK_RECIPE.map(type => {
+    counts[type] = (counts[type] || 0);
+    const uid = `${type}.${counts[type]}`;
+    counts[type]++;
+    return uid;
+  });
+  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
   setupEncounter(s,1);s.screen='title';return s;
 }
 export function migrateSave(before) {
@@ -48,8 +73,16 @@ export function migrateSave(before) {
 export const start = s => s.screen==='title'?{...structuredClone(s),screen:'play'}:s;
 export const attackTargets = s => s.enemies.filter(e=>e.hp>0);
 export function targetForAction(s,a={}) { const alive=attackTargets(s);return alive.find(e=>e.id===a.target)?.id??alive[0]?.id??null; }
-export function getEnemyIntent(e) { return {damage:e.hp>0?e.attack:0,shield:0,defending:false}; }
+export function getEnemyIntent(e, arg1 = 1, arg2) {
+  if (!e || e.hp <= 0 || e.attack === 0) return { damage: 0, shield: 0, defending: false };
+  const turn = typeof arg2 === 'number' ? arg2 : typeof arg1 === 'number' ? arg1 : 1;
+  const pattern = Array.isArray(e.pattern) && e.pattern.length ? e.pattern : [e.attack ?? 2];
+  const idx = Math.max(0, (turn - 1) % pattern.length);
+  const damage = pattern[idx];
+  return { damage, shield: 0, defending: false };
+}
 export function selectedLine(cell,axis) { return axis==='row'?LINES[Math.floor(cell/3)]:axis==='column'?LINES[3+cell%3]:null; }
+export function perpendicularLine(cell,axis) { return axis==='row'?selectedLine(cell,'column'):selectedLine(cell,'row'); }
 export function completedLines(grid,cell,axis) { const lines=axis?[selectedLine(cell,axis)].filter(Boolean):LINES.filter(line=>line.includes(cell));return lines.filter(line=>line.every(i=>grid[i])); }
 export const placePreview = (s,a) => activate(s,a);
 export function actions(s) {
@@ -67,16 +100,38 @@ export function activate(before,a) {
     const s=structuredClone(before);setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
   }
   if(before.screen!=='play'||!before.hand.includes(a.card)||!Number.isInteger(a.cell)||a.cell<0||a.cell>=9||before.grid[a.cell]||!['row','column'].includes(a.axis)||(a.face!==undefined&&a.face!==0)||(a.target!==undefined&&!attackTargets(before).some(e=>e.id===a.target)))return invalid();
-  const s=structuredClone(before),action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
+  const s=structuredClone(before);
+  s.gridTurf=s.gridTurf||Array(9).fill(null);
+  const action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
   if(!action.target)return invalid();
   s.hand.splice(s.hand.indexOf(a.card),1);s.grid[a.cell]=a.card;s.faces[a.card]=0;s.placements++;
   const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),complete=cells.length===3;
-  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null};
+  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0};
+  let extraDraws=0;
   for(const cell of cells){
-    const uid=s.grid[cell],d=def(uid),qualified=complete;
+    const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
+    if(s.gridTurf[cell]==='fortified'){
+      summary.block+=1;summary.events.push({type:'shield',cell,amount:1,value:summary.block,source:'turf-fortified',target:'hero'});
+    }
+    let extraHit=0;
+    if(s.gridTurf[cell]==='scorched'&&['attack','mixed','terrain-attack','disrupt-attack','heavy-attack'].includes(d.kind)){
+      extraHit=1;
+    }
+    if(type==='anvil') s.gridTurf[cell]='fortified';
+    else if(type==='scorch') s.gridTurf[cell]='scorched';
     for(const effect of d.effects){
-      const n=effect.op==='hit'&&cardType(uid)==='advance'&&qualified?2:effect.n;
+      let n=effect.n;
+      if(type==='advance'&&effect.op==='hit'&&qualified) n=2;
+      else if(type==='cross'&&effect.op==='hit'){
+        const perp=perpendicularLine(cell,a.axis);
+        n=perp.some(idx=>idx!==cell&&s.grid[idx])?3:1;
+      }
+      else if(type==='haven'&&effect.op==='block'&&qualified) n=3;
+      else if(type==='scout'&&qualified) extraDraws++;
+      else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
+      else if(type==='disrupt') summary.enemyAttackReduction+=1;
+      if(effect.op==='hit') n+=extraHit;
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
@@ -87,16 +142,25 @@ export function activate(before,a) {
       }
     }
   }
+  const hasStagger=cells.some(c=>cardType(s.grid[c])==='stagger');
+  if(hasStagger&&summary.hits>=4){
+    summary.enemyAttackReduction+=2;summary.events.push({type:'stagger',amount:2});
+  }
   if(complete)for(const cell of line){const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];}
   let shield=summary.block;
+  const attackReduction=summary.enemyAttackReduction||0;
   for(const e of attackTargets(s)){
-    const damage=getEnemyIntent(e).damage,blocked=Math.min(shield,damage),lost=Math.min(s.hp,damage-blocked);
+    const rawDamage=getEnemyIntent(e, s.phaseTurn).damage;
+    const damage=Math.max(0,rawDamage-attackReduction);
+    const blocked=Math.min(shield,damage),lost=Math.min(s.hp,damage-blocked);
     shield-=blocked;s.hp-=lost;summary.incoming+=damage;summary.prevented+=blocked;summary.enemyDamage+=lost;
-    summary.events.push({type:'enemy-attack',source:e.id,amount:damage,blocked,damage:lost,hp:s.hp,shield});
+    summary.events.push({type:'enemy-attack',source:e.id,amount:damage,rawDamage,blocked,damage:lost,hp:s.hp,shield});
   }
   summary.unusedBlock=shield;
-  // Exactly one draw follows a resolved placement, even when that placement ends combat.
-  summary.drawn=draw(s);s.turn++;s.phaseTurn++;
+  summary.drawn=draw(s);
+  if(extraDraws) draw(s);
+  s.turn++;s.phaseTurn++;
+  for(const e of s.enemies) e.attack = getEnemyIntent(e, s.phaseTurn).damage;
   if(s.hp<=0){s.screen='end';s.outcome='defeat';}
   else if(!attackTargets(s).length){s.screen=s.encounter===ENCOUNTERS.length?'end':'reward';s.outcome=s.screen==='end'?'victory':null;}
   summary.log=[`ضرر ${summary.hits} · حماية ${summary.block} · خسارة صحة ${summary.enemyDamage}`];s.last=summary;assertState(s);return {valid:true,state:s,summary};
@@ -106,7 +170,7 @@ export function assertState(s) {
   if(!Array.isArray(s.grid)||s.grid.length!==9)throw Error('Invalid grid');
   if(!Number.isInteger(s.hp)||s.hp<0||s.hp>s.maxHp)throw Error('Invalid health');
   if(!['title','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
-  if(s.deck.length!==12||new Set(s.deck).size!==12||STARTER_TYPES.some(type=>s.deck.filter(uid=>cardType(uid)===type).length!==4))throw Error('Invalid prototype roster');
+  if(s.deck.length!==12||new Set(s.deck).size!==12||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
   const zones=[...s.hand,...s.draw,...s.discard,...s.grid.filter(Boolean)];
   if(zones.length!==s.deck.length||new Set(zones).size!==zones.length||zones.some(uid=>!s.deck.includes(uid)||!def(uid)))throw Error('Invalid card zones');
   if(Object.values(s.faces).some(face=>face!==0))throw Error('Alternate faces removed');

@@ -7,8 +7,8 @@ function fixture(grid={},hand=['strike'],enemyHp=100){
   s.hand=hand.map(take);s.draw=pool;s.discard=[];s.enemies=[{id:'dummy',name:'هدف اختبار',hp:enemyHp,maxHp:enemyHp,attack:0,shield:0}];return s;
 }
 const place=(s,cell,axis='row',card=s.hand[0])=>activate(s,{card,cell,axis,target:s.enemies[0].id});
-test('only three new types, twelve physical cards, declared laboratory enemies',()=>{
-  const s=fresh();assert.deepEqual(Object.keys(cards),['strike','shelter','advance']);assert.equal(s.deck.length,12);assert.equal(s.hand.length,3);assert.equal(s.draw.length,9);assert.equal(ENCOUNTERS.length,3);assert.ok(ENCOUNTERS.every(e=>e.enemies.length===1));assertState(s);
+test('twelve physical cards, declared laboratory enemies and valid roster',()=>{
+  const s=fresh();assert.equal(s.deck.length,12);assert.equal(s.hand.length,3);assert.equal(s.draw.length,9);assert.equal(ENCOUNTERS.length,3);assert.ok(ENCOUNTERS.every(e=>e.enemies.length===1));assertState(s);
 });
 test('axis is required and face one/invalid targets are rejected without mutation',()=>{
   const s=start(fresh()),before=snapshot(s);const a={card:s.hand[0],cell:0};
