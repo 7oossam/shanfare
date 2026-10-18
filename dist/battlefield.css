@@ -70,6 +70,31 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .turf-scorched { color: #b3261e; display: inline-flex; align-items: center; width: auto; }
 .turf-scorched .icon { width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); }
 .all-mark { font-size: clamp(8px, 1.5dvh, 12px); margin-inline-start: 3px; padding: 0 4px; border-radius: 6px; background: #8a3b12; color: #ffe7b2; white-space: nowrap; vertical-align: middle; }
+/* Feedback for ground, weakening and telegraphs */
+.grid-cell.is-igniting { animation: ignite-flare .52s ease-out; }
+@keyframes ignite-flare { 0% { box-shadow: 0 0 0 #e8574a; } 35% { background: #ffb4a3; box-shadow: 0 0 22px 4px #e8574a, inset 0 0 0 3px #ff9a82; transform: scale(1.1); } 100% { box-shadow: 0 0 0 #e8574a; } }
+.grid-cell.is-fortifying { animation: fortify-flare .52s ease-out; }
+@keyframes fortify-flare { 0% { box-shadow: 0 0 0 #3da36b; } 35% { background: #bfeccd; box-shadow: 0 0 22px 4px #2e9b5c, inset 0 0 0 3px #7fd3a0; transform: scale(1.1); } 100% { box-shadow: 0 0 0 #3da36b; } }
+.pop-turf .pop-value { color: #ffd2b8; -webkit-text-stroke-color: #8a2a12; }
+.pop-turf small { background: #6b1f0fe8; color: #ffe1d1; }
+.pop-weaken .pop-value { color: #e7c8ff; -webkit-text-stroke-color: #4d2475; }
+.pop-weaken small { background: #3d1c5ce8; color: #f0dcff; }
+.enemy.is-weakened-unit .unit-hud { animation: weaken-sag .42s ease-out; }
+@keyframes weaken-sag { 30% { filter: saturate(.4) brightness(.8); transform: translateY(3px); } }
+.enemy-intent { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.enemy-intent.is-spike { color: #ffb4a0; text-shadow: 0 0 6px #e8574a; animation: spike-pulse 1.1s ease-in-out infinite alternate; }
+@keyframes spike-pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+.enemy-intent.is-weakened { color: #e7c8ff; animation: none; text-shadow: none; }
+.intent-rest { font-size: .85em; }
+.next-intent { font: 11px/1 Tahoma, Arial, sans-serif; opacity: .85; padding: 1px 4px; border-radius: 6px; background: #20140ccc; color: #ffe9ce; white-space: nowrap; }
+.grid-cell.is-vanishing > .slot-symbol, .grid-cell.is-vanishing > strong { animation: card-vanish .42s ease-in both; }
+@keyframes card-vanish { to { opacity: 0; transform: translateY(-10px) scale(.8); filter: blur(1px); } }
+.lesson-banner { position: absolute; top: 1%; left: 50%; transform: translateX(-50%); max-width: 78%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: lesson-fade 10s ease both; padding: 3px 9px; border-radius: 6px; background: #20140cd9; border: 1px solid #b99b6277; color: #ffe9ce; font: clamp(10px, 2.2dvh, 15px)/1.35 Tahoma, Arial, sans-serif; pointer-events: none; z-index: 6; }
+@keyframes lesson-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.lesson-banner b { color: #efbf75; margin-inline-end: 4px; }
+.duel-card.is-new { animation: card-draw .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes card-draw { from { opacity: 0; transform: translateY(46px) scale(.9); } to { opacity: 1; transform: none; } }
+.recap-line { font-weight: 700; color: #efbf75; }
 .vanish-badge { font-size: clamp(9px, 1.7dvh, 13px); padding: 0 5px; border-radius: 8px; background: #6b441d; color: #ffe7b2; white-space: nowrap; }
 .turf-level { font: 700 clamp(9px, 1.6dvh, 14px)/1 sans-serif; margin-inline-start: 1px; }
 .turf-fortified { color: #1e7a46; display: inline-flex; align-items: center; width: auto; }
