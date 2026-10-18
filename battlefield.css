@@ -426,3 +426,25 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
   .side-info .board-feedback > small { display: none !important; }
   .command-panel .side-info .confirm-play { min-height: 22px; }
 }
+
+/* ===== Run structure: relic choice, card reward, relic chip, carried shield ===== */
+.choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(3px, 1.2dvh, 12px); padding: clamp(4px, 1.5dvh, 16px) 10px; }
+.choice-screen h1 { margin: 0; font-size: clamp(20px, 5dvh, 40px); }
+.choice-screen p { margin: 0; font-size: clamp(12px, 2.6dvh, 20px); text-align: center; }
+.choice-row { display: flex; gap: clamp(6px, 1.4vw, 16px); justify-content: center; width: min(96%, 760px); }
+.choice-card { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: clamp(2px, .8dvh, 8px); padding: clamp(5px, 1.4dvh, 14px) clamp(5px, .8vw, 12px); border: 2px solid #a77c3a; border-radius: 8px; background: #f3e2bd; color: #35200d; font-family: inherit; cursor: pointer; transition: transform .12s, box-shadow .12s, background .12s; text-align: center; }
+.choice-card:hover, .choice-card:focus-visible { transform: translateY(-3px); background: #fff0c9; box-shadow: 0 6px 14px #5b3a1255; outline: 2px solid #e6a42e; }
+.choice-card:active { transform: scale(.98); }
+.choice-art { display: grid; place-items: center; width: clamp(30px, 9dvh, 70px); height: clamp(30px, 9dvh, 70px); border-radius: 50%; background: #5d3d17; color: #f3c87a; }
+.choice-art .icon { width: 60%; height: 60%; }
+.choice-card strong { font-size: clamp(13px, 3dvh, 22px); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: center; line-height: 1.2; }
+.choice-effect { font-size: clamp(14px, 3.2dvh, 24px); }
+.choice-card small { font-size: clamp(10px, 2.1dvh, 15px); line-height: 1.35; }
+.choice-next { opacity: .8; font-size: clamp(10px, 2dvh, 15px) !important; }
+@media (max-height: 340px) { .choice-next, .choice-screen > p:nth-of-type(2) { display: none; } .choice-card small { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; } }
+.relic-chip { display: inline-flex; align-items: center; gap: 4px; margin-inline-end: 8px; padding: 1px 7px; border-radius: 12px; border: 1px solid #a47734; background: #f7e1aa; color: #5d3d17; font: 700 clamp(9px, 1.9dvh, 14px)/1.3 Tahoma, Arial, sans-serif; white-space: nowrap; }
+.relic-chip .icon { width: 1.2em; height: 1.2em; }
+.carry-chip { margin-inline-end: 8px; display: inline-flex; align-items: center; gap: 2px; padding: 0 5px; border-radius: 10px; background: #113546e8; border: 1px solid #91cfe5; color: #d0f3ff; font: 700 clamp(9px, 1.9dvh, 13px)/1.4 Arial, sans-serif; z-index: 4; }
+.carry-chip .icon { width: 1em; height: 1em; }
+
+.screen-panel .recap-line { color: #7a4d12; }
