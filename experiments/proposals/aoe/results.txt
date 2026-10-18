@@ -1,0 +1,50 @@
+base 16                  E2(2en) dmg  win 20/20 hp 9.2 turns 8.2
+base 16                  E2(2en) safe win 20/20 hp 12.4 turns 10.4
+base 16                  E5(3en) dmg  win 20/20 hp 10.3 turns 7.9
+base 16                  E5(3en) safe win 20/20 hp 7.0 turns 10.6
+base 16                  E1(1en) dmg  win 20/20 hp 18.8 turns 4.8
+base 16                  E1(1en) safe win 20/20 hp 23.2 turns 6.0
+base 16                  E3(1en) dmg  win 20/20 hp 8.6 turns 8.0
+base 16                  E3(1en) safe win 19/20 hp 10.4 turns 10.2
+base 16                  E4(1en) dmg  win 20/20 hp 10.2 turns 10.4
+base 16                  E4(1en) safe win 20/20 hp 14.9 turns 14.2
+اجتياح ⚔️2 شامل ⏳        E2(2en) dmg  win 20/20 hp 10.8 turns 7.3 | played when held 10/18 (56%)
+اجتياح ⚔️2 شامل ⏳        E2(2en) safe win 20/20 hp 14.2 turns 10.4 | played when held 11/24 (46%)
+اجتياح ⚔️2 شامل ⏳        E5(3en) dmg  win 20/20 hp 10.3 turns 7.1 | played when held 10/10 (100%)
+اجتياح ⚔️2 شامل ⏳        E5(3en) safe win 19/20 hp 9.6 turns 9.3 | played when held 12/19 (63%)
+اجتياح ⚔️2 شامل ⏳        E1(1en) dmg  win 20/20 hp 18.9 turns 4.3 | played when held 4/14 (29%)
+اجتياح ⚔️2 شامل ⏳        E1(1en) safe win 20/20 hp 22.9 turns 6.0 | played when held 6/20 (30%)
+اجتياح ⚔️2 شامل ⏳        E3(1en) dmg  win 20/20 hp 7.3 turns 7.7 | played when held 9/17 (53%)
+اجتياح ⚔️2 شامل ⏳        E3(1en) safe win 19/20 hp 9.8 turns 9.8 | played when held 12/27 (44%)
+اجتياح ⚔️2 شامل ⏳        E4(1en) dmg  win 20/20 hp 8.6 turns 9.6 | played when held 11/21 (52%)
+اجتياح ⚔️2 شامل ⏳        E4(1en) safe win 20/20 hp 13.9 turns 13.2 | played when held 14/29 (48%)
+موجة ⚔️1 شامل (تبقى)     E2(2en) dmg  win 20/20 hp 10.4 turns 7.5 | played when held 9/23 (39%)
+موجة ⚔️1 شامل (تبقى)     E2(2en) safe win 20/20 hp 13.1 turns 10.6 | played when held 7/67 (10%)
+موجة ⚔️1 شامل (تبقى)     E5(3en) dmg  win 20/20 hp 9.4 turns 7.6 | played when held 10/16 (63%)
+موجة ⚔️1 شامل (تبقى)     E5(3en) safe win 19/20 hp 7.7 turns 9.6 | played when held 12/38 (32%)
+موجة ⚔️1 شامل (تبقى)     E1(1en) dmg  win 20/20 hp 18.9 turns 4.4 | played when held 1/17 (6%)
+موجة ⚔️1 شامل (تبقى)     E1(1en) safe win 20/20 hp 22.9 turns 6.0 | played when held 2/29 (7%)
+موجة ⚔️1 شامل (تبقى)     E3(1en) dmg  win 20/20 hp 7.0 turns 8.1 | played when held 5/39 (13%)
+موجة ⚔️1 شامل (تبقى)     E3(1en) safe win 19/20 hp 7.5 turns 10.3 | played when held 10/73 (14%)
+موجة ⚔️1 شامل (تبقى)     E4(1en) dmg  win 20/20 hp 8.5 turns 10.2 | played when held 5/63 (8%)
+موجة ⚔️1 شامل (تبقى)     E4(1en) safe win 20/20 hp 12.0 turns 13.8 | played when held 12/121 (10%)
+⚔️2 شامل (تبقى)          E2(2en) dmg  win 20/20 hp 10.3 turns 7.2 | played when held 10/13 (77%)
+⚔️2 شامل (تبقى)          E2(2en) safe win 20/20 hp 13.4 turns 10.2 | played when held 11/28 (39%)
+⚔️2 شامل (تبقى)          E5(3en) dmg  win 20/20 hp 10.8 turns 6.8 | played when held 10/10 (100%)
+⚔️2 شامل (تبقى)          E5(3en) safe win 20/20 hp 8.9 turns 8.6 | played when held 12/13 (92%)
+⚔️2 شامل (تبقى)          E1(1en) dmg  win 20/20 hp 18.8 turns 4.3 | played when held 5/8 (63%)
+⚔️2 شامل (تبقى)          E1(1en) safe win 20/20 hp 22.9 turns 6.0 | played when held 7/23 (30%)
+⚔️2 شامل (تبقى)          E3(1en) dmg  win 20/20 hp 6.8 turns 7.8 | played when held 9/17 (53%)
+⚔️2 شامل (تبقى)          E3(1en) safe win 19/20 hp 8.1 turns 10.1 | played when held 12/48 (25%)
+⚔️2 شامل (تبقى)          E4(1en) dmg  win 20/20 hp 8.6 turns 9.8 | played when held 11/17 (65%)
+⚔️2 شامل (تبقى)          E4(1en) safe win 20/20 hp 12.4 turns 13.6 | played when held 14/63 (22%)
+⚔️1 شامل 🛡️1 ⏳          E2(2en) dmg  win 20/20 hp 11.0 turns 7.4 | played when held 10/16 (63%)
+⚔️1 شامل 🛡️1 ⏳          E2(2en) safe win 20/20 hp 13.2 turns 10.7 | played when held 11/18 (61%)
+⚔️1 شامل 🛡️1 ⏳          E5(3en) dmg  win 20/20 hp 10.2 turns 7.7 | played when held 10/11 (91%)
+⚔️1 شامل 🛡️1 ⏳          E5(3en) safe win 19/20 hp 8.3 turns 9.8 | played when held 12/18 (67%)
+⚔️1 شامل 🛡️1 ⏳          E1(1en) dmg  win 20/20 hp 18.9 turns 4.3 | played when held 3/12 (25%)
+⚔️1 شامل 🛡️1 ⏳          E1(1en) safe win 20/20 hp 22.9 turns 6.0 | played when held 7/20 (35%)
+⚔️1 شامل 🛡️1 ⏳          E3(1en) dmg  win 20/20 hp 7.5 turns 7.8 | played when held 9/15 (60%)
+⚔️1 شامل 🛡️1 ⏳          E3(1en) safe win 18/20 hp 10.0 turns 10.1 | played when held 12/19 (63%)
+⚔️1 شامل 🛡️1 ⏳          E4(1en) dmg  win 20/20 hp 8.8 turns 9.9 | played when held 11/20 (55%)
+⚔️1 شامل 🛡️1 ⏳          E4(1en) safe win 19/20 hp 14.6 turns 13.7 | played when held 17/23 (74%)
