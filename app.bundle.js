@@ -41,7 +41,7 @@ const icon = id => `<svg class="icon icon-${id}" viewBox="0 0 24 24" aria-hidden
 
 // --- engine.mjs ---
 const VERSION = 'shanfara-duel-v9';
-const RULESET = 34;
+const RULESET = 35;
 const HAND_SIZE = 3;
 const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -61,6 +61,7 @@ const cards = {
   raid: {name:'غارة خاطفة',icon:'arrow',kind:'attack',vanish:true,effects:[{op:'hit',n:3}],text:'ألحق ٣ ضرر بعدو تختاره، ثم تزول.'},
   rampart: {name:'سور الممر',icon:'stone',kind:'defense',vanish:true,effects:[{op:'block',n:3}],text:'احصل على ٣ درع لرد الأعداء الحالي، ثم تزول.'},
   assault: {name:'اقتحام',icon:'swords',kind:'mixed',vanish:true,effects:[{op:'hit',n:2},{op:'block',n:1}],text:'ألحق ضررين بعدو تختاره واحصل على درع، ثم تزول.'},
+  sandstorm: {name:'عاصفة الرمل',icon:'spark',kind:'attack',vanish:true,effects:[{op:'hit',n:2,all:true}],text:'ألحق ٢ ضرر بكل الأعداء الأحياء، ثم تزول.'},
   stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
 };
 const alternates = {}, rewards = [];
@@ -70,7 +71,8 @@ const DECK_RECIPE = [
   'strike', 'shelter', 'advance',
   'cross', 'scout', 'haven',
   'anvil', 'scorch', 'disrupt',
-  'slam', 'raid', 'rampart', 'assault'
+  'slam', 'raid', 'rampart', 'assault',
+  'sandstorm'
 ];
 const isReward = () => false;
 const maneuverOptions = () => [];
@@ -158,7 +160,7 @@ function activate(before,a) {
   const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),
     // A vanishing (⏳) card passes through: it fires with the line, leaves, and never completes it.
     complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
-  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{}};
+  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{},targetHits:0};
   let extraDraws=0;const ignitions=[],vanishing=[];
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
@@ -185,23 +187,26 @@ function activate(before,a) {
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
-        const target=s.enemies.find(e=>e.id===action.target);
-        if(!target||target.hp<=0)continue;
-        const amount=Math.min(target.hp,n);target.hp-=amount;summary.hits+=amount;
-        summary.events.push({type:'damage',cell,source:uid,target:target.id,amount,hp:target.hp,fatal:target.hp===0});
+        // «شامل»: the same hit lands on every living enemy; otherwise only on the chosen target.
+        const victims=effect.all?s.enemies.filter(e=>e.hp>0):[s.enemies.find(e=>e.id===action.target)].filter(e=>e&&e.hp>0);
+        for(const target of victims){
+          const amount=Math.min(target.hp,n);target.hp-=amount;summary.hits+=amount;
+          if(target.id===action.target)summary.targetHits+=amount;
+          summary.events.push({type:'damage',cell,source:uid,target:target.id,amount,hp:target.hp,fatal:target.hp===0});
+        }
       }
     }
     if(heat){
       const target=s.enemies.find(e=>e.id===action.target);
       if(target&&target.hp>0){
-        const amount=Math.min(target.hp,heat);target.hp-=amount;summary.hits+=amount;
+        const amount=Math.min(target.hp,heat);target.hp-=amount;summary.hits+=amount;summary.targetHits+=amount;
         summary.effects.push({uid,card:uid,cell,op:'hit',n:heat,amount,target:action.target,source:'turf-scorched'});
         summary.events.push({type:'damage',cell,source:'turf-scorched',target:target.id,amount,hp:target.hp,fatal:target.hp===0});
       }
     }
   }
   const hasStagger=cells.some(c=>cardType(s.grid[c])==='stagger');
-  if(hasStagger&&summary.hits>=4){
+  if(hasStagger&&summary.targetHits>=4){
     summary.enemyAttackReduction+=2;summary.reductions[action.target]=(summary.reductions[action.target]||0)+2;summary.events.push({type:'stagger',amount:2,target:action.target});
   }
   // A vanishing card is spent as soon as it fires; a completed selected line is spent too.
@@ -587,7 +592,7 @@ function effectFormula(uid, s, face = 0, projected = null) {
   return c.effects.map(f => {
     const actual = projected?.summary.effects.find(e=>e.uid===uid&&e.op===f.op);
     const value = actual?.amount ?? f.n;
-    return stat(value, f.op==='block'?'shield':'swords');
+    return stat(value, f.op==='block'?'shield':'swords')+(f.all?'<small class="all-mark" title="كل الأعداء">للجميع</small>':'');
   }).join('<span class="effect-divider">·</span>');
 }
 function cardArt(uid,s,cls='') {
@@ -633,8 +638,8 @@ function hand(s,p,projected,busy) {
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-function gameView(s,p,animation=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="35">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation)}${rotationHint()}</main>`;}
-function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٦ ورقة · ١٣ نوعًا · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
+function gameView(s,p,animation=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="36">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation)}${rotationHint()}</main>`;}
+function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٧ ورقة · ١٤ نوعًا · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
 function rewardView(s){return `<main class="screen-panel"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p>المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')}</p><p>تستعيد صحتك كاملة وتبدأ بالشبكة والرزمة من جديد.</p>${button('ابدأ الاختبار التالي','continue','gold-button')}${rotationHint()}</main>`;}
 function endView(s){return `<main class="screen-panel end-screen"><h1>${s.outcome==='victory'?'اكتملت اختبارات التوليفات':s.outcome==='exhausted'?'نفدت الخيارات':'انتهت المواجهة'}</h1><p>${s.outcome==='victory'?'جرّب ترتيبًا آخر وقارن قرارات الهجوم والحماية.':s.outcome==='exhausted'?'لم تبق بطاقة قابلة للعب أو وسيلة لهزيمة الأعداء.':'جرّب توقيت إكمال الخط وتوزيع الهجوم والحماية.'}</p>${button('اختبار جديد','restart','gold-button')}${rotationHint()}</main>`;}
 function combatRecap(summary) {
@@ -682,7 +687,7 @@ let cancelCombat=null,resolving=null;
 try {
   const saved=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(saved?.state?.version===VERSION){
-    if(saved.state.ruleset!==34)localStorage.setItem(SAVE_KEY+'-before-v34',JSON.stringify(saved));
+    if(saved.state.ruleset!==35)localStorage.setItem(SAVE_KEY+'-before-v35',JSON.stringify(saved));
     s=migrateSave(saved.state);report=restore(saved.report,s);
   }
 }catch{}
