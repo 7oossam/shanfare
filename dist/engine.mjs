@@ -37,7 +37,7 @@ export const RELICS = {
   patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٢) يبقى للدور التالي.'}
 };
 export const RELIC_IDS = Object.keys(RELICS);
-export const CARRY_CAP = 2;
+export const CARRY_CAP = 1;
 export const isReward = () => false;
 export const maneuverOptions = () => [];
 const enemy = (id,name,hp,pattern,role='') => {
