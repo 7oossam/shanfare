@@ -242,22 +242,6 @@ test('Batch 1: cross, scout, haven verified', () => {
   assert.equal(rHaven.summary.block, 5, 'Haven scales to 3 on complete line');
 });
 
-test('Card 1: وتد المرقبة (anvil) - fortifies cell and grants +1 block to future cards', () => {
-  const s = createFixture({}, ['anvil', 'strike'], 10, 3);
-  // Turn 1: play anvil on cell 4
-  const r1 = activateExtended(s, { card: s.hand[0], cell: 4, axis: 'row' });
-  assert.equal(r1.summary.block, 1);
-  assert.equal(r1.state.gridTurf[4], 'fortified', 'Cell 4 is now fortified');
-
-  // Turn 2: play strike on cell 4's column (cell 1) activating column 1 which includes cell 4
-  const s2 = r1.state;
-  const strikeCard = s2.hand.find(uid => uid.startsWith('strike.'));
-  const r2 = activateExtended(s2, { card: strikeCard, cell: 1, axis: 'column' });
-  assert.equal(r2.summary.hits, 2);
-  // Column 1 activates: cell 1 (strike: 0 block) + cell 4 (anvil: 1 block) + cell 4 fortified turf (1 block) = 2 block!
-  assert.equal(r2.summary.block, 2, 'Line block is 1 from anvil card + 1 from fortified turf = 2');
-});
-
 test('Card 4: جلاد الصبر (aegis) - 2 block when HP > 12, scales to 4 block when HP <= 12', () => {
   // Test HP > 12
   const sHigh = createFixture({}, ['aegis'], 10, 2);

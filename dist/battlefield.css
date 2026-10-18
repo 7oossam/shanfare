@@ -65,12 +65,13 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .grid-cell.in-line, .grid-cell.is-preview { outline: 2px solid #e6a42e; background: #fff0c0; box-shadow: 0 0 10px #e2a43c, inset 0 0 0 3px #f6d27d; }
 .grid-cell.is-scorched { border-color: #b3261e; background-color: #f2a79b; box-shadow: inset 0 0 0 2px #e8756a, inset 0 0 0 3px #c0392b; }
 .grid-cell.is-scorched.in-line, .grid-cell.is-scorched.is-preview { background-color: #f6b9ac; }
-.grid-cell.is-fortified { border-color: #27ae60; background-color: #eafaf1; box-shadow: inset 0 0 0 2px #abebc6, inset 0 0 0 3px #2ecc71; }
+.grid-cell.is-fortified { border-color: #1e7a46; background-color: #a9dcb9; box-shadow: inset 0 0 0 2px #6fbf8b, inset 0 0 0 3px #1e7a46; }
 .turf-icon { position: absolute; top: 3px; left: 3px; width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); opacity: 0.9; pointer-events: none; z-index: 2; }
 .turf-scorched { color: #b3261e; display: inline-flex; align-items: center; width: auto; }
 .turf-scorched .icon { width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); }
 .turf-level { font: 700 clamp(9px, 1.6dvh, 14px)/1 sans-serif; margin-inline-start: 1px; }
-.turf-fortified { color: #27ae60; }
+.turf-fortified { color: #1e7a46; display: inline-flex; align-items: center; width: auto; }
+.turf-fortified .icon { width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); }
 .line-order { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #754b1b; color: #ffe7b2; font-size: 11px; font-family: sans-serif; }
 .instant-mark { position: absolute; bottom: 0; right: 2px; font-size: 8px; background: #6b441d; color: #ffecc9; padding: 1px 3px; border-radius: 2px; }
 .board-feedback { text-align: center; width: 100%; min-height: clamp(40px, 9dvh, 82px); flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-top: 1px solid #bd9a5b66; padding-top: 3px; }
