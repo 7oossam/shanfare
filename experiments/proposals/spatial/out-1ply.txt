@@ -1,0 +1,9 @@
+policy 1ply N 40 encounters 2,3,4
+baseline    E2 win 37/40 hp 6 cells 1.03/2 alone 37% dmg 3.20 | E3 win 40/40 hp 3 cells 1.06/2 alone 35% dmg 3.07 | E4 win 36/40 hp 1 cells 1.04/2 alone 35% dmg 3.01
+harvest     E2 win 39/40 hp 4 cells 1.02/2 alone 35% dmg 2.26 play 5% | E3 win 20/40 hp 4 cells 1.04/2 alone 37% dmg 2.29 play 13% | E4 win 40/40 hp 5 cells 1.01/2 alone 35% dmg 2.30 play 2%
+hoard       E2 win 37/40 hp 4 cells 1.02/2 alone 35% dmg 2.24 play 3% | E3 win 20/40 hp 3 cells 1.03/2 alone 35% dmg 2.25 play 10% | E4 win 40/40 hp 5 cells 1.01/2 alone 35% dmg 2.30 play 2%
+pillar ⚔️   E2 win 40/40 hp 4 cells 1.02/2 alone 35% dmg 2.49 play 24% | E3 win 33/40 hp 3 cells 1.02/2 alone 34% dmg 2.71 play 30% | E4 win 40/40 hp 4 cells 1.02/2 alone 35% dmg 2.41 play 13%
+pillar 🛡️  E2 win 38/40 hp 4 cells 1.03/2 alone 35% dmg 2.26 play 17% | E3 win 29/40 hp 2 cells 1.03/2 alone 35% dmg 2.24 play 17% | E4 win 40/40 hp 4 cells 1.03/2 alone 35% dmg 2.30 play 8%
+alternate   E2 win 38/40 hp 8 cells 1.04/2 alone 35% dmg 3.46 play 73% | E3 win 40/40 hp 6 cells 1.05/3 alone 37% dmg 3.61 play 81% | E4 win 40/40 hp 4 cells 1.06/3 alone 36% dmg 3.43 play 85%
+mirror ⚔️   E2 win 40/40 hp 4 cells 1.02/2 alone 35% dmg 2.49 play 24% | E3 win 33/40 hp 3 cells 1.02/2 alone 34% dmg 2.71 play 30% | E4 win 40/40 hp 4 cells 1.02/2 alone 35% dmg 2.41 play 13%
+mirror 🛡️  E2 win 38/40 hp 4 cells 1.03/2 alone 35% dmg 2.26 play 17% | E3 win 29/40 hp 2 cells 1.03/2 alone 35% dmg 2.24 play 17% | E4 win 40/40 hp 4 cells 1.03/2 alone 35% dmg 2.30 play 8%
