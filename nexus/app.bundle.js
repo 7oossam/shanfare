@@ -41,7 +41,7 @@ const icon = id => `<svg class="icon icon-${id}" viewBox="0 0 24 24" aria-hidden
 
 // --- engine.mjs ---
 const VERSION = 'shanfara-duel-v9';
-const RULESET = 36;
+const RULESET = 37;
 const HAND_SIZE = 3;
 const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -74,7 +74,7 @@ const REWARD_POOL = ['cross','scout','haven','anvil','scorch','disrupt','slam','
 const FULL_RECIPE = [...STARTER_RECIPE.slice(0,6),'cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
 // Relics change a rule instead of adding a card. One is chosen at the start of a run.
 const RELICS = {
-  turfseal: {name:'ختم المرقب',icon:'stone',text:'الأرض تبقى بعد اكتمال الخط، وكل إشعال أو تحصين يرفعها ٢ بدل ١.'},
+  turfseal: {name:'ختم المرقب',icon:'stone',text:'كل إشعال أو تحصين يرفع الأرض ٢ بدل ١.'},
   falcon: {name:'ريشة الصقر',icon:'bow',text:'كل بطاقة تزول تمنحك ١ درع عند زوالها.'},
   patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٢) يبقى للدور التالي.'}
 };
@@ -178,16 +178,18 @@ function activate(before,a) {
   const action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
   if(!action.target)return invalid();
   s.hand.splice(s.hand.indexOf(a.card),1);s.grid[a.cell]=a.card;s.faces[a.card]=0;s.placements++;
-  const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),
+  const line=selectedLine(a.cell,a.axis),selCells=line.filter(i=>s.grid[i]),
+    // «تفعيل متقاطع»: cards already standing on the crossing line fire too, but never complete or clear it.
+    crossCells=perpendicularLine(a.cell,a.axis).filter(i=>i!==a.cell&&s.grid[i]),cells=[...selCells,...crossCells],
     // A vanishing (⏳) card passes through: it fires with the line, leaves, and never completes it.
-    complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
+    complete=selCells.length===3&&!selCells.some(c=>def(s.grid[c]).vanish);
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{},targetHits:0};
   let extraDraws=0;const ignitions=[],vanishing=[];
   // «قربة الصبر»: the shield kept from the previous turn is available again.
   if(s.carryBlock>0){summary.block=s.carryBlock;summary.events.push({type:'shield',cell:a.cell,amount:s.carryBlock,value:summary.block,source:'relic-carry',target:'hero'});}
   s.carryBlock=0;
   for(const cell of cells){
-    const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
+    const uid=s.grid[cell],d=def(uid),qualified=complete&&selCells.includes(cell),type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
     if(d.vanish)vanishing.push(cell);
     const turf=s.gridTurf[cell],level=turf?(s.gridLevel[cell]||1):0,heat=turf==='scorched'?level:0;
@@ -242,11 +244,10 @@ function activate(before,a) {
   // A vanishing card is spent as soon as it fires; a completed selected line is spent too.
   const leaving=new Set(vanishing);
   if(complete)for(const cell of line)leaving.add(cell);
-  for(const cell of line){
+  for(const cell of cells){
     if(!leaving.has(cell)||!s.grid[cell])continue;
     const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
-    // «ختم المرقب» keeps the ground; otherwise a cleared line returns its cells to normal.
-    if(complete&&s.gridTurf[cell]&&s.relic!=='turfseal'){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
+    // الأرض ثابتة: ما أُشعل أو حُصّن يبقى حتى نهاية المواجهة ولو فُرّغت الخانة.
   }
   for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;
@@ -706,6 +707,7 @@ function board(s,p,projected,animation) {
   if(projected)grid[p.cell]=p.card;
   const chosen=projected?.summary.cells??animation?.activeCells??[];
   const complete=!!projected?.summary.lines.length;
+  const mainLine=projected?selectedLine(p.cell,p.axis):[];
   const otherAxis=p.axis==='row'?'column':'row';
   const alt=projected&&!animation?preview(s,{...p,axis:otherAxis}):null;
   const axisName=axis=>axis==='row'?'صف':'عمود';
@@ -718,7 +720,7 @@ function board(s,p,projected,animation) {
       const turfCls=turf==='fortified'?'is-fortified':turf==='scorched'?'is-scorched':'';
       const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}${(s.gridLevel?.[cell]||1)>1?`<b class="turf-level">${num(s.gridLevel[cell])}</b>`:''}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}${(s.gridLevel?.[cell]||1)>1?`<b class="turf-level">${num(s.gridLevel[cell])}</b>`:''}</span>`:'';
       const isPreview=projected&&p.cell===cell;
-      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${isPreview?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):turf==='scorched'?'، مشتعلة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}${isPreview?'، الاتجاه '+axisName(p.axis)+'، اضغط للتبديل':''}" ${animation?'disabled':''}>
+      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?(mainLine.includes(cell)?'in-line':'in-line is-cross'):''} ${animation?.cells.includes(cell)?'will-clear':''} ${isPreview?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):turf==='scorched'?'، مشتعلة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}${isPreview?'، الاتجاه '+axisName(p.axis)+'، اضغط للتبديل':''}" ${animation?'disabled':''}>
       ${turfBadge}
       ${c?`<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>`:'<span class="empty-plus">+</span>'}
       ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}${isPreview?`<b class="dir-badge" aria-hidden="true">${axisArrow(p.axis)}</b>`:''}</button>`;
@@ -742,7 +744,7 @@ function hand(s,p,projected,busy,fresh=null) {
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="39">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
+function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="40">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
 function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>٩ بطاقات أساسية · بطاقة جديدة بعد كل مواجهة · ريلكس واحد · يد من ٣</small></div>${rotationHint()}</main>`;}
 const turnsText = n => n === 1 ? 'دور واحد' : n === 2 ? 'دورين' : n <= 10 ? `${num(n)} أدوار` : `${num(n)} دورًا`;
 const cardChoice = (type, s, action, extra = '') => { const uid = `${type}.x`, c = def(uid, s); return `<button class="choice-card" data-action="${action}" ${extra} aria-label="${esc(c.name)}: ${esc(c.text)}"><span class="choice-art" aria-hidden="true">${icon(c.icon)}</span><strong>${esc(c.name)}${c.vanish ? '<span class="vanish-badge">⏳ تزول</span>' : ''}</strong><span class="choice-effect">${effectFormula(uid, s)}</span><small>${esc(c.text)}</small></button>`; };
@@ -799,7 +801,7 @@ let cancelCombat=null,resolving=null;
 try {
   const saved=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(saved?.state?.version===VERSION){
-    if(saved.state.ruleset!==36)localStorage.setItem(SAVE_KEY+'-before-v36',JSON.stringify(saved));
+    if(saved.state.ruleset!==37)localStorage.setItem(SAVE_KEY+'-before-v37',JSON.stringify(saved));
     s=migrateSave(saved.state);report=restore(saved.report,s);
   }
 }catch{}
@@ -829,7 +831,7 @@ function requestFullscreenFromGesture(explicit = false) {
 for (const event of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(event, () => { releaseLandscapeLock(); syncFullscreenControls(); });
 function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2>${title}</h2>${button('×', 'close', '', false, 'إغلاق')}</header>${body}`; if (!menu.open) menu.showModal(); }
 
-function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
+function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل حين يُختار خطها، وكذلك حين تُوضع بطاقة في الخط المتعامد معها. تبقى حتى يكتمل خطها المختار فيُفرَّغ؛ والأرض تبقى حتى نهاية المواجهة.</p></div>`);}
 function help(){show('مختبر التوليفات','<ol><li>اسحب بطاقة إلى خانة فارغة (أو اضغط البطاقة ثم الخانة). اضغط الخانة المختارة مرة أخرى لتبديل التفعيل بين صف وعمود؛ ويتذكر اللعب آخر اتجاه استخدمته. مفتاح X يبدّل أيضًا.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
 let beatTimer=null;
 function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=startRun(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}

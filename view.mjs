@@ -1,4 +1,4 @@
-import { def, cardType, activate, attackTargets, targetForAction, getEnemyIntent, ENCOUNTERS, RELICS } from './engine.mjs?v=32';
+import { def, cardType, activate, selectedLine, attackTargets, targetForAction, getEnemyIntent, ENCOUNTERS, RELICS } from './engine.mjs?v=32';
 import { icon } from './icons.mjs?v=9';
 import { fullscreenActive, fullscreenSupported } from './fullscreen.mjs?v=9';
 export const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -42,6 +42,7 @@ function board(s,p,projected,animation) {
   if(projected)grid[p.cell]=p.card;
   const chosen=projected?.summary.cells??animation?.activeCells??[];
   const complete=!!projected?.summary.lines.length;
+  const mainLine=projected?selectedLine(p.cell,p.axis):[];
   const otherAxis=p.axis==='row'?'column':'row';
   const alt=projected&&!animation?preview(s,{...p,axis:otherAxis}):null;
   const axisName=axis=>axis==='row'?'صف':'عمود';
@@ -54,7 +55,7 @@ function board(s,p,projected,animation) {
       const turfCls=turf==='fortified'?'is-fortified':turf==='scorched'?'is-scorched':'';
       const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}${(s.gridLevel?.[cell]||1)>1?`<b class="turf-level">${num(s.gridLevel[cell])}</b>`:''}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}${(s.gridLevel?.[cell]||1)>1?`<b class="turf-level">${num(s.gridLevel[cell])}</b>`:''}</span>`:'';
       const isPreview=projected&&p.cell===cell;
-      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${isPreview?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):turf==='scorched'?'، مشتعلة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}${isPreview?'، الاتجاه '+axisName(p.axis)+'، اضغط للتبديل':''}" ${animation?'disabled':''}>
+      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?(mainLine.includes(cell)?'in-line':'in-line is-cross'):''} ${animation?.cells.includes(cell)?'will-clear':''} ${isPreview?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):turf==='scorched'?'، مشتعلة'+((s.gridLevel?.[cell]||1)>1?' ×'+num(s.gridLevel[cell]):''):''}${c?'، '+esc(c.name):' فارغة'}${isPreview?'، الاتجاه '+axisName(p.axis)+'، اضغط للتبديل':''}" ${animation?'disabled':''}>
       ${turfBadge}
       ${c?`<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>`:'<span class="empty-plus">+</span>'}
       ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}${isPreview?`<b class="dir-badge" aria-hidden="true">${axisArrow(p.axis)}</b>`:''}</button>`;
@@ -78,7 +79,7 @@ function hand(s,p,projected,busy,fresh=null) {
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-export function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="39">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
+export function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="40">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
 export function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>٩ بطاقات أساسية · بطاقة جديدة بعد كل مواجهة · ريلكس واحد · يد من ٣</small></div>${rotationHint()}</main>`;}
 const turnsText = n => n === 1 ? 'دور واحد' : n === 2 ? 'دورين' : n <= 10 ? `${num(n)} أدوار` : `${num(n)} دورًا`;
 const cardChoice = (type, s, action, extra = '') => { const uid = `${type}.x`, c = def(uid, s); return `<button class="choice-card" data-action="${action}" ${extra} aria-label="${esc(c.name)}: ${esc(c.text)}"><span class="choice-art" aria-hidden="true">${icon(c.icon)}</span><strong>${esc(c.name)}${c.vanish ? '<span class="vanish-badge">⏳ تزول</span>' : ''}</strong><span class="choice-effect">${effectFormula(uid, s)}</span><small>${esc(c.text)}</small></button>`; };
