@@ -54,3 +54,9 @@ test('Combat feedback reflects actual damage, block, response and clearing in or
   assert.ok(timeline.frames.some(f=>f.event.type==='clear'));
   assert.equal(r.summary.hits,r.summary.events.filter(e=>e.type==='damage').reduce((n,e)=>n+e.amount,0));
 });
+test('placement preview shows the chosen direction, its badge and the other direction numbers',async()=>{
+  const {fresh,start}=await import('../dist/engine.mjs');const {gameView}=await import('../dist/view.mjs');
+  const s=start(fresh());const html=gameView(s,{card:s.hand[0],cell:4,axis:'column',target:null});
+  assert.match(html,/class="dir-badge"[^>]*>↓/);assert.match(html,/data-axis="column" aria-pressed="true"/);assert.match(html,/alt-hint/);assert.match(html,/صف:/);
+  const idle=gameView(s,{card:null,cell:null,axis:null,target:null});assert.ok(!/dir-badge/.test(idle));assert.match(idle,/اختر بطاقة/);
+});
