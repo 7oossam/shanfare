@@ -20,6 +20,16 @@ function getContext() {
   return ctx;
 }
 
+// Short vibration on touch devices; independent of the sound mute, off under reduced motion.
+export function haptic(type) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const pattern = { hurt: [30], kill: [18], block: [12], ignite: [10], fortify: [10], weaken: [8] }[type];
+    if (pattern) navigator.vibrate(pattern);
+  } catch {}
+}
+
 export function isMuted() {
   return muted;
 }
@@ -162,6 +172,49 @@ export function playSfx(type) {
         gain.connect(c.destination);
         noise.start(now);
         noise.stop(now + 0.55);
+        break;
+      }
+
+      case 'ignite': {
+        // Fire catching: a crackle of grit with a rising ember tone
+        const noise = c.createBufferSource(); noise.buffer = createNoiseBuffer(c, 0.3);
+        const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.setValueAtTime(1800, now);
+        const g = c.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.14, now + 0.04); g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        noise.connect(hp); hp.connect(g); g.connect(c.destination); noise.start(now); noise.stop(now + 0.3);
+        const o = c.createOscillator(), og = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(220, now); o.frequency.exponentialRampToValueAtTime(560, now + 0.22);
+        og.gain.setValueAtTime(0.05, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.24); o.connect(og); og.connect(c.destination); o.start(now); o.stop(now + 0.25);
+        break;
+      }
+
+      case 'fortify': {
+        // Stone set into the ground: heavy thud with a short ring
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(48, now + 0.2);
+        g.gain.setValueAtTime(0.3, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.22); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.23);
+        const r = c.createOscillator(), rg = c.createGain(); r.type = 'triangle'; r.frequency.setValueAtTime(330, now + 0.02);
+        rg.gain.setValueAtTime(0.08, now + 0.02); rg.gain.exponentialRampToValueAtTime(0.001, now + 0.2); r.connect(rg); rg.connect(c.destination); r.start(now + 0.02); r.stop(now + 0.21);
+        break;
+      }
+
+      case 'weaken': {
+        // The enemy's strength sagging
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(320, now); o.frequency.exponentialRampToValueAtTime(110, now + 0.24);
+        g.gain.setValueAtTime(0.16, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.26); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.27);
+        break;
+      }
+
+      case 'kill': {
+        // A fallen enemy: low thump with a short dust burst
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, now); o.frequency.exponentialRampToValueAtTime(42, now + 0.26);
+        g.gain.setValueAtTime(0.28, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.28); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.29);
+        const noise = c.createBufferSource(); noise.buffer = createNoiseBuffer(c, 0.25); const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(700, now);
+        const ng = c.createGain(); ng.gain.setValueAtTime(0.1, now); ng.gain.exponentialRampToValueAtTime(0.001, now + 0.24); noise.connect(lp); lp.connect(ng); ng.connect(c.destination); noise.start(now); noise.stop(now + 0.25);
+        break;
+      }
+
+      case 'draw': {
+        // A card flicked into the hand
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(700, now); o.frequency.exponentialRampToValueAtTime(1150, now + 0.05);
+        g.gain.setValueAtTime(0.06, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.07); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.08);
         break;
       }
 

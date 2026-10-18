@@ -1,7 +1,7 @@
 import { VERSION, migrateSave, fresh, start, activate, def, targetForAction } from './engine.mjs?v=32';
 import { begin, record, restore, textReport } from './report.mjs?v=9';
 import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=32';
-import { playSfx, toggleMute, isMuted } from './audio.mjs?v=9';
+import { playSfx, toggleMute, isMuted, haptic } from './audio.mjs?v=9';
 import { fullscreenActive, enterGameFullscreen, exitGameFullscreen, releaseLandscapeLock } from './fullscreen.mjs?v=9';
 import { playCombatFeedback } from './combat-feedback.mjs?v=9';
 const SAVE_KEY='shanfara-duel-v9';
@@ -17,7 +17,10 @@ try {
   }
 }catch{}
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({state:s,report}));}catch{document.querySelector('#live').textContent='تعذّر الحفظ على الجهاز.';}}
-function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving);}
+let announcedDraw=null;
+// A newly drawn card slides in once, not again on every later re-render.
+function freshDraw(){const d=s.last?.kind==='turn'?s.last.drawn:null;if(d&&d!==announcedDraw){announcedDraw=d;return d;}return null;}
+function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving,resolving?null:freshDraw());}
 function syncFullscreenControls() {
   const template = document.createElement('template');
   template.innerHTML = fullscreenButton();
@@ -41,7 +44,8 @@ function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2
 
 function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
 function help(){show('مختبر التوليفات','<ol><li>اختر بطاقة، واتجاهًا: صف أو عمود، وخانة فارغة.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
-function newGame(){cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
+let beatTimer=null;
+function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
 function commit(a){
   if(resolving)return;
   const before=s,result=activate(before,a);if(!result.valid)return;
@@ -51,16 +55,22 @@ function commit(a){
   const grid=[...before.grid];grid[a.cell]=a.card;
   resolving={grid,cells:result.summary.clearedCells,activeCells:result.summary.cells};
   root.innerHTML=gameView({...before,hand:s.hand,last:null},selection,resolving);
-  cancelCombat=playCombatFeedback({root,summary:result.summary,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,onSound:playSfx,onComplete:()=>{
-    resolving=null;cancelCombat=null;render();
-    if(s.screen==='reward'||s.outcome==='victory')playSfx('victory');else if(s.outcome==='defeat')playSfx('defeat');
+  cancelCombat=playCombatFeedback({root,summary:result.summary,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,onSound:type=>{playSfx(type);haptic(type);},onComplete:()=>{
+    resolving=null;cancelCombat=null;
+    if(s.screen==='reward'||s.screen==='end'){
+      // Hold the final board for a beat so the last blow lands before the result screen.
+      root.innerHTML=gameView({...s,screen:'play',last:null},selection,null);
+      if(s.screen==='reward'||s.outcome==='victory')playSfx('victory');else if(s.outcome==='defeat')playSfx('defeat');
+      beatTimer=setTimeout(()=>{beatTimer=null;render();},matchMedia('(prefers-reduced-motion: reduce)').matches?300:1000);
+    }else{render();if(s.last?.drawn)playSfx('draw');}
   }});
-  document.querySelector('#live').textContent=`ألحقت ${num(result.summary.hits)} ضرر. اكتسبت ${num(result.summary.block)} حماية. منعت ${num(result.summary.prevented)} ضرر. خسرت ${num(result.summary.enemyDamage)} صحة.`;
+  document.querySelector('#live').textContent=`ألحقت ${num(result.summary.hits)} ضرر. اكتسبت ${num(result.summary.block)} حماية. منعت ${num(result.summary.prevented)} ضرر. خسرت ${num(result.summary.enemyDamage)} صحة.${result.summary.enemyAttackReduction?` خُفّض هجوم العدو ${num(result.summary.enemyAttackReduction)}.`:''}${result.summary.events.some(e=>e.type==='ignite')?' صارت الخانة مشتعلة.':''}${result.summary.events.some(e=>e.type==='fortify')?' صارت الخانة محصنة.':''}`;
 }
 function action(name){
   if(name==='close'){menu.close();return;}
   if(name==='fullscreen'){requestFullscreenFromGesture(true);return;}
   if(name==='restart'){requestFullscreenFromGesture();newGame();return;}
+  if(name==='retry'){commit({kind:'retry'});return;}
   if(name==='help'){help();return;}
   if(name==='menu'){show('الشنفرى · مختبر التوليفات',`<nav class="menu-options">${button('أكمل اللعب','close','gold-button')}${button('شرح اللعب','help')}${button(isMuted()?'تشغيل الصوت':'كتم الصوت','audio')}${button('تحميل تقرير اللعب','export')}${button('ابدأ من جديد','restart')}</nav><p>السحب ${num(s.draw.length)} · المستهلك ${num(s.discard.length)} · الرزمة ${num(s.deck.length)}</p>`);return;}
   if(name==='audio'){toggleMute();menu.close();return;}

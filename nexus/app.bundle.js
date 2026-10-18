@@ -147,6 +147,11 @@ function actions(s) {
 function activate(before,a) {
   const invalid=()=>({valid:false,state:before,summary:null});
   if(!a || before?.version!==VERSION || before.ruleset!==RULESET)return invalid();
+  if(before.screen==='end'){
+    // After a defeat the same encounter can be retried with full health; the campaign is not lost.
+    if((a.kind??a.type)!=='retry'||before.outcome!=='defeat')return invalid();
+    const s=structuredClone(before);setupEncounter(s,s.encounter);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
+  }
   if(before.screen==='reward'){
     if((a.kind??a.type)!=='continue' || before.encounter>=ENCOUNTERS.length)return invalid();
     const s=structuredClone(before);setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
@@ -183,7 +188,7 @@ function activate(before,a) {
       else if(type==='slam'&&effect.op==='hit') n=summary.block;
       else if(type==='scout'&&qualified) extraDraws++;
       else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
-      else if(type==='disrupt'){summary.enemyAttackReduction+=1;summary.reductions[action.target]=(summary.reductions[action.target]||0)+1;}
+      else if(type==='disrupt'){summary.enemyAttackReduction+=1;summary.reductions[action.target]=(summary.reductions[action.target]||0)+1;summary.events.push({type:'weaken',cell,target:action.target,amount:1});}
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
@@ -196,6 +201,7 @@ function activate(before,a) {
         }
       }
     }
+    if(d.vanish)summary.events.push({type:'vanish',cell,card:uid});
     if(heat){
       const target=s.enemies.find(e=>e.id===action.target);
       if(target&&target.hp>0){
@@ -287,6 +293,16 @@ function getContext() {
     ctx.resume().catch(() => {});
   }
   return ctx;
+}
+
+// Short vibration on touch devices; independent of the sound mute, off under reduced motion.
+function haptic(type) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const pattern = { hurt: [30], kill: [18], block: [12], ignite: [10], fortify: [10], weaken: [8] }[type];
+    if (pattern) navigator.vibrate(pattern);
+  } catch {}
 }
 
 function isMuted() {
@@ -434,6 +450,49 @@ function playSfx(type) {
         break;
       }
 
+      case 'ignite': {
+        // Fire catching: a crackle of grit with a rising ember tone
+        const noise = c.createBufferSource(); noise.buffer = createNoiseBuffer(c, 0.3);
+        const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.setValueAtTime(1800, now);
+        const g = c.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.14, now + 0.04); g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        noise.connect(hp); hp.connect(g); g.connect(c.destination); noise.start(now); noise.stop(now + 0.3);
+        const o = c.createOscillator(), og = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(220, now); o.frequency.exponentialRampToValueAtTime(560, now + 0.22);
+        og.gain.setValueAtTime(0.05, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.24); o.connect(og); og.connect(c.destination); o.start(now); o.stop(now + 0.25);
+        break;
+      }
+
+      case 'fortify': {
+        // Stone set into the ground: heavy thud with a short ring
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(48, now + 0.2);
+        g.gain.setValueAtTime(0.3, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.22); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.23);
+        const r = c.createOscillator(), rg = c.createGain(); r.type = 'triangle'; r.frequency.setValueAtTime(330, now + 0.02);
+        rg.gain.setValueAtTime(0.08, now + 0.02); rg.gain.exponentialRampToValueAtTime(0.001, now + 0.2); r.connect(rg); rg.connect(c.destination); r.start(now + 0.02); r.stop(now + 0.21);
+        break;
+      }
+
+      case 'weaken': {
+        // The enemy's strength sagging
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(320, now); o.frequency.exponentialRampToValueAtTime(110, now + 0.24);
+        g.gain.setValueAtTime(0.16, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.26); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.27);
+        break;
+      }
+
+      case 'kill': {
+        // A fallen enemy: low thump with a short dust burst
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, now); o.frequency.exponentialRampToValueAtTime(42, now + 0.26);
+        g.gain.setValueAtTime(0.28, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.28); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.29);
+        const noise = c.createBufferSource(); noise.buffer = createNoiseBuffer(c, 0.25); const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(700, now);
+        const ng = c.createGain(); ng.gain.setValueAtTime(0.1, now); ng.gain.exponentialRampToValueAtTime(0.001, now + 0.24); noise.connect(lp); lp.connect(ng); ng.connect(c.destination); noise.start(now); noise.stop(now + 0.25);
+        break;
+      }
+
+      case 'draw': {
+        // A card flicked into the hand
+        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(700, now); o.frequency.exponentialRampToValueAtTime(1150, now + 0.05);
+        g.gain.setValueAtTime(0.06, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.07); o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + 0.08);
+        break;
+      }
+
       case 'victory': {
         // Arabian desert modal arpeggio (Bayati / Rast cadence: D - F - G - A - D')
         const notes = [293.66, 349.23, 392.00, 440.00, 587.33];
@@ -534,21 +593,24 @@ function playCombatFeedback({root,summary,onComplete,onSound = () => {},reduced 
   const arena = root.querySelector('.battle-arena');
   if (!arena) {onComplete();return () => {};}
   const layer = document.createElement('div');layer.className='combat-fx';layer.setAttribute('aria-hidden','true');arena.append(layer);
-  const timers = new Set();let cancelled=false;const lanes=new Map();
+  const timers = new Set();let cancelled=false;const lanes=new Map();const cut={};
   const later=(fn,ms)=>{const id=setTimeout(()=>{timers.delete(id);if(!cancelled)fn();},ms);timers.add(id);};
   const unit=target=>target==='hero'?root.querySelector('.hero-combatant'):root.querySelector(`[data-target="${target}"]`);
   const pulse=(element,name,duration=320)=>{if(!element)return;element.classList.remove(name);void element.offsetWidth;element.classList.add(name);later(()=>element.classList.remove(name),duration);};
   const hp=(target,value)=>{const element=unit(target);const count=target==='hero'?element?.querySelector('[data-hero-hp]'):element?.querySelector('[data-enemy-hp]');const max=Number(element?.dataset.maxHp)||24;if(count)count.textContent=`${combatNumber(value)} / ${combatNumber(max)}`;const bar=element?.querySelector('.hp-track i');if(bar)bar.style.width=`${value/max*100}%`;if(target==='hero'){const header=root.querySelector('[data-player-hp]');if(header)header.textContent=`${combatNumber(value)} / ${combatNumber(max)}`;}};
   const anchor=target=>{const element=unit(target);const a=arena.getBoundingClientRect();const r=element?.getBoundingClientRect();return r?{x:r.left-a.left+r.width*(target==='hero'?.54:.5),y:r.top-a.top+r.height*.25}:{x:a.width*.3,y:a.height*.4};};
-  const pop=(target,amount,kind,label,ico)=>{if(!amount)return;const {x,y}=anchor(target);const lane=(lanes.get(target)??0)%3;lanes.set(target,lane+1);const node=document.createElement('div');node.className=`combat-pop pop-${kind}${reduced?' is-still':''}`;node.dataset.amount=amount;node.dataset.target=target;const dx=target==='hero'?(kind==='blocked'?48:kind==='damage'?-38:kind==='shield'?-46:6):[0,-24,24][lane];const dy=target==='hero'?8:lane*20;node.style.left=`${x+dx}px`;node.style.top=`${Math.max(42,y+dy)}px`;node.innerHTML=`<span class="pop-value" dir="ltr">${kind==='shield'||kind==='heal'||kind==='momentum'?'+':kind==='damage'?'−':''}${combatNumber(amount)}${icon(ico)}</span><small>${label}</small>`;layer.append(node);later(()=>node.remove(),1050);};
+  const pop=(target,amount,kind,label,ico)=>{if(!amount)return;const {x,y}=anchor(target);const lane=(lanes.get(target)??0)%3;lanes.set(target,lane+1);const node=document.createElement('div');node.className=`combat-pop pop-${kind}${reduced?' is-still':''}`;node.dataset.amount=amount;node.dataset.target=target;const dx=target==='hero'?(kind==='blocked'?48:kind==='damage'?-38:kind==='shield'?-46:6):[0,-24,24][lane];const dy=target==='hero'?8:lane*20;node.style.left=`${x+dx}px`;node.style.top=`${Math.max(42,y+dy)}px`;node.innerHTML=`<span class="pop-value" dir="ltr">${kind==='shield'||kind==='heal'||kind==='momentum'?'+':kind==='damage'||kind==='turf'||kind==='weaken'?'−':''}${combatNumber(amount)}${icon(ico)}</span><small>${label}</small>`;layer.append(node);later(()=>node.remove(),1050);};
   const impact=(target,kind)=>{const {x,y}=anchor(target);const node=document.createElement('span');node.className=`combat-impact impact-${kind}`;node.style.left=`${x}px`;node.style.top=`${y+15}px`;node.innerHTML=Array.from({length:6},(_,i)=>`<i style="--angle:${i*60}deg"></i>`).join('');layer.append(node);later(()=>node.remove(),450);};
   const shield=document.createElement('div');shield.className='combat-shield';shield.innerHTML=`${icon('shield')}<b>٠</b><small>درع</small>`;layer.append(shield);
   const setShield=value=>{const {x,y}=anchor('hero');shield.style.left=`${x-45}px`;shield.style.top=`${y+45}px`;shield.querySelector('b').textContent=combatNumber(value);shield.classList.toggle('is-visible',value>0);};
   const process=event=>{
     if(event.type==='activate')pulse(root.querySelector(`[data-cell="${event.cell}"]`),'is-firing');
     else if(event.type==='risk')pulse(root.querySelector(`[data-cell="${event.cell}"]`),'is-risk-triggered',400);
-    else if(event.type==='damage'){hp(event.target,event.hp);pop(event.target,event.amount,event.source==='bleed'?'bleed':'damage',event.source==='bleed'?'نزيف':'ضرر',event.source==='bleed'?'bleed':'swords');impact(event.target,event.source==='bleed'?'bleed':'hit');pulse(unit(event.target),'is-hit');onSound(event.source==='bleed'?'knife':'hit');if(event.fatal)later(()=>unit(event.target)?.classList.add('is-fallen'),150);}
-    else if(event.type==='shield'){setShield(event.value);pop('hero',event.amount,'shield','درع','shield');pulse(shield,'shield-gained');onSound('guard');}
+    else if(event.type==='damage'){const turf=event.source==='turf-scorched',bleed=event.source==='bleed';hp(event.target,event.hp);pop(event.target,event.amount,bleed?'bleed':turf?'turf':'damage',bleed?'نزيف':turf?'أرض مشتعلة':'ضرر',bleed?'bleed':turf?'fire':'swords');impact(event.target,bleed?'bleed':'hit');pulse(unit(event.target),'is-hit');onSound(bleed?'knife':'hit');if(event.fatal){later(()=>unit(event.target)?.classList.add('is-fallen'),150);later(()=>onSound('kill'),120);}}
+    else if(event.type==='shield'){const turf=event.source==='turf-fortified';setShield(event.value);pop('hero',event.amount,'shield',turf?'أرض محصنة':'درع',turf?'stone':'shield');pulse(shield,'shield-gained');onSound('guard');}
+    else if(event.type==='weaken'||event.type==='stagger'){const id=event.target;cut[id]=(cut[id]||0)+event.amount;const el=root.querySelector(`[data-intent="${id}"]`);if(el){const raw=Number(el.dataset.raw)||0;const value=el.querySelector('.icon-stat b');if(value)value.textContent=combatNumber(Math.max(0,raw-cut[id]));el.classList.add('is-weakened');}pop(id,event.amount,'weaken',event.type==='stagger'?'ترنح':'إضعاف',event.type==='stagger'?'spark':'feint');pulse(unit(id),'is-weakened-unit',420);onSound('weaken');}
+    else if(event.type==='ignite'||event.type==='fortify'){const el=root.querySelector(`[data-cell="${event.cell}"]`);el?.classList.add(event.type==='ignite'?'is-scorched':'is-fortified');pulse(el,event.type==='ignite'?'is-igniting':'is-fortifying',520);onSound(event.type);}
+    else if(event.type==='vanish'){const el=root.querySelector(`[data-cell="${event.cell}"]`);if(el&&!reduced){el.classList.add('is-vanishing');later(()=>el.classList.remove('is-vanishing'),420);}}
     else if(event.type==='momentum'){const count=root.querySelector('[data-momentum]');if(count)count.textContent=combatNumber(event.value);pulse(root.querySelector('.momentum-count'),'resource-pulse');pop('hero',event.amount,'momentum','زخم','fire');}
     else if(event.type==='momentum-spend'){const count=root.querySelector('[data-momentum]');if(count)count.textContent=combatNumber(event.value);}
     else if(event.type==='heal'){hp('hero',event.hp);pop('hero',event.amount,'heal','تعافٍ','heart');}
@@ -629,19 +691,20 @@ function board(s,p,projected,animation) {
     ${button('نفّذ التوليفة','confirm-play','confirm-play gold-button',!projected||!!animation)}
   </aside>`;
 }
-function hand(s,p,projected,busy) {
+function hand(s,p,projected,busy,fresh=null) {
   return `<section class="hand-panel" aria-label="بطاقات اليد">${slice(0,635,1672,306,'template-art','blank-template.png')}<div class="hand-cards">${s.hand.map(uid=>{
     const selected=p.card===uid,c=def(uid,s);
-    return `<article class="duel-card ${selected?'is-selected':''}" data-hand-card="${uid}"><button class="card-art-button" data-card="${uid}" ${busy?'disabled':''} aria-label="اختر ${esc(c.name)}">${cardArt(uid,s,'hand-art')}</button><div class="card-name"><strong>${esc(c.name)}</strong>${c.vanish?'<span class="vanish-badge" title="تزول بعد التفعيل">⏳ تزول</span>':''}<button class="card-details" data-info="${uid}" aria-label="شرح ${esc(c.name)}">ⓘ</button></div>
+    return `<article class="duel-card ${selected?'is-selected':''} ${uid===fresh?'is-new':''}" data-hand-card="${uid}"><button class="card-art-button" data-card="${uid}" ${busy?'disabled':''} aria-label="اختر ${esc(c.name)}">${cardArt(uid,s,'hand-art')}</button><div class="card-name"><strong>${esc(c.name)}</strong>${c.vanish?'<span class="vanish-badge" title="تزول بعد التفعيل">⏳ تزول</span>':''}<button class="card-details" data-info="${uid}" aria-label="شرح ${esc(c.name)}">ⓘ</button></div>
     <button class="card-face ${selected?'is-active':''}" data-card="${uid}" aria-pressed="${selected}" ${busy?'disabled':''} aria-label="${esc(c.text)}"><span class="face-effect">${effectFormula(uid,s,0,selected?projected:null)}</span></button>
     <small class="card-rule">${esc(c.text)}</small></article>`;
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-function gameView(s,p,animation=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="36">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation)}${rotationHint()}</main>`;}
+function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="37">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
 function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٧ ورقة · ١٤ نوعًا · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
-function rewardView(s){return `<main class="screen-panel"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p>المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')}</p><p>تستعيد صحتك كاملة وتبدأ بالشبكة والرزمة من جديد.</p>${button('ابدأ الاختبار التالي','continue','gold-button')}${rotationHint()}</main>`;}
-function endView(s){return `<main class="screen-panel end-screen"><h1>${s.outcome==='victory'?'اكتملت اختبارات التوليفات':s.outcome==='exhausted'?'نفدت الخيارات':'انتهت المواجهة'}</h1><p>${s.outcome==='victory'?'جرّب ترتيبًا آخر وقارن قرارات الهجوم والحماية.':s.outcome==='exhausted'?'لم تبق بطاقة قابلة للعب أو وسيلة لهزيمة الأعداء.':'جرّب توقيت إكمال الخط وتوزيع الهجوم والحماية.'}</p>${button('اختبار جديد','restart','gold-button')}${rotationHint()}</main>`;}
+const turnsText = n => n === 1 ? 'دور واحد' : n === 2 ? 'دورين' : n <= 10 ? `${num(n)} أدوار` : `${num(n)} دورًا`;
+function rewardView(s){return `<main class="screen-panel"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p>المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')}</p><p class="recap-line">أنهيت الاختبار في ${turnsText(Math.max(1,s.phaseTurn-1))} · صحتك ${ratio(s.hp,s.maxHp)}</p><p>${esc(ENCOUNTERS[s.encounter]?.lesson??'')}</p><p>تستعيد صحتك كاملة وتبدأ بالشبكة والرزمة من جديد.</p>${button('ابدأ الاختبار التالي','continue','gold-button')}${rotationHint()}</main>`;}
+function endView(s){return `<main class="screen-panel end-screen"><h1>${s.outcome==='victory'?'اكتملت اختبارات التوليفات':s.outcome==='exhausted'?'نفدت الخيارات':'انتهت المواجهة'}</h1><p>${s.outcome==='victory'?'جرّب ترتيبًا آخر وقارن قرارات الهجوم والحماية.':s.outcome==='exhausted'?'لم تبق بطاقة قابلة للعب أو وسيلة لهزيمة الأعداء.':`سقطت في «${esc(ENCOUNTERS[s.encounter-1]?.name??'')}». ${esc(ENCOUNTERS[s.encounter-1]?.lesson??'')}`}</p>${s.outcome==='defeat'?button('أعد هذه المواجهة','retry','gold-button'):''}${button('اختبار جديد','restart',s.outcome==='defeat'?'':'gold-button')}${rotationHint()}</main>`;}
 function combatRecap(summary) {
   const items = [[summary.hits,'swords','ألحقت','dealt'],[summary.block,'shield','اكتسبت درع','guard'],[summary.prevented??0,'shield','مُنِع','prevented'],[summary.enemyDamage,'heart','خسرت صحة','taken']];
   return `<div class="battle-result" role="status" aria-label="نتيجة الدور">${items.map(([value,ico,label,kind])=>`<span class="recap-item recap-${kind}" data-recap="${kind}" data-value="${value}"><span>${icon(ico)}<b>${num(value)}</b></span><small>${label}</small></span>`).join('')}</div>`;
@@ -658,11 +721,12 @@ function arena(s, p, projected, animation) {
       const rect = i % 2 === 0 ? [612, 280, 266, 344] : [881, 278, 257, 347];
       return `<button class="combatant enemy enemy-${i} ${target === e.id ? 'is-target' : ''} ${e.hp <= 0 ? 'is-fallen' : ''}" data-target="${e.id}" data-max-hp="${e.maxHp}" aria-pressed="${target === e.id}" ${locked ? 'disabled' : ''} aria-label="${esc(e.name)}، صحة ${num(e.hp)}، ${locked ? 'محمي' : 'هجوم ' + num(intent.damage)}">
         ${slice(...rect, 'fallen-cover', 'blank-template.png')}${i === 2 ? slice(446, 257, 316, 290, 'extra-enemy', 'extra-characters.png', 1374, 1145) : ''}
-        <span class="unit-hud">${slice(...(i % 2 === 0 ? [656, 149, 160, 136] : [936, 150, 162, 138]), 'hud-paper', 'blank-template.png')}<strong>${esc(e.name)}</strong><span class="hp-track"><i style="width:${after / e.maxHp * 100}%"></i></span><b data-enemy-hp="${e.id}">${ratio(after, e.maxHp)}</b><small class="enemy-intent">${e.hp <= 0 ? 'صريع' : locked ? icon('shield') : stat(intent.damage, 'swords')}${e.bleed ? stat(e.bleed, 'bleed') : ''}</small></span>
+        <span class="unit-hud">${slice(...(i % 2 === 0 ? [656, 149, 160, 136] : [936, 150, 162, 138]), 'hud-paper', 'blank-template.png')}<strong>${esc(e.name)}</strong><span class="hp-track"><i style="width:${after / e.maxHp * 100}%"></i></span><b data-enemy-hp="${e.id}">${ratio(after, e.maxHp)}</b><small class="enemy-intent ${e.hp > 0 && intent.damage >= 5 ? 'is-spike' : ''}" data-intent="${e.id}" data-raw="${intent.damage}">${e.hp <= 0 ? 'صريع' : locked ? icon('shield') : intent.damage === 0 ? '<span class="intent-rest">⏳ يستعد</span>' : stat(intent.damage, 'swords')}${e.bleed ? stat(e.bleed, 'bleed') : ''}${e.hp > 0 ? `<span class="next-intent" title="النية التالية">ثم ${num(getEnemyIntent(e, s.phaseTurn + 1).damage)}</span>` : ''}</small></span>
         ${e.hp > after ? `<span class="forecast-damage">−${num(e.hp - after)}</span>` : ''}
       </button>`;
     }).join('')}
     ${!animation && s.last?.kind === 'turn' ? combatRecap(s.last) : ''}
+    ${!animation && s.phaseTurn === 1 && ENCOUNTERS[s.encounter-1]?.lesson ? `<div class="lesson-banner" role="note"><b>الدرس</b> ${esc(ENCOUNTERS[s.encounter-1].lesson)}</div>` : ''}
   </section>`;
 }
 function combatForecast(summary) {
@@ -692,7 +756,10 @@ try {
   }
 }catch{}
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({state:s,report}));}catch{document.querySelector('#live').textContent='تعذّر الحفظ على الجهاز.';}}
-function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving);}
+let announcedDraw=null;
+// A newly drawn card slides in once, not again on every later re-render.
+function freshDraw(){const d=s.last?.kind==='turn'?s.last.drawn:null;if(d&&d!==announcedDraw){announcedDraw=d;return d;}return null;}
+function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving,resolving?null:freshDraw());}
 function syncFullscreenControls() {
   const template = document.createElement('template');
   template.innerHTML = fullscreenButton();
@@ -716,7 +783,8 @@ function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2
 
 function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
 function help(){show('مختبر التوليفات','<ol><li>اختر بطاقة، واتجاهًا: صف أو عمود، وخانة فارغة.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
-function newGame(){cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
+let beatTimer=null;
+function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
 function commit(a){
   if(resolving)return;
   const before=s,result=activate(before,a);if(!result.valid)return;
@@ -726,16 +794,22 @@ function commit(a){
   const grid=[...before.grid];grid[a.cell]=a.card;
   resolving={grid,cells:result.summary.clearedCells,activeCells:result.summary.cells};
   root.innerHTML=gameView({...before,hand:s.hand,last:null},selection,resolving);
-  cancelCombat=playCombatFeedback({root,summary:result.summary,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,onSound:playSfx,onComplete:()=>{
-    resolving=null;cancelCombat=null;render();
-    if(s.screen==='reward'||s.outcome==='victory')playSfx('victory');else if(s.outcome==='defeat')playSfx('defeat');
+  cancelCombat=playCombatFeedback({root,summary:result.summary,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,onSound:type=>{playSfx(type);haptic(type);},onComplete:()=>{
+    resolving=null;cancelCombat=null;
+    if(s.screen==='reward'||s.screen==='end'){
+      // Hold the final board for a beat so the last blow lands before the result screen.
+      root.innerHTML=gameView({...s,screen:'play',last:null},selection,null);
+      if(s.screen==='reward'||s.outcome==='victory')playSfx('victory');else if(s.outcome==='defeat')playSfx('defeat');
+      beatTimer=setTimeout(()=>{beatTimer=null;render();},matchMedia('(prefers-reduced-motion: reduce)').matches?300:1000);
+    }else{render();if(s.last?.drawn)playSfx('draw');}
   }});
-  document.querySelector('#live').textContent=`ألحقت ${num(result.summary.hits)} ضرر. اكتسبت ${num(result.summary.block)} حماية. منعت ${num(result.summary.prevented)} ضرر. خسرت ${num(result.summary.enemyDamage)} صحة.`;
+  document.querySelector('#live').textContent=`ألحقت ${num(result.summary.hits)} ضرر. اكتسبت ${num(result.summary.block)} حماية. منعت ${num(result.summary.prevented)} ضرر. خسرت ${num(result.summary.enemyDamage)} صحة.${result.summary.enemyAttackReduction?` خُفّض هجوم العدو ${num(result.summary.enemyAttackReduction)}.`:''}${result.summary.events.some(e=>e.type==='ignite')?' صارت الخانة مشتعلة.':''}${result.summary.events.some(e=>e.type==='fortify')?' صارت الخانة محصنة.':''}`;
 }
 function action(name){
   if(name==='close'){menu.close();return;}
   if(name==='fullscreen'){requestFullscreenFromGesture(true);return;}
   if(name==='restart'){requestFullscreenFromGesture();newGame();return;}
+  if(name==='retry'){commit({kind:'retry'});return;}
   if(name==='help'){help();return;}
   if(name==='menu'){show('الشنفرى · مختبر التوليفات',`<nav class="menu-options">${button('أكمل اللعب','close','gold-button')}${button('شرح اللعب','help')}${button(isMuted()?'تشغيل الصوت':'كتم الصوت','audio')}${button('تحميل تقرير اللعب','export')}${button('ابدأ من جديد','restart')}</nav><p>السحب ${num(s.draw.length)} · المستهلك ${num(s.discard.length)} · الرزمة ${num(s.deck.length)}</p>`);return;}
   if(name==='audio'){toggleMute();menu.close();return;}

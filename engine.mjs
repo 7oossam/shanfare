@@ -105,6 +105,11 @@ export function actions(s) {
 export function activate(before,a) {
   const invalid=()=>({valid:false,state:before,summary:null});
   if(!a || before?.version!==VERSION || before.ruleset!==RULESET)return invalid();
+  if(before.screen==='end'){
+    // After a defeat the same encounter can be retried with full health; the campaign is not lost.
+    if((a.kind??a.type)!=='retry'||before.outcome!=='defeat')return invalid();
+    const s=structuredClone(before);setupEncounter(s,s.encounter);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
+  }
   if(before.screen==='reward'){
     if((a.kind??a.type)!=='continue' || before.encounter>=ENCOUNTERS.length)return invalid();
     const s=structuredClone(before);setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
@@ -141,7 +146,7 @@ export function activate(before,a) {
       else if(type==='slam'&&effect.op==='hit') n=summary.block;
       else if(type==='scout'&&qualified) extraDraws++;
       else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
-      else if(type==='disrupt'){summary.enemyAttackReduction+=1;summary.reductions[action.target]=(summary.reductions[action.target]||0)+1;}
+      else if(type==='disrupt'){summary.enemyAttackReduction+=1;summary.reductions[action.target]=(summary.reductions[action.target]||0)+1;summary.events.push({type:'weaken',cell,target:action.target,amount:1});}
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
@@ -154,6 +159,7 @@ export function activate(before,a) {
         }
       }
     }
+    if(d.vanish)summary.events.push({type:'vanish',cell,card:uid});
     if(heat){
       const target=s.enemies.find(e=>e.id===action.target);
       if(target&&target.hp>0){
