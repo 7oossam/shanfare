@@ -283,27 +283,18 @@ test('Card 6: قاصمة التوازن (stagger) - 2 hits; triggers -2 enemy at
   assert.equal(rCombo.summary.incoming, 2, 'Enemy incoming reduced from 4 to 2!');
 });
 
-test('Dynamic enemy intents: cyclical patterns telegraph and create strategic pacing', () => {
-  // Encounter 1: [2, 4, 1]
+test('Dynamic enemy intents: cyclical patterns, including preparing (0) turns, repeat as declared', () => {
   const s1 = fresh();
-  assert.equal(s1.enemies[0].hp, 14);
-  assert.equal(getEnemyIntent(s1.enemies[0], 1).damage, 2, 'Turn 1: light probe (2)');
-  assert.equal(getEnemyIntent(s1.enemies[0], 2).damage, 4, 'Turn 2: heavy attack (4)');
-  assert.equal(getEnemyIntent(s1.enemies[0], 3).damage, 1, 'Turn 3: recovery (1)');
-  assert.equal(getEnemyIntent(s1.enemies[0], 4).damage, 2, 'Turn 4: cycle restarts (2)');
+  const tracker = s1.enemies[0];
+  assert.equal(tracker.hp, 14);
+  assert.deepEqual([1, 2, 3, 4].map(t => getEnemyIntent(tracker, t).damage), [2, 4, 1, 2], 'tutorial: small, spike, rest');
 
-  // Encounter 2: [2, 5, 1]
-  setupEncounter(s1, 2);
-  assert.equal(s1.enemies[0].hp, 18);
-  assert.equal(getEnemyIntent(s1.enemies[0], 1).damage, 2);
-  assert.equal(getEnemyIntent(s1.enemies[0], 2).damage, 5, 'Turn 2: massive 5 damage spike!');
-  assert.equal(getEnemyIntent(s1.enemies[0], 3).damage, 1);
+  setupEncounter(s1, 5);
+  const leader = s1.enemies.find(e => e.id === 'leader');
+  assert.deepEqual([1, 2, 3, 4, 5].map(t => getEnemyIntent(leader, t).damage), [2, 3, 0, 6, 2], 'a 0 is a preparing turn, not a frozen enemy');
+  assert.equal(s1.enemies.length, 3);
 
-  // Encounter 3: [3, 4, 6, 1]
   setupEncounter(s1, 3);
-  assert.equal(s1.enemies[0].hp, 24);
-  assert.equal(getEnemyIntent(s1.enemies[0], 1).damage, 3);
-  assert.equal(getEnemyIntent(s1.enemies[0], 2).damage, 4);
-  assert.equal(getEnemyIntent(s1.enemies[0], 3).damage, 6, 'Turn 3: boss lethal threat (6)!');
-  assert.equal(getEnemyIntent(s1.enemies[0], 4).damage, 1, 'Turn 4: boss opening (1)');
+  const armor = s1.enemies[0];
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(t => getEnemyIntent(armor, t).damage), [1, 2, 9, 1, 2, 9], 'telegraphed wind-up spike');
 });

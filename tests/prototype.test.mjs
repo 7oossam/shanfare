@@ -7,8 +7,8 @@ function fixture(grid={},hand=['strike'],enemyHp=100){
   s.hand=hand.map(take);s.draw=pool;s.discard=[];s.enemies=[{id:'dummy',name:'هدف اختبار',hp:enemyHp,maxHp:enemyHp,attack:0,shield:0}];return s;
 }
 const place=(s,cell,axis='row',card=s.hand[0])=>activate(s,{card,cell,axis,target:s.enemies[0].id});
-test('thirteen physical cards, declared laboratory enemies and valid roster',()=>{
-  const s=fresh();assert.equal(s.deck.length,13);assert.equal(s.hand.length,3);assert.equal(s.draw.length,10);assert.equal(ENCOUNTERS.length,3);assert.ok(ENCOUNTERS.every(e=>e.enemies.length===1));assertState(s);
+test('sixteen physical cards, declared laboratory enemies and valid roster',()=>{
+  const s=fresh();assert.equal(s.deck.length,16);assert.equal(s.hand.length,3);assert.equal(s.draw.length,13);assert.equal(ENCOUNTERS.length,5);assert.deepEqual(ENCOUNTERS.map(e=>e.enemies.length),[1,2,1,1,3]);assert.ok(ENCOUNTERS.every(e=>e.lesson&&e.enemies.every(x=>x.pattern.length&&x.hp>0)));assertState(s);
 });
 test('axis is required and face one/invalid targets are rejected without mutation',()=>{
   const s=start(fresh()),before=snapshot(s);const a={card:s.hand[0],cell:0};
@@ -40,19 +40,19 @@ test('one card drawn, hand is not refilled; draw reshuffles only discard',()=>{
   const s=fixture({},['strike']);const r=place(s,0);assert.equal(r.state.hand.length,1);assert.equal(r.state.draw.length,s.draw.length-1);
   const q=fixture({0:'strike'},['shelter']);q.discard=q.draw;q.draw=[];const gridCard=q.grid[0],handCard=q.hand[0];const uid=draw(q);assert.notEqual(uid,gridCard);assert.notEqual(uid,handCard);assert.equal(q.grid[0],gridCard);assert.equal(q.hand[0],handCard);assertState(q);
 });
-test('all twelve cards circulate without a dead hand for a sustained sequence',()=>{
-  let s=start(fresh(81));s.enemies[0].hp=s.enemies[0].maxHp=100000;s.enemies[0].attack=0;
+test('all sixteen cards circulate without a dead hand for a sustained sequence',()=>{
+  let s=start(fresh(81));s.enemies[0].hp=s.enemies[0].maxHp=100000;s.enemies[0].attack=0;s.enemies[0].pattern=[0];
   for(let i=0;i<200;i++){assert.ok(s.hand.length);const a=actions(s)[i%actions(s).length];const r=activate(s,a);assert.ok(r.valid);s=r.state;assertState(s);}
 });
 test('old saves explicitly reset, current saves retain deterministic replay',()=>{
-  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,33);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
+  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,34);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
   const state=start(fresh(123)),a=actions(state)[0],r=activate(state,a);assert.deepEqual(snapshot(activate(migrateSave(state),a).state),snapshot(r.state));
 });
 test('laboratory progression restores full health with no card reward or terrain',()=>{
-  let s=fixture({},['strike'],1);s.hp=7;const r=place(s,0);assert.equal(r.state.screen,'reward');assert.deepEqual(actions(r.state),[{kind:'continue'}]);s=activate(r.state,{kind:'continue'}).state;assert.equal(s.hp,24);assert.equal(s.encounter,2);assert.equal(s.screen,'play');assert.equal(s.hand.length,3);assert.equal(s.deck.length,13);assert.equal(s.grid.filter(Boolean).length,0);
+  let s=fixture({},['strike'],1);s.hp=7;const r=place(s,0);assert.equal(r.state.screen,'reward');assert.deepEqual(actions(r.state),[{kind:'continue'}]);s=activate(r.state,{kind:'continue'}).state;assert.equal(s.hp,24);assert.equal(s.encounter,2);assert.equal(s.screen,'play');assert.equal(s.hand.length,3);assert.equal(s.deck.length,16);assert.equal(s.grid.filter(Boolean).length,0);
 });
 test('last laboratory victory ends campaign; loss is resolved after enemy attack',()=>{
-  const s=fixture({},['strike'],1);s.encounter=3;const win=place(s,0);assert.equal(win.state.screen,'end');assert.equal(win.state.outcome,'victory');assert.equal(activate(win.state,{kind:'continue'}).valid,false);
+  const s=fixture({},['strike'],1);s.encounter=ENCOUNTERS.length;const win=place(s,0);assert.equal(win.state.screen,'end');assert.equal(win.state.outcome,'victory');assert.equal(activate(win.state,{kind:'continue'}).valid,false);
   const lose=fixture({},['strike'],10);lose.hp=1;lose.enemies[0].attack=2;const r=place(lose,0);assert.equal(r.state.outcome,'defeat');assert.equal(r.state.hp,0);
 });
 test('fresh hand deliberately presents all three cards on every seed',()=>{
