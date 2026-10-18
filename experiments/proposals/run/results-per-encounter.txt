@@ -1,0 +1,14 @@
+policy dmg N 80 (conditional win rate and mean health at the end of each encounter)
+turf      null      E1 100% hp 17.3 | E2 100% hp 4.9 | E3 73% hp 3.9 | E4 93% hp 3.4 | E5 78% hp 3.1
+turf      turfseal  E1 100% hp 17.3 | E2 100% hp 5.0 | E3 90% hp 4.7 | E4 97% hp 4.3 | E5 81% hp 3.2
+visitors  null      E1 100% hp 17.3 | E2 99% hp 5.5 | E3 65% hp 3.9 | E4 82% hp 2.4 | E5 86% hp 6.2
+visitors  falcon    E1 100% hp 17.3 | E2 99% hp 5.8 | E3 84% hp 5.0 | E4 98% hp 4.1 | E5 98% hp 7.3
+block     null      E1 100% hp 17.3 | E2 99% hp 4.8 | E3 67% hp 4.2 | E4 89% hp 2.8 | E5 77% hp 3.4
+block     patience  E1 100% hp 17.9 | E2 99% hp 5.4 | E3 87% hp 4.5 | E4 99% hp 3.4 | E5 84% hp 3.6
+policy safe N 80 (conditional win rate and mean health at the end of each encounter)
+turf      null      E1 100% hp 20.6 | E2 100% hp 11.1 | E3 54% hp 3.7 | E4 98% hp 5.7 | E5 52% hp 1.8
+turf      turfseal  E1 100% hp 20.6 | E2 100% hp 11.3 | E3 91% hp 5.1 | E4 100% hp 13.5 | E5 63% hp 2.4
+visitors  null      E1 100% hp 20.6 | E2 100% hp 11.4 | E3 54% hp 3.8 | E4 98% hp 7.3 | E5 79% hp 4.6
+visitors  falcon    E1 100% hp 20.6 | E2 100% hp 12.0 | E3 70% hp 5.1 | E4 100% hp 10.3 | E5 77% hp 6.4
+block     null      E1 100% hp 20.6 | E2 100% hp 11.0 | E3 73% hp 4.1 | E4 100% hp 5.7 | E5 36% hp 3.5
+block     patience  E1 100% hp 21.0 | E2 100% hp 12.3 | E3 95% hp 6.2 | E4 100% hp 8.3 | E5 45% hp 3.5
