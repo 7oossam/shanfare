@@ -64,7 +64,7 @@ function board(s,p,projected,animation) {
 function hand(s,p,projected,busy) {
   return `<section class="hand-panel" aria-label="بطاقات اليد">${slice(0,635,1672,306,'template-art','blank-template.png')}<div class="hand-cards">${s.hand.map(uid=>{
     const selected=p.card===uid,c=def(uid,s);
-    return `<article class="duel-card ${selected?'is-selected':''}" data-hand-card="${uid}"><button class="card-art-button" data-card="${uid}" ${busy?'disabled':''} aria-label="اختر ${esc(c.name)}">${cardArt(uid,s,'hand-art')}</button><div class="card-name"><strong>${esc(c.name)}</strong><button class="card-details" data-info="${uid}" aria-label="شرح ${esc(c.name)}">ⓘ</button></div>
+    return `<article class="duel-card ${selected?'is-selected':''}" data-hand-card="${uid}"><button class="card-art-button" data-card="${uid}" ${busy?'disabled':''} aria-label="اختر ${esc(c.name)}">${cardArt(uid,s,'hand-art')}</button><div class="card-name"><strong>${esc(c.name)}</strong>${c.vanish?'<span class="vanish-badge" title="تزول بعد التفعيل">⏳ تزول</span>':''}<button class="card-details" data-info="${uid}" aria-label="شرح ${esc(c.name)}">ⓘ</button></div>
     <button class="card-face ${selected?'is-active':''}" data-card="${uid}" aria-pressed="${selected}" ${busy?'disabled':''} aria-label="${esc(c.text)}"><span class="face-effect">${effectFormula(uid,s,0,selected?projected:null)}</span></button>
     <small class="card-rule">${esc(c.text)}</small></article>`;
   }).join('')}</div></section>`;
