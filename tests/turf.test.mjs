@@ -25,13 +25,13 @@ test('scorch on an already scorched cell stacks to +2 and takes the old bonus it
   const shelter=r2.state.hand.find(u=>u.startsWith('shelter.'));const r3=place(r2.state,4,'row',shelter);
   assert.equal(r3.summary.hits,2,'a plain shield now adds the stacked +2');
 });
-test('completing the line returns a scorched cell to normal; a visiting scorch stacks without completing',()=>{
+test('scorched ground survives a completed line; a visiting scorch stacks without completing',()=>{
   const s=fixture({0:'strike',1:'shelter'},['scorch','advance']);s.gridTurf[2]='scorched';s.gridLevel[2]=1;
   const lit=place(s,5,'row',s.hand[0]);assert.equal(lit.state.gridTurf[5],'scorched');
   const t=fixture({0:'strike',1:'shelter'},['advance']);t.gridTurf[2]='scorched';t.gridLevel[2]=1;
   const r=place(t,2,'row');
   assert.equal(r.summary.hits,2+2+1,'strike 2 + advance completed 2 + heat bonus 1');assert.deepEqual(r.summary.clearedCells.sort(),[0,1,2]);
-  assert.equal(r.state.gridTurf[2],null);assert.equal(r.state.gridLevel[2],0);
+  assert.equal(r.state.gridTurf[2],'scorched');assert.equal(r.state.gridLevel[2],1);
   const u=fixture({0:'strike',1:'shelter'},['scorch']);u.gridTurf[2]='scorched';u.gridLevel[2]=1;
   const q=place(u,2,'row');assert.equal(q.state.gridLevel[2],2);assert.equal(q.state.gridTurf[2],'scorched');assert.ok(q.state.grid[0]&&q.state.grid[1],'the two persistent cards survive a visiting scorch');assert.equal(q.summary.lines.length,0);
 });
@@ -39,7 +39,7 @@ test('incomplete line keeps the bonus cell lit and the card on it',()=>{
   const s=fixture({},['shelter']);s.gridTurf[4]='scorched';s.gridLevel[4]=1;
   const r=place(s,4,'column');assert.equal(r.state.gridTurf[4],'scorched');assert.ok(r.state.grid[4]);
 });
-test('anvil guards, is spent at once, greens its cell; any card there adds block; stacks; resets on clear',()=>{
+test('anvil guards, is spent at once, greens its cell; any card there adds block; stacks; persists after a clear',()=>{
   const s=fixture({},['anvil','strike']);const anvil=s.hand[0];const r1=place(s,4);
   assert.equal(r1.summary.block,1);assert.equal(r1.state.grid[4],null);assert.equal(r1.state.gridTurf[4],'fortified');assert.equal(r1.state.gridLevel[4],1);
   const strike=r1.state.hand.find(u=>u.startsWith('strike.'));const r2=place(r1.state,4,'row',strike);
@@ -47,7 +47,7 @@ test('anvil guards, is spent at once, greens its cell; any card there adds block
   const s3=structuredClone(r1.state);s3.discard=s3.discard.filter(u=>u!==anvil);s3.hand.push(anvil);
   const r3=place(s3,4,'row',anvil);assert.equal(r3.summary.block,2,'own 1 + old turf 1');assert.equal(r3.state.gridLevel[4],2);assertState(r3.state);
   const c=fixture({0:'strike',1:'shelter'},['advance']);c.gridTurf[2]='fortified';c.gridLevel[2]=1;
-  const r4=place(c,2,'row');assert.equal(r4.summary.block,4,'shelter 2 + advance 1 + turf 1');assert.equal(r4.state.gridTurf[2],null);
+  const r4=place(c,2,'row');assert.equal(r4.summary.block,4,'shelter 2 + advance 1 + turf 1');assert.equal(r4.state.gridTurf[2],'fortified');
 });
 test('slam (ارتطام الترس) hits for the block gathered earlier in the line and keeps it',()=>{
   const s=fixture({2:'shelter',1:'shelter'},['slam']);const r=place(s,0,'row');
@@ -95,10 +95,9 @@ test('sandstorm with a single enemy is a plain visiting ⚔️2; scorched turf b
   assert.deepEqual(r.state.enemies.map(e=>e.hp),[6,7],'target takes 2+1 from turf, the other only 2');
 });
 
-test('relic «ختم المرقب»: a cleared line leaves the ground burning',()=>{
-  const mk=relic=>{const s=fixture({0:'strike',1:'shelter'},['advance']);s.relic=relic;s.gridTurf[2]='scorched';s.gridLevel[2]=1;return s;};
-  assert.equal(place(mk(null),2,'row').state.gridTurf[2],null,'without the relic the ground resets');
-  const r=place(mk('turfseal'),2,'row');assert.equal(r.summary.lines.length,1);assert.equal(r.state.gridTurf[2],'scorched');assert.equal(r.state.gridLevel[2],1);
+test('relic «ختم المرقب»: every fire or fortification rises by two',()=>{
+  const s0=fixture({0:'strike',1:'shelter'},['advance']);s0.gridTurf[2]='scorched';s0.gridLevel[2]=1;
+  const r=place(s0,2,'row');assert.equal(r.summary.lines.length,1);assert.equal(r.state.gridTurf[2],'scorched','the ground stays for everyone');assert.equal(r.state.gridLevel[2],1);
   const lit=fixture({},['scorch']);lit.relic='turfseal';assert.equal(place(lit,4).state.gridLevel[4],2,'a new fire starts at level 2');
 });
 test('relic «ريشة الصقر»: each vanishing card leaves one shield',()=>{

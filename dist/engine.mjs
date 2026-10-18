@@ -1,5 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
-export const RULESET = 36;
+export const RULESET = 37;
 export const HAND_SIZE = 3;
 export const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 export const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -32,7 +32,7 @@ export const REWARD_POOL = ['cross','scout','haven','anvil','scorch','disrupt','
 export const FULL_RECIPE = [...STARTER_RECIPE.slice(0,6),'cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
 // Relics change a rule instead of adding a card. One is chosen at the start of a run.
 export const RELICS = {
-  turfseal: {name:'ختم المرقب',icon:'stone',text:'الأرض تبقى بعد اكتمال الخط، وكل إشعال أو تحصين يرفعها ٢ بدل ١.'},
+  turfseal: {name:'ختم المرقب',icon:'stone',text:'كل إشعال أو تحصين يرفع الأرض ٢ بدل ١.'},
   falcon: {name:'ريشة الصقر',icon:'bow',text:'كل بطاقة تزول تمنحك ١ درع عند زوالها.'},
   patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٢) يبقى للدور التالي.'}
 };
@@ -136,16 +136,18 @@ export function activate(before,a) {
   const action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
   if(!action.target)return invalid();
   s.hand.splice(s.hand.indexOf(a.card),1);s.grid[a.cell]=a.card;s.faces[a.card]=0;s.placements++;
-  const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),
+  const line=selectedLine(a.cell,a.axis),selCells=line.filter(i=>s.grid[i]),
+    // «تفعيل متقاطع»: cards already standing on the crossing line fire too, but never complete or clear it.
+    crossCells=perpendicularLine(a.cell,a.axis).filter(i=>i!==a.cell&&s.grid[i]),cells=[...selCells,...crossCells],
     // A vanishing (⏳) card passes through: it fires with the line, leaves, and never completes it.
-    complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
+    complete=selCells.length===3&&!selCells.some(c=>def(s.grid[c]).vanish);
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{},targetHits:0};
   let extraDraws=0;const ignitions=[],vanishing=[];
   // «قربة الصبر»: the shield kept from the previous turn is available again.
   if(s.carryBlock>0){summary.block=s.carryBlock;summary.events.push({type:'shield',cell:a.cell,amount:s.carryBlock,value:summary.block,source:'relic-carry',target:'hero'});}
   s.carryBlock=0;
   for(const cell of cells){
-    const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
+    const uid=s.grid[cell],d=def(uid),qualified=complete&&selCells.includes(cell),type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
     if(d.vanish)vanishing.push(cell);
     const turf=s.gridTurf[cell],level=turf?(s.gridLevel[cell]||1):0,heat=turf==='scorched'?level:0;
@@ -200,11 +202,10 @@ export function activate(before,a) {
   // A vanishing card is spent as soon as it fires; a completed selected line is spent too.
   const leaving=new Set(vanishing);
   if(complete)for(const cell of line)leaving.add(cell);
-  for(const cell of line){
+  for(const cell of cells){
     if(!leaving.has(cell)||!s.grid[cell])continue;
     const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
-    // «ختم المرقب» keeps the ground; otherwise a cleared line returns its cells to normal.
-    if(complete&&s.gridTurf[cell]&&s.relic!=='turfseal'){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
+    // الأرض ثابتة: ما أُشعل أو حُصّن يبقى حتى نهاية المواجهة ولو فُرّغت الخانة.
   }
   for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;

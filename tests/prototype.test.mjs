@@ -18,11 +18,13 @@ test('row right-to-left, column top-to-bottom and new card included exactly once
   const row=fixture({0:'strike',2:'shelter'},['advance']);const r=place(row,1);assert.deepEqual(r.summary.cells,[2,1,0]);assert.deepEqual(r.summary.events.filter(e=>e.type==='activate').map(e=>e.cell),[2,1,0]);assert.equal(r.summary.hits,4);assert.equal(r.summary.block,3);
   const col=fixture({0:'strike',6:'shelter'},['advance']);assert.deepEqual(place(col,3,'column').summary.cells,[0,3,6]);assert.deepEqual(selectedLine(4,'row'),[5,4,3]);
 });
-test('only selected line activates; incomplete selected line stays',()=>{
-  const s=fixture({0:'strike',1:'shelter',3:'strike'},['advance']);const r=place(s,2,'column');assert.deepEqual(r.summary.cells,[2]);assert.equal(r.summary.hits,1);assert.equal(r.summary.block,1);assert.deepEqual(r.summary.clearedCells,[]);assert.equal(r.state.grid[0],s.grid[0]);assert.ok(r.state.grid[2]);
+test('selected line fires first, then the crossing line fires without completing; incomplete selected line stays',()=>{
+  const s=fixture({0:'strike',1:'shelter',3:'strike'},['advance']);const r=place(s,2,'column');
+  assert.deepEqual(r.summary.cells,[2,1,0],'column [2] alone, then the crossing row 1 and 0');
+  assert.equal(r.summary.hits,1+2+0,'advance 1 + crossing strike 2; crossing shelter only blocks');assert.equal(r.summary.block,1+2);assert.deepEqual(r.summary.clearedCells,[]);assert.equal(r.state.grid[0],s.grid[0]);assert.ok(r.state.grid[2]);assert.equal(r.state.grid[3],s.grid[3],'cards outside both lines do not fire');
 });
-test('only completed selected line clears, unselected completed crossing survives',()=>{
-  const s=fixture({3:'strike',5:'shelter',1:'shelter',7:'strike'},['advance']);const r=place(s,4,'row');assert.deepEqual(r.summary.clearedCells,[5,4,3]);assert.ok(r.state.grid[1]);assert.ok(r.state.grid[7]);assert.equal(r.state.discard.length,3);assert.equal(r.summary.events.filter(e=>e.type==='activate').length,3);
+test('only completed selected line clears; the crossing line fires but survives',()=>{
+  const s=fixture({3:'strike',5:'shelter',1:'shelter',7:'strike'},['advance']);const r=place(s,4,'row');assert.deepEqual(r.summary.clearedCells,[5,4,3]);assert.ok(r.state.grid[1]);assert.ok(r.state.grid[7]);assert.equal(r.state.discard.length,3);assert.equal(r.summary.events.filter(e=>e.type==='activate').length,5);assert.equal(r.summary.hits,2+2+2,'strike 2 + completed advance 2 + crossing strike 2');
 });
 test('advance completion bonus needs no prior damaging card',()=>{
   const s=fixture({0:'shelter',1:'shelter'},['advance']);const r=place(s,2);assert.equal(r.summary.hits,2);assert.equal(r.summary.block,5);
@@ -45,7 +47,7 @@ test('all seventeen cards circulate without a dead hand for a sustained sequence
   for(let i=0;i<200;i++){assert.ok(s.hand.length);const a=actions(s)[i%actions(s).length];const r=activate(s,a);assert.ok(r.valid);s=r.state;assertState(s);}
 });
 test('old saves explicitly reset, current saves retain deterministic replay',()=>{
-  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,36);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
+  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,37);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
   const state=start(fresh(123)),a=actions(state)[0],r=activate(state,a);assert.deepEqual(snapshot(activate(migrateSave(state),a).state),snapshot(r.state));
 });
 test('a victory offers three new cards; picking one grows the deck and restores health',()=>{
