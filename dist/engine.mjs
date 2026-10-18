@@ -1,5 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
-export const RULESET = 34;
+export const RULESET = 35;
 export const HAND_SIZE = 3;
 export const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 export const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -19,6 +19,7 @@ export const cards = {
   raid: {name:'غارة خاطفة',icon:'arrow',kind:'attack',vanish:true,effects:[{op:'hit',n:3}],text:'ألحق ٣ ضرر بعدو تختاره، ثم تزول.'},
   rampart: {name:'سور الممر',icon:'stone',kind:'defense',vanish:true,effects:[{op:'block',n:3}],text:'احصل على ٣ درع لرد الأعداء الحالي، ثم تزول.'},
   assault: {name:'اقتحام',icon:'swords',kind:'mixed',vanish:true,effects:[{op:'hit',n:2},{op:'block',n:1}],text:'ألحق ضررين بعدو تختاره واحصل على درع، ثم تزول.'},
+  sandstorm: {name:'عاصفة الرمل',icon:'spark',kind:'attack',vanish:true,effects:[{op:'hit',n:2,all:true}],text:'ألحق ٢ ضرر بكل الأعداء الأحياء، ثم تزول.'},
   stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
 };
 export const alternates = {}, rewards = [];
@@ -28,7 +29,8 @@ export const DECK_RECIPE = [
   'strike', 'shelter', 'advance',
   'cross', 'scout', 'haven',
   'anvil', 'scorch', 'disrupt',
-  'slam', 'raid', 'rampart', 'assault'
+  'slam', 'raid', 'rampart', 'assault',
+  'sandstorm'
 ];
 export const isReward = () => false;
 export const maneuverOptions = () => [];
@@ -116,7 +118,7 @@ export function activate(before,a) {
   const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),
     // A vanishing (⏳) card passes through: it fires with the line, leaves, and never completes it.
     complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
-  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{}};
+  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{},targetHits:0};
   let extraDraws=0;const ignitions=[],vanishing=[];
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
@@ -143,23 +145,26 @@ export function activate(before,a) {
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
-        const target=s.enemies.find(e=>e.id===action.target);
-        if(!target||target.hp<=0)continue;
-        const amount=Math.min(target.hp,n);target.hp-=amount;summary.hits+=amount;
-        summary.events.push({type:'damage',cell,source:uid,target:target.id,amount,hp:target.hp,fatal:target.hp===0});
+        // «شامل»: the same hit lands on every living enemy; otherwise only on the chosen target.
+        const victims=effect.all?s.enemies.filter(e=>e.hp>0):[s.enemies.find(e=>e.id===action.target)].filter(e=>e&&e.hp>0);
+        for(const target of victims){
+          const amount=Math.min(target.hp,n);target.hp-=amount;summary.hits+=amount;
+          if(target.id===action.target)summary.targetHits+=amount;
+          summary.events.push({type:'damage',cell,source:uid,target:target.id,amount,hp:target.hp,fatal:target.hp===0});
+        }
       }
     }
     if(heat){
       const target=s.enemies.find(e=>e.id===action.target);
       if(target&&target.hp>0){
-        const amount=Math.min(target.hp,heat);target.hp-=amount;summary.hits+=amount;
+        const amount=Math.min(target.hp,heat);target.hp-=amount;summary.hits+=amount;summary.targetHits+=amount;
         summary.effects.push({uid,card:uid,cell,op:'hit',n:heat,amount,target:action.target,source:'turf-scorched'});
         summary.events.push({type:'damage',cell,source:'turf-scorched',target:target.id,amount,hp:target.hp,fatal:target.hp===0});
       }
     }
   }
   const hasStagger=cells.some(c=>cardType(s.grid[c])==='stagger');
-  if(hasStagger&&summary.hits>=4){
+  if(hasStagger&&summary.targetHits>=4){
     summary.enemyAttackReduction+=2;summary.reductions[action.target]=(summary.reductions[action.target]||0)+2;summary.events.push({type:'stagger',amount:2,target:action.target});
   }
   // A vanishing card is spent as soon as it fires; a completed selected line is spent too.

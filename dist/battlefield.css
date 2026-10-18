@@ -69,6 +69,7 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .turf-icon { position: absolute; top: 3px; left: 3px; width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); opacity: 0.9; pointer-events: none; z-index: 2; }
 .turf-scorched { color: #b3261e; display: inline-flex; align-items: center; width: auto; }
 .turf-scorched .icon { width: clamp(10px, 1.8dvh, 18px); height: clamp(10px, 1.8dvh, 18px); }
+.all-mark { font-size: clamp(8px, 1.5dvh, 12px); margin-inline-start: 3px; padding: 0 4px; border-radius: 6px; background: #8a3b12; color: #ffe7b2; white-space: nowrap; vertical-align: middle; }
 .vanish-badge { font-size: clamp(9px, 1.7dvh, 13px); padding: 0 5px; border-radius: 8px; background: #6b441d; color: #ffe7b2; white-space: nowrap; }
 .turf-level { font: 700 clamp(9px, 1.6dvh, 14px)/1 sans-serif; margin-inline-start: 1px; }
 .turf-fortified { color: #1e7a46; display: inline-flex; align-items: center; width: auto; }

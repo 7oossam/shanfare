@@ -23,7 +23,7 @@ test('Only three new single-face cards and current encounter controls are render
   assert.ok(!/data-face=|momentum-count|خانة الخطر|طارئ|عزم|مناورة|حامل الترس/.test(html));
   assert.match(html,/ضربة محسوبة/);assert.match(html,/ساتر/);assert.match(html,/تقدّم محمي/);
   assert.match(html,/data-action="confirm-play"[^>]*disabled/);
-  assert.match(titleView(s),/١٦ ورقة/);
+  assert.match(titleView(s),/١٧ ورقة/);
 });
 test('Projected mixed card formula shows its completion bonus from engine effects',()=>{
   const s=start(fresh());const advance=s.hand.find(uid=>uid.startsWith('advance.'));

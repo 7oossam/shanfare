@@ -59,8 +59,8 @@ const fs=require('node:fs');
   await p.close();assert.deepEqual(errors,[]);console.log(`PASS full campaign: ${turns} turns, ${transitions} transitions, ${clears} completed lines, both axes, victory and restart`);
   const old=E.start(E.fresh());old.ruleset=31;old.hand=['arrow.0','cover.0','focus.0'];
   const migration=await load(844,390,old);assert.equal(await migration.locator('.migration-notice').count(),1);
-  await migration.locator('[data-action="start"]').tap();const current=await saved(migration);assert.equal(current.ruleset,34);assert.ok(current.deck.every(uid=>E.cards[E.cardType(uid)]));
-  const backup=await migration.evaluate(()=>JSON.parse(localStorage.getItem('shanfara-duel-v9-before-v34')));assert.equal(backup.state.ruleset,31);
+  await migration.locator('[data-action="start"]').tap();const current=await saved(migration);assert.equal(current.ruleset,35);assert.ok(current.deck.every(uid=>E.cards[E.cardType(uid)]));
+  const backup=await migration.evaluate(()=>JSON.parse(localStorage.getItem('shanfara-duel-v9-before-v35')));assert.equal(backup.state.ruleset,31);
   await migration.close();console.log('PASS incompatible old save backup and explicit fresh prototype start');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

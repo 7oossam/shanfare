@@ -72,3 +72,25 @@ test('line completion bonuses do not trigger when a vanishing card fills the lin
   assert.equal(place(s,2,'row',s.hand[0]).summary.lines.length,0);
   const t=fixture({0:'strike',1:'shelter'},['advance']);assert.equal(place(t,2,'row').summary.lines.length,1,'a persistent third card still completes');
 });
+
+const crowd=(hps)=>hps.map((hp,i)=>({id:'e'+i,name:'e'+i,hp,maxHp:hp,attack:1,pattern:[1],shield:0}));
+test('sandstorm (شامل) hits every living enemy for the same amount and vanishes',()=>{
+  const s=fixture({},['sandstorm']);s.enemies=crowd([5,5,5]);
+  const r=activate(s,{card:s.hand[0],cell:4,axis:'row',target:'e1'});
+  assert.deepEqual(r.state.enemies.map(e=>e.hp),[3,3,3]);assert.equal(r.summary.hits,6);assert.equal(r.summary.targetHits,2,'only the chosen target counts for line thresholds');
+  assert.equal(r.summary.events.filter(e=>e.type==='damage').length,3);assert.equal(r.state.grid[4],null);assert.equal(r.summary.lines.length,0);
+});
+test('sandstorm kills independently, skips fallen enemies, and killed enemies do not reply',()=>{
+  const s=fixture({},['sandstorm']);s.enemies=crowd([2,0,6]);s.enemies[1].hp=0;
+  const r=activate(s,{card:s.hand[0],cell:4,axis:'row',target:'e0'});
+  assert.deepEqual(r.state.enemies.map(e=>e.hp),[0,0,4]);
+  assert.equal(r.summary.events.filter(e=>e.type==='enemy-attack').length,1,'only the survivor replies');
+  const all=fixture({},['sandstorm']);all.enemies=crowd([2,2]);
+  const w=activate(all,{card:all.hand[0],cell:4,axis:'row'});assert.ok(w.state.screen==='reward'||w.state.screen==='end','all enemies dead ends the fight');
+});
+test('sandstorm with a single enemy is a plain visiting ⚔️2; scorched turf bonus hits the target only',()=>{
+  const one=fixture({},['sandstorm']);one.enemies=crowd([9]);assert.equal(activate(one,{card:one.hand[0],cell:4,axis:'row'}).summary.hits,2);
+  const s=fixture({},['sandstorm']);s.enemies=crowd([9,9]);s.gridTurf[4]='scorched';s.gridLevel[4]=1;
+  const r=activate(s,{card:s.hand[0],cell:4,axis:'row',target:'e0'});
+  assert.deepEqual(r.state.enemies.map(e=>e.hp),[6,7],'target takes 2+1 from turf, the other only 2');
+});
