@@ -41,7 +41,7 @@ const icon = id => `<svg class="icon icon-${id}" viewBox="0 0 24 24" aria-hidden
 
 // --- engine.mjs ---
 const VERSION = 'shanfara-duel-v9';
-const RULESET = 33;
+const RULESET = 34;
 const HAND_SIZE = 3;
 const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -58,6 +58,9 @@ const cards = {
   aegis: {name:'جلاد الصبر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي. يتضاعف الدرع إلى ٤ إذا كانت صحتك ١٢ أو أقل.'},
   disrupt: {name:'إضعاف البأس',icon:'swords',kind:'disrupt-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا بعدو تختاره، وخفّض هجومه المعلن لهذا الدور بمقدار ١.'},
   slam: {name:'ارتطام الترس',icon:'shield',kind:'slam-attack',effects:[{op:'hit',n:0}],text:'ألحق ضررًا بعدد دِرْعك الحالي. الدرع يبقى. الترتيب مهم: يُحسب ما سبقه في الخط.'},
+  raid: {name:'غارة خاطفة',icon:'arrow',kind:'attack',vanish:true,effects:[{op:'hit',n:3}],text:'ألحق ٣ ضرر بعدو تختاره، ثم تزول.'},
+  rampart: {name:'سور الممر',icon:'stone',kind:'defense',vanish:true,effects:[{op:'block',n:3}],text:'احصل على ٣ درع لرد الأعداء الحالي، ثم تزول.'},
+  assault: {name:'اقتحام',icon:'swords',kind:'mixed',vanish:true,effects:[{op:'hit',n:2},{op:'block',n:1}],text:'ألحق ضررين بعدو تختاره واحصل على درع، ثم تزول.'},
   stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
 };
 const alternates = {}, rewards = [];
@@ -67,18 +70,21 @@ const DECK_RECIPE = [
   'strike', 'shelter', 'advance',
   'cross', 'scout', 'haven',
   'anvil', 'scorch', 'disrupt',
-  'slam'
+  'slam', 'raid', 'rampart', 'assault'
 ];
 const isReward = () => false;
 const maneuverOptions = () => [];
-const enemy = (id,name,hp,pattern) => {
+const enemy = (id,name,hp,pattern,role='') => {
   const p = Array.isArray(pattern) ? pattern : [pattern];
-  return {id, name, hp, maxHp:hp, attack:p[0], pattern:p, shield:0};
+  return {id, name, hp, maxHp:hp, attack:p[0], pattern:p, shield:0, role};
 };
+// Each encounter teaches one decision; intents repeat in the declared cycle (0 = the enemy is preparing).
 const ENCOUNTERS = [
-  {name:'اختبار الإيقاع',enemies:[enemy('pace','مناوش التدريب',14,[2,4,1])]},
-  {name:'اختبار الضغط',enemies:[enemy('pressure','مقاتل التدريب',18,[2,5,1])]},
-  {name:'اختبار الاستثمار',enemies:[enemy('investment','قائد التدريب',24,[3,4,6,1])]}
+  {name:'اختبار الإيقاع',lesson:'اقرأ النية: احتمِ قبل الضربة الكبرى واضرب حين يخف الضغط.',enemies:[enemy('tracker','صائد الأثر',14,[2,4,1],'إيقاع')]},
+  {name:'كمين الممر',lesson:'اختر من تقتل أولًا: الرامي هشّ لكنه موجع.',enemies:[enemy('archer','رامي المرقب',7,[1,5],'هشّ موجع'),enemy('guard','حارس الدرب',16,[2,3],'متين')]},
+  {name:'اختبار الاستعداد',lesson:'الضربة الكبرى معلنة: اجمع الدرع قبلها، وحوّله إلى ضرر.',enemies:[enemy('armor','درّاع الحيّ',26,[1,2,9],'يستعد')]},
+  {name:'اختبار الاستنزاف',lesson:'معركة طويلة: ابنِ خطًا وأرضًا تعمل لك كل دور.',enemies:[enemy('elder','شيخ الغزاة',34,[2,3,5],'استنزاف')]},
+  {name:'الكمين الأخير',lesson:'ثلاثة أعداء: وزّع الضرب، وأضعِف القائد قبل ضربته.',enemies:[enemy('leader','قائد الكمين',14,[2,3,0,6],'قائد'),enemy('thrower','رامي الحجارة',4,[2],'تابع'),enemy('rear','حارس الظهر',4,[1],'تابع')]}
 ];
 const cardType = uid => typeof uid === 'string' ? uid.split('.')[0] : undefined;
 const def = (uid,s,face = 0) => face === 0 ? cards[cardType(uid)] : undefined;
@@ -118,7 +124,7 @@ const start = s => s.screen==='title'?{...structuredClone(s),screen:'play'}:s;
 const attackTargets = s => s.enemies.filter(e=>e.hp>0);
 function targetForAction(s,a={}) { const alive=attackTargets(s);return alive.find(e=>e.id===a.target)?.id??alive[0]?.id??null; }
 function getEnemyIntent(e, arg1 = 1, arg2) {
-  if (!e || e.hp <= 0 || e.attack === 0) return { damage: 0, shield: 0, defending: false };
+  if (!e || e.hp <= 0) return { damage: 0, shield: 0, defending: false };
   const turn = typeof arg2 === 'number' ? arg2 : typeof arg1 === 'number' ? arg1 : 1;
   const pattern = Array.isArray(e.pattern) && e.pattern.length ? e.pattern : [e.attack ?? 2];
   const idx = Math.max(0, (turn - 1) % pattern.length);
@@ -152,7 +158,7 @@ function activate(before,a) {
   const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),
     // A vanishing (⏳) card passes through: it fires with the line, leaves, and never completes it.
     complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
-  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0};
+  const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{}};
   let extraDraws=0;const ignitions=[],vanishing=[];
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
@@ -175,7 +181,7 @@ function activate(before,a) {
       else if(type==='slam'&&effect.op==='hit') n=summary.block;
       else if(type==='scout'&&qualified) extraDraws++;
       else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
-      else if(type==='disrupt') summary.enemyAttackReduction+=1;
+      else if(type==='disrupt'){summary.enemyAttackReduction+=1;summary.reductions[action.target]=(summary.reductions[action.target]||0)+1;}
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
@@ -196,7 +202,7 @@ function activate(before,a) {
   }
   const hasStagger=cells.some(c=>cardType(s.grid[c])==='stagger');
   if(hasStagger&&summary.hits>=4){
-    summary.enemyAttackReduction+=2;summary.events.push({type:'stagger',amount:2});
+    summary.enemyAttackReduction+=2;summary.reductions[action.target]=(summary.reductions[action.target]||0)+2;summary.events.push({type:'stagger',amount:2,target:action.target});
   }
   // A vanishing card is spent as soon as it fires; a completed selected line is spent too.
   const leaving=new Set(vanishing);
@@ -208,10 +214,9 @@ function activate(before,a) {
   }
   for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;
-  const attackReduction=summary.enemyAttackReduction||0;
   for(const e of attackTargets(s)){
     const rawDamage=getEnemyIntent(e, s.phaseTurn).damage;
-    const damage=Math.max(0,rawDamage-attackReduction);
+    const damage=Math.max(0,rawDamage-(summary.reductions[e.id]||0));
     const blocked=Math.min(shield,damage),lost=Math.min(s.hp,damage-blocked);
     shield-=blocked;s.hp-=lost;summary.incoming+=damage;summary.prevented+=blocked;summary.enemyDamage+=lost;
     summary.events.push({type:'enemy-attack',source:e.id,amount:damage,rawDamage,blocked,damage:lost,hp:s.hp,shield});
@@ -628,8 +633,8 @@ function hand(s,p,projected,busy) {
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-function gameView(s,p,animation=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="33">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation)}${rotationHint()}</main>`;}
-function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٣ ورقة · ١٠ أنواع · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
+function gameView(s,p,animation=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="35">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation)}${rotationHint()}</main>`;}
+function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٦ ورقة · ١٣ نوعًا · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
 function rewardView(s){return `<main class="screen-panel"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p>المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')}</p><p>تستعيد صحتك كاملة وتبدأ بالشبكة والرزمة من جديد.</p>${button('ابدأ الاختبار التالي','continue','gold-button')}${rotationHint()}</main>`;}
 function endView(s){return `<main class="screen-panel end-screen"><h1>${s.outcome==='victory'?'اكتملت اختبارات التوليفات':s.outcome==='exhausted'?'نفدت الخيارات':'انتهت المواجهة'}</h1><p>${s.outcome==='victory'?'جرّب ترتيبًا آخر وقارن قرارات الهجوم والحماية.':s.outcome==='exhausted'?'لم تبق بطاقة قابلة للعب أو وسيلة لهزيمة الأعداء.':'جرّب توقيت إكمال الخط وتوزيع الهجوم والحماية.'}</p>${button('اختبار جديد','restart','gold-button')}${rotationHint()}</main>`;}
 function combatRecap(summary) {
@@ -677,7 +682,7 @@ let cancelCombat=null,resolving=null;
 try {
   const saved=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(saved?.state?.version===VERSION){
-    if(saved.state.ruleset!==33)localStorage.setItem(SAVE_KEY+'-before-v33',JSON.stringify(saved));
+    if(saved.state.ruleset!==34)localStorage.setItem(SAVE_KEY+'-before-v34',JSON.stringify(saved));
     s=migrateSave(saved.state);report=restore(saved.report,s);
   }
 }catch{}

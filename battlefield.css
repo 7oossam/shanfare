@@ -44,7 +44,7 @@ button:focus-visible { outline: 2px solid #e5a12f; outline-offset: 2px; }
 .extra-enemy { display: none; }
 .enemy-2 { left: 40%; top: 40%; width: 20%; height: 60%; }
 .enemy-2 .extra-enemy { display: block; clip-path: polygon(25% 0, 72% 0, 100% 60%, 86% 100%, 14% 100%, 0 60%); }
-.enemy-2 .unit-hud { top: -39%; left: 0; width: 94%; }
+.enemy-2 .unit-hud { top: -39%; left: -32%; width: 94%; }
 .has-boss .unit-hud strong { font-size: clamp(10px, 1.8dvh, 17px); }
 .floating-damage { position: absolute; left: -12%; top: 8%; font-size: clamp(20px, 4dvh, 36px); color: #fff5e4; text-shadow: 0 2px 3px #2b1608; }
 .battle-result { position: absolute; bottom: 3%; left: 2%; display: flex; align-items: center; gap: 10px; padding: 3px 9px; border: 1px solid #b99b62; border-radius: 3px; background: #302116d9; color: #ffe8b5; font-size: clamp(12px, 2.5dvh, 22px); }
