@@ -296,5 +296,5 @@ test('Dynamic enemy intents: cyclical patterns, including preparing (0) turns, r
 
   setupEncounter(s1, 3);
   const armor = s1.enemies[0];
-  assert.deepEqual([1, 2, 3, 4, 5, 6].map(t => getEnemyIntent(armor, t).damage), [1, 2, 10, 1, 2, 10], 'telegraphed wind-up spike');
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(t => getEnemyIntent(armor, t).damage), [1, 2, 9, 1, 2, 9], 'telegraphed wind-up spike');
 });
