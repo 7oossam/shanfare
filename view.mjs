@@ -48,7 +48,11 @@ function board(s,p,projected,animation) {
     </div>
     <div class="grid-wrap"><div class="duel-grid ${animation?'is-resolving':''}" role="group" aria-label="شبكة ثلاثة صفوف وثلاثة أعمدة">${grid.map((uid,cell)=>{
       const c=uid?def(uid,s):null;
-      return `<button class="grid-cell ${uid?'has-card':''} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
+      const turf=s.gridTurf?.[cell];
+      const turfCls=turf==='fortified'?'is-fortified':turf==='scorched'?'is-scorched':'';
+      const turfBadge=turf==='fortified'?`<span class="turf-icon turf-fortified">${icon('stone')}</span>`:turf==='scorched'?`<span class="turf-icon turf-scorched">${icon('fire')}</span>`:'';
+      return `<button class="grid-cell ${uid?'has-card':''} ${turfCls} ${chosen.includes(cell)?'in-line':''} ${animation?.cells.includes(cell)?'will-clear':''} ${projected&&p.cell===cell?'is-preview':''}" data-cell="${cell}" aria-label="الخانة ${num(cell+1)}${turf==='fortified'?'، محصنة':turf==='scorched'?'، مشتعلة':''}${c?'، '+esc(c.name):' فارغة'}" ${animation?'disabled':''}>
+      ${turfBadge}
       ${c?`<span class="slot-symbol">${icon(c.icon)}</span><strong>${esc(c.name)}</strong>`:'<span class="empty-plus">+</span>'}
       ${chosen.includes(cell)?`<b class="line-order">${num(chosen.indexOf(cell)+1)}</b>`:''}</button>`;
     }).join('')}</div></div>
