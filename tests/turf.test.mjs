@@ -99,6 +99,7 @@ test('relic «ختم المرقب»: a cleared line leaves the ground burning',(
   const mk=relic=>{const s=fixture({0:'strike',1:'shelter'},['advance']);s.relic=relic;s.gridTurf[2]='scorched';s.gridLevel[2]=1;return s;};
   assert.equal(place(mk(null),2,'row').state.gridTurf[2],null,'without the relic the ground resets');
   const r=place(mk('turfseal'),2,'row');assert.equal(r.summary.lines.length,1);assert.equal(r.state.gridTurf[2],'scorched');assert.equal(r.state.gridLevel[2],1);
+  const lit=fixture({},['scorch']);lit.relic='turfseal';assert.equal(place(lit,4).state.gridLevel[4],2,'a new fire starts at level 2');
 });
 test('relic «ريشة الصقر»: each vanishing card leaves one shield',()=>{
   const s=fixture({},['raid']);s.relic='falcon';const r=place(s,4);
@@ -109,9 +110,9 @@ test('relic «ريشة الصقر»: each vanishing card leaves one shield',()=>
 });
 test('relic «قربة الصبر»: up to three unused shield carries to the next turn',()=>{
   const s=fixture({},['rampart','shelter','strike']);s.relic='patience';s.enemies[0].attack=0;s.enemies[0].pattern=[0];
-  const t1=place(s,4,'row',s.hand[0]);assert.equal(t1.state.carryBlock,3,'3 unused shield is kept');
+  const t1=place(s,4,'row',s.hand[0]);assert.equal(t1.state.carryBlock,2,'unused shield is kept up to the cap of 2');
   const shelter=t1.state.hand.find(u=>u.startsWith('shelter.'));const t2=place(t1.state,0,'row',shelter);
-  assert.equal(t2.summary.block,5,'the 2 from the card plus the 3 carried');assert.equal(t2.state.carryBlock,3,'capped at 3');
+  assert.equal(t2.summary.block,4,'the 2 from the card plus the 2 carried');assert.equal(t2.state.carryBlock,2,'capped at 2');
   assert.ok(t2.summary.events.some(e=>e.type==='shield'&&e.source==='relic-carry'));
   const none=fixture({},['rampart']);none.enemies[0].attack=0;none.enemies[0].pattern=[0];assert.equal(place(none,4).state.carryBlock||0,0,'no relic, nothing carried');
 });
