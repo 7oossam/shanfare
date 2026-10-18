@@ -74,12 +74,12 @@ const REWARD_POOL = ['cross','scout','haven','anvil','scorch','disrupt','slam','
 const FULL_RECIPE = [...STARTER_RECIPE.slice(0,6),'cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
 // Relics change a rule instead of adding a card. One is chosen at the start of a run.
 const RELICS = {
-  turfseal: {name:'ختم المرقب',icon:'stone',text:'الأرض المشتعلة والمحصنة لا تعود طبيعية عند اكتمال الخط.'},
+  turfseal: {name:'ختم المرقب',icon:'stone',text:'الأرض تبقى بعد اكتمال الخط، وكل إشعال أو تحصين يرفعها ٢ بدل ١.'},
   falcon: {name:'ريشة الصقر',icon:'bow',text:'كل بطاقة تزول تمنحك ١ درع عند زوالها.'},
-  patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٣) يبقى للدور التالي.'}
+  patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٢) يبقى للدور التالي.'}
 };
 const RELIC_IDS = Object.keys(RELICS);
-const CARRY_CAP = 3;
+const CARRY_CAP = 2;
 const isReward = () => false;
 const maneuverOptions = () => [];
 const enemy = (id,name,hp,pattern,role='') => {
@@ -194,8 +194,9 @@ function activate(before,a) {
     if(turf==='fortified'){
       summary.block+=level;summary.events.push({type:'shield',cell,amount:level,value:summary.block,source:'turf-fortified',target:'hero'});
     }
-    if(type==='anvil')ignitions.push({cell,turf:'fortified',level:(turf==='fortified'?level:0)+1});
-    else if(type==='scorch')ignitions.push({cell,turf:'scorched',level:(turf==='scorched'?level:0)+1});
+    const step=s.relic==='turfseal'?2:1;
+    if(type==='anvil')ignitions.push({cell,turf:'fortified',level:(turf==='fortified'?level:0)+step});
+    else if(type==='scorch')ignitions.push({cell,turf:'scorched',level:(turf==='scorched'?level:0)+step});
     for(const effect of d.effects){
       let n=effect.n;
       if(type==='advance'&&effect.op==='hit'&&qualified) n=2;
