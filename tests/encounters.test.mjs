@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fresh,start,setupEncounter,activate,actions,ENCOUNTERS,assertState} from '../dist/engine.mjs';
+import {fresh,start,setupEncounter,activate,actions,ENCOUNTERS,assertState,FULL_RECIPE} from '../dist/engine.mjs';
 
 test('Weaken and stagger reduce only the targeted enemy', () => {
-  const s = fresh();
+  const s = fresh(20261017, FULL_RECIPE);
   setupEncounter(s, 2);
   const [archer, guard] = s.enemies;
   s.screen = 'play';
@@ -21,10 +21,10 @@ test('Weaken and stagger reduce only the targeted enemy', () => {
 });
 
 test('every encounter starts valid, declares intents, and a dead target never attacks',()=>{
-  for(let k=1;k<=ENCOUNTERS.length;k++){const s=fresh(k);setupEncounter(s,k);s.screen='play';assertState(s);
+  for(let k=1;k<=ENCOUNTERS.length;k++){const s=fresh(k,FULL_RECIPE);setupEncounter(s,k);s.screen='play';assertState(s);
     assert.ok(s.enemies.every(e=>e.attack===e.pattern[0]));
     const a=actions(s)[0];const r=activate(s,a);assert.ok(r.valid);}
-  const s=fresh(5);setupEncounter(s,5);s.screen='play';
+  const s=fresh(5,FULL_RECIPE);setupEncounter(s,5);s.screen='play';
   s.enemies.forEach(e=>{if(e.id!=='leader')e.hp=1;});
   const strike=s.deck.find(u=>u.startsWith('strike.'));s.hand=[strike];s.draw=s.deck.filter(u=>u!==strike);
   const r=activate(s,{card:strike,cell:0,axis:'row',target:'thrower'});
@@ -33,7 +33,7 @@ test('every encounter starts valid, declares intents, and a dead target never at
 });
 
 test('a defeat can be retried at the same encounter with full health; a victory cannot',()=>{
-  const s=fresh(11);setupEncounter(s,3);s.screen='play';s.hp=1;s.enemies[0].pattern=[9];s.enemies[0].attack=9;
+  const s=fresh(11,FULL_RECIPE);setupEncounter(s,3);s.screen='play';s.hp=1;s.enemies[0].pattern=[9];s.enemies[0].attack=9;
   const card=s.hand[0];const lost=activate(s,{card,cell:0,axis:'row'});
   assert.equal(lost.state.screen,'end');assert.equal(lost.state.outcome,'defeat');
   const again=activate(lost.state,{kind:'retry'});

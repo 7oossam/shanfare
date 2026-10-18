@@ -32,4 +32,4 @@ node scripts/test_combo_lab.cjs
 
 يبقى مفتاح الحفظ `shanfara-duel-v9` والقواعد35. يُحتفظ بنسخة احتياطية للحفظ القديم، ثم تبدأ تجربة جديدة بإشعار لأن المحتوى والقواعد تغيرا. الاختبارات والميكانيك السابق مؤرشفان ولا يحددان سلوك النسخة الحالية.
 
-المصدر في `dist/`؛ `dist/app.bundle.js` ملف مولّد باستخدام `scripts/build.mjs`. يستمر التصميم الصحراوي والأصول والخط المحلي. النشر عبر GitHub Pages على [رابط اللعبة](https://7oossam.github.io/shanfare/?v=v38-combo-lab).
+المصدر في `dist/`؛ `dist/app.bundle.js` ملف مولّد باستخدام `scripts/build.mjs`. يستمر التصميم الصحراوي والأصول والخط المحلي. النشر عبر GitHub Pages على [رابط اللعبة](https://7oossam.github.io/shanfare/?v=v39-combo-lab).

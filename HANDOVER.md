@@ -56,7 +56,7 @@ node scripts/test_combo_lab.cjs
 
 اختبار المتصفح يتطلب Playwright و`/usr/bin/chromium`. يفحص667×320،844×390،1000×240،1280×720، الاختيار والمعاينة والتأكيد، الحفظ، الترحيل، حملة فعلية كاملة والفوز وإعادة البدء. الصور في `/tmp/combo-lab-review/` مؤقتة ويجب فتحها بصريًا. يدعم `GAME_URL` لاختبار الرابط الحي.
 
-النشر عبر دفع main وتشغيل GitHub Pages. رابط النسخة الجديدة: https://7oossam.github.io/shanfare/?v=v38-combo-lab . لا تعتبر مجرد وجود الرابط دليل اكتمال النشر.
+النشر عبر دفع main وتشغيل GitHub Pages. رابط النسخة الجديدة: https://7oossam.github.io/shanfare/?v=v39-combo-lab . لا تعتبر مجرد وجود الرابط دليل اكتمال النشر.
 
 ## نتيجة التحقق لهذه النسخة
 

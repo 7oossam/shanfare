@@ -23,7 +23,7 @@ test('Only three new single-face cards and current encounter controls are render
   assert.ok(!/data-face=|momentum-count|خانة الخطر|طارئ|عزم|مناورة|حامل الترس/.test(html));
   assert.match(html,/ضربة محسوبة/);assert.match(html,/ساتر/);assert.match(html,/تقدّم محمي/);
   assert.match(html,/data-action="confirm-play"[^>]*disabled/);
-  assert.match(titleView(s),/١٧ ورقة/);
+  assert.match(titleView(s),/٩ بطاقات أساسية/);
 });
 test('Projected mixed card formula shows its completion bonus from engine effects',()=>{
   const s=start(fresh());const advance=s.hand.find(uid=>uid.startsWith('advance.'));
@@ -59,4 +59,12 @@ test('placement preview shows the chosen direction, its badge and the other dire
   const s=start(fresh());const html=gameView(s,{card:s.hand[0],cell:4,axis:'column',target:null});
   assert.match(html,/class="dir-badge"[^>]*>↓/);assert.match(html,/data-axis="column" aria-pressed="true"/);assert.match(html,/alt-hint/);assert.match(html,/صف:/);
   const idle=gameView(s,{card:null,cell:null,axis:null,target:null});assert.ok(!/dir-badge/.test(idle));assert.match(idle,/اختر بطاقة/);
+});
+test('relic and reward screens render their choices and the header shows the chosen relic',async()=>{
+  const E=await import('../dist/engine.mjs');const V=await import('../dist/view.mjs');
+  const r=E.startRun(E.fresh());const rel=V.relicView(r);
+  for(const id of E.RELIC_IDS){assert.match(rel,new RegExp(`data-id="${id}"`));assert.match(rel,new RegExp(E.RELICS[id].name));}
+  let s=E.activate(r,{kind:'relic',id:'falcon'}).state;assert.match(V.gameView(s,{card:null,cell:null,axis:null}),/relic-chip/);
+  s.enemies=[{id:'d',name:'d',hp:1,maxHp:1,attack:0,pattern:[0],shield:0}];const won=E.activate(s,{card:s.hand[0],cell:0,axis:'row'}).state;
+  const html=V.rewardView(won);assert.equal((html.match(/data-action="pick"/g)||[]).length,3);for(const t of won.rewardOffer)assert.match(html,new RegExp(`data-type="${t}"`));
 });

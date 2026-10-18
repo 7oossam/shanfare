@@ -41,7 +41,7 @@ const icon = id => `<svg class="icon icon-${id}" viewBox="0 0 24 24" aria-hidden
 
 // --- engine.mjs ---
 const VERSION = 'shanfara-duel-v9';
-const RULESET = 35;
+const RULESET = 36;
 const HAND_SIZE = 3;
 const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -66,14 +66,20 @@ const cards = {
 };
 const alternates = {}, rewards = [];
 const STARTER_TYPES = ['strike', 'shelter', 'advance'];
-const DECK_RECIPE = [
-  'strike', 'shelter', 'advance',
-  'strike', 'shelter', 'advance',
-  'cross', 'scout', 'haven',
-  'anvil', 'scorch', 'disrupt',
-  'slam', 'raid', 'rampart', 'assault',
-  'sandstorm'
-];
+// The run starts with the basic cards only; every other card is earned (one of three offers after each encounter).
+const STARTER_RECIPE = ['strike','shelter','advance','strike','shelter','advance','strike','shelter','advance'];
+const DECK_RECIPE = STARTER_RECIPE;
+const REWARD_POOL = ['cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
+// Every card at once: for tests, simulations and balance experiments.
+const FULL_RECIPE = [...STARTER_RECIPE.slice(0,6),'cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
+// Relics change a rule instead of adding a card. One is chosen at the start of a run.
+const RELICS = {
+  turfseal: {name:'ختم المرقب',icon:'stone',text:'الأرض المشتعلة والمحصنة لا تعود طبيعية عند اكتمال الخط.'},
+  falcon: {name:'ريشة الصقر',icon:'bow',text:'كل بطاقة تزول تمنحك ١ درع عند زوالها.'},
+  patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٣) يبقى للدور التالي.'}
+};
+const RELIC_IDS = Object.keys(RELICS);
+const CARRY_CAP = 3;
 const isReward = () => false;
 const maneuverOptions = () => [];
 const enemy = (id,name,hp,pattern,role='') => {
@@ -101,21 +107,21 @@ function draw(s) {
 }
 function setupEncounter(s,index) {
   if(!ENCOUNTERS[index-1]) throw Error('Unknown encounter');
-  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.gridLevel=Array(9).fill(0);s.faces={};s.discard=[];s.hand=[];
+  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.gridLevel=Array(9).fill(0);s.faces={};s.discard=[];s.hand=[];s.carryBlock=0;s.rewardOffer=[];
   s.hand=STARTER_TYPES.map(type=>s.deck.find(uid=>cardType(uid)===type));
   s.draw=shuffle(s,s.deck.filter(uid=>!s.hand.includes(uid)));s.enemies=structuredClone(ENCOUNTERS[index-1].enemies);
   for(const e of s.enemies) e.attack = getEnemyIntent(e, 1).damage;
   s.screen='play';s.outcome=null;s.last=null;
 }
-function fresh(seed=20261017) {
+function fresh(seed=20261017, recipe=STARTER_RECIPE) {
   const counts = {};
-  const deck = DECK_RECIPE.map(type => {
+  const deck = recipe.map(type => {
     counts[type] = (counts[type] || 0);
     const uid = `${type}.${counts[type]}`;
     counts[type]++;
     return uid;
   });
-  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),gridLevel:Array(9).fill(0),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
+  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),gridLevel:Array(9).fill(0),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null,relic:null,relicOffer:[...RELIC_IDS],rewardOffer:[],carryBlock:0};
   setupEncounter(s,1);s.screen='title';return s;
 }
 function migrateSave(before) {
@@ -123,6 +129,8 @@ function migrateSave(before) {
   const s=structuredClone(before);assertState(s);return s;
 }
 const start = s => s.screen==='title'?{...structuredClone(s),screen:'play'}:s;
+// The real game: the title leads to the relic choice before the first encounter.
+const startRun = s => s.screen==='title'?{...structuredClone(s),screen:'relic'}:s;
 const attackTargets = s => s.enemies.filter(e=>e.hp>0);
 function targetForAction(s,a={}) { const alive=attackTargets(s);return alive.find(e=>e.id===a.target)?.id??alive[0]?.id??null; }
 function getEnemyIntent(e, arg1 = 1, arg2) {
@@ -138,7 +146,8 @@ function perpendicularLine(cell,axis) { return axis==='row'?selectedLine(cell,'c
 function completedLines(grid,cell,axis) { const lines=axis?[selectedLine(cell,axis)].filter(Boolean):LINES.filter(line=>line.includes(cell));return lines.filter(line=>line.every(i=>grid[i])); }
 const placePreview = (s,a) => activate(s,a);
 function actions(s) {
-  if(s.screen==='reward')return [{kind:'continue'}];
+  if(s.screen==='relic')return s.relicOffer.map(id=>({kind:'relic',id}));
+  if(s.screen==='reward')return s.rewardOffer.map(type=>({kind:'pick',type}));
   if(s.screen!=='play')return [];
   const out=[];
   for(const card of s.hand)for(let cell=0;cell<9;cell++)if(!s.grid[cell])for(const axis of ['row','column'])for(const target of attackTargets(s))out.push({card,cell,axis,face:0,target:target.id});
@@ -149,12 +158,19 @@ function activate(before,a) {
   if(!a || before?.version!==VERSION || before.ruleset!==RULESET)return invalid();
   if(before.screen==='end'){
     // After a defeat the same encounter can be retried with full health; the campaign is not lost.
-    if((a.kind??a.type)!=='retry'||before.outcome!=='defeat')return invalid();
+    if((a.kind??a.type)!=='retry'||!['defeat','exhausted'].includes(before.outcome))return invalid();
     const s=structuredClone(before);setupEncounter(s,s.encounter);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
   }
+  if(before.screen==='relic'){
+    if((a.kind??a.type)!=='relic'||!before.relicOffer.includes(a.id)||!RELICS[a.id])return invalid();
+    const s=structuredClone(before);s.relic=a.id;s.screen='play';s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
+  }
   if(before.screen==='reward'){
-    if((a.kind??a.type)!=='continue' || before.encounter>=ENCOUNTERS.length)return invalid();
-    const s=structuredClone(before);setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
+    // One of the three offered cards joins the deck, then the next encounter begins.
+    if((a.kind??a.type)!=='pick'||before.encounter>=ENCOUNTERS.length||!before.rewardOffer.includes(a.type)||!cards[a.type])return invalid();
+    const s=structuredClone(before);
+    s.deck.push(`${a.type}.${s.deck.filter(uid=>cardType(uid)===a.type).length}`);
+    setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
   }
   if(before.screen!=='play'||!before.hand.includes(a.card)||!Number.isInteger(a.cell)||a.cell<0||a.cell>=9||before.grid[a.cell]||!['row','column'].includes(a.axis)||(a.face!==undefined&&a.face!==0)||(a.target!==undefined&&!attackTargets(before).some(e=>e.id===a.target)))return invalid();
   const s=structuredClone(before);
@@ -167,6 +183,9 @@ function activate(before,a) {
     complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{},targetHits:0};
   let extraDraws=0;const ignitions=[],vanishing=[];
+  // «قربة الصبر»: the shield kept from the previous turn is available again.
+  if(s.carryBlock>0){summary.block=s.carryBlock;summary.events.push({type:'shield',cell:a.cell,amount:s.carryBlock,value:summary.block,source:'relic-carry',target:'hero'});}
+  s.carryBlock=0;
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
@@ -201,7 +220,11 @@ function activate(before,a) {
         }
       }
     }
-    if(d.vanish)summary.events.push({type:'vanish',cell,card:uid});
+    if(d.vanish){
+      summary.events.push({type:'vanish',cell,card:uid});
+      // «ريشة الصقر»: every card that vanishes leaves one shield behind.
+      if(s.relic==='falcon'){summary.block+=1;summary.events.push({type:'shield',cell,amount:1,value:summary.block,source:'relic-falcon',target:'hero'});}
+    }
     if(heat){
       const target=s.enemies.find(e=>e.id===action.target);
       if(target&&target.hp>0){
@@ -221,7 +244,8 @@ function activate(before,a) {
   for(const cell of line){
     if(!leaving.has(cell)||!s.grid[cell])continue;
     const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
-    if(complete&&s.gridTurf[cell]){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
+    // «ختم المرقب» keeps the ground; otherwise a cleared line returns its cells to normal.
+    if(complete&&s.gridTurf[cell]&&s.relic!=='turfseal'){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
   }
   for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;
@@ -233,20 +257,29 @@ function activate(before,a) {
     summary.events.push({type:'enemy-attack',source:e.id,amount:damage,rawDamage,blocked,damage:lost,hp:s.hp,shield});
   }
   summary.unusedBlock=shield;
+  if(s.relic==='patience')s.carryBlock=Math.min(CARRY_CAP,shield);
   summary.drawn=draw(s);
   if(extraDraws) draw(s);
   s.turn++;s.phaseTurn++;
   for(const e of s.enemies) e.attack = getEnemyIntent(e, s.phaseTurn).damage;
   if(s.hp<=0){s.screen='end';s.outcome='defeat';}
-  else if(!attackTargets(s).length){s.screen=s.encounter===ENCOUNTERS.length?'end':'reward';s.outcome=s.screen==='end'?'victory':null;}
+  else if(!attackTargets(s).length){s.screen=s.encounter===ENCOUNTERS.length?'end':'reward';s.outcome=s.screen==='end'?'victory':null;if(s.screen==='reward')s.rewardOffer=offerCards(s);}
+  else if(!s.hand.length){s.screen='end';s.outcome='exhausted';}
   summary.log=[`ضرر ${summary.hits} · حماية ${summary.block} · خسارة صحة ${summary.enemyDamage}`];s.last=summary;assertState(s);return {valid:true,state:s,summary};
+}
+// Three different cards the deck does not hold yet; drawn from the seeded generator so replays agree.
+function offerCards(s) {
+  const owned=new Set(s.deck.map(cardType));
+  return shuffle(s,REWARD_POOL.filter(type=>!owned.has(type))).slice(0,3);
 }
 function assertState(s) {
   if(s.version!==VERSION||s.ruleset!==RULESET)throw Error('Invalid ruleset');
   if(!Array.isArray(s.grid)||s.grid.length!==9)throw Error('Invalid grid');
   if(!Number.isInteger(s.hp)||s.hp<0||s.hp>s.maxHp)throw Error('Invalid health');
-  if(!['title','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
-  if(s.deck.length!==DECK_RECIPE.length||new Set(s.deck).size!==s.deck.length||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
+  if(!['title','relic','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
+  if(new Set(s.deck).size!==s.deck.length||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
+  if(s.relic!==null&&s.relic!==undefined&&!RELICS[s.relic])throw Error('Invalid relic');
+  if(!Number.isInteger(s.carryBlock??0)||(s.carryBlock??0)<0||(s.carryBlock??0)>CARRY_CAP)throw Error('Invalid carried shield');
   const zones=[...s.hand,...s.draw,...s.discard,...s.grid.filter(Boolean)];
   if(zones.length!==s.deck.length||new Set(zones).size!==zones.length||zones.some(uid=>!s.deck.includes(uid)||!def(uid)))throw Error('Invalid card zones');
   if(Object.values(s.faces).some(face=>face!==0))throw Error('Alternate faces removed');
@@ -607,7 +640,7 @@ function playCombatFeedback({root,summary,onComplete,onSound = () => {},reduced 
     if(event.type==='activate')pulse(root.querySelector(`[data-cell="${event.cell}"]`),'is-firing');
     else if(event.type==='risk')pulse(root.querySelector(`[data-cell="${event.cell}"]`),'is-risk-triggered',400);
     else if(event.type==='damage'){const turf=event.source==='turf-scorched',bleed=event.source==='bleed';hp(event.target,event.hp);pop(event.target,event.amount,bleed?'bleed':turf?'turf':'damage',bleed?'نزيف':turf?'أرض مشتعلة':'ضرر',bleed?'bleed':turf?'fire':'swords');impact(event.target,bleed?'bleed':'hit');pulse(unit(event.target),'is-hit');onSound(bleed?'knife':'hit');if(event.fatal){later(()=>unit(event.target)?.classList.add('is-fallen'),150);later(()=>onSound('kill'),120);}}
-    else if(event.type==='shield'){const turf=event.source==='turf-fortified';setShield(event.value);pop('hero',event.amount,'shield',turf?'أرض محصنة':'درع',turf?'stone':'shield');pulse(shield,'shield-gained');onSound('guard');}
+    else if(event.type==='shield'){const [label,ico]={'turf-fortified':['أرض محصنة','stone'],'relic-falcon':['ريشة الصقر','bow'],'relic-carry':['محفوظ','waterskin']}[event.source]||['درع','shield'];setShield(event.value);pop('hero',event.amount,'shield',label,ico);pulse(shield,'shield-gained');onSound('guard');}
     else if(event.type==='weaken'||event.type==='stagger'){const id=event.target;cut[id]=(cut[id]||0)+event.amount;const el=root.querySelector(`[data-intent="${id}"]`);if(el){const raw=Number(el.dataset.raw)||0;const value=el.querySelector('.icon-stat b');if(value)value.textContent=combatNumber(Math.max(0,raw-cut[id]));el.classList.add('is-weakened');}pop(id,event.amount,'weaken',event.type==='stagger'?'ترنح':'إضعاف',event.type==='stagger'?'spark':'feint');pulse(unit(id),'is-weakened-unit',420);onSound('weaken');}
     else if(event.type==='ignite'||event.type==='fortify'){const el=root.querySelector(`[data-cell="${event.cell}"]`);el?.classList.add(event.type==='ignite'?'is-scorched':'is-fortified');pulse(el,event.type==='ignite'?'is-igniting':'is-fortifying',520);onSound(event.type);}
     else if(event.type==='vanish'){const el=root.querySelector(`[data-cell="${event.cell}"]`);if(el&&!reduced){el.classList.add('is-vanishing');later(()=>el.classList.remove('is-vanishing'),420);}}
@@ -662,7 +695,7 @@ function cardArt(uid,s,cls='') {
 }
 function header(s) {
   return `<header class="game-header">${slice(0,0,1672,75,'template-art','blank-template.png')}
-    <div class="player-resources"><span class="health-count" aria-label="الصحة">${icon('heart')}<span data-player-hp>${ratio(s.hp,s.maxHp)}</span></span></div>
+    <div class="player-resources">${s.relic&&RELICS[s.relic]?`<span class="relic-chip" title="${esc(RELICS[s.relic].name)}: ${esc(RELICS[s.relic].text)}" aria-label="الريلكس ${esc(RELICS[s.relic].name)}: ${esc(RELICS[s.relic].text)}">${icon(RELICS[s.relic].icon)}<b>${esc(RELICS[s.relic].name)}</b></span>`:''}${s.carryBlock>0?`<span class="carry-chip" title="درع محفوظ من الدور السابق" aria-label="درع محفوظ ${num(s.carryBlock)}">${icon('shield')}<b>${num(s.carryBlock)}</b> محفوظ</span>`:''}<span class="health-count" aria-label="الصحة">${icon('heart')}<span data-player-hp>${ratio(s.hp,s.maxHp)}</span></span></div>
     <h1>${esc(ENCOUNTERS[s.encounter-1].name)}<small>اختبار ${num(s.encounter)} / ${num(ENCOUNTERS.length)}</small></h1>
     ${button('؟','help','header-help',false,'شرح اللعب')}${fullscreenButton()}${button(slice(1585,19,45,45),'menu','settings-button',false,'قائمة اللعبة')}
   </header>`;
@@ -708,11 +741,13 @@ function hand(s,p,projected,busy,fresh=null) {
   }).join('')}</div></section>`;
 }
 function rotationHint(){return `<div class="rotate-hint"><span>⤾</span><strong>أدر الجهاز أفقيًا</strong><p>لتظهر المواجهة والشبكة والبطاقات كاملة</p></div>`;}
-function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="38">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
-function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>١٧ ورقة · ١٤ نوعًا · يد من ٣ · بلا مانا</small></div>${rotationHint()}</main>`;}
+function gameView(s,p,animation=null,fresh=null){const projected=animation?null:preview(s,p);return `<main class="duel-app" data-version="39">${header(s)}<div class="main-stage">${arena(s,p,projected,animation)}${board(s,p,projected,animation)}</div>${hand(s,p,projected,!!animation,fresh)}${rotationHint()}</main>`;}
+function titleView(s){return `<main class="landing">${slice(4,76,1136,552,'landing-scene')}<div class="landing-paper"><span class="eyebrow">حُماة الممرات · مختبر التوليفات</span><h1>الشنفرى</h1><p>ضع بطاقة واختر صفّها أو عمودها. ابنِ توليفتك، ثم أكمل الخط لاستثماره.</p>${s.migrationNotice?'<small class="migration-notice">تغيّرت البطاقات والقواعد؛ تبدأ نسخة الاختبار بجولة جديدة.</small>':''}${button(fullscreenSupported()?'العب بملء الشاشة':'ابدأ الاختبار','start','gold-button')}<small>٩ بطاقات أساسية · بطاقة جديدة بعد كل مواجهة · ريلكس واحد · يد من ٣</small></div>${rotationHint()}</main>`;}
 const turnsText = n => n === 1 ? 'دور واحد' : n === 2 ? 'دورين' : n <= 10 ? `${num(n)} أدوار` : `${num(n)} دورًا`;
-function rewardView(s){return `<main class="screen-panel"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p>المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')}</p><p class="recap-line">أنهيت الاختبار في ${turnsText(Math.max(1,s.phaseTurn-1))} · صحتك ${ratio(s.hp,s.maxHp)}</p><p>${esc(ENCOUNTERS[s.encounter]?.lesson??'')}</p><p>تستعيد صحتك كاملة وتبدأ بالشبكة والرزمة من جديد.</p>${button('ابدأ الاختبار التالي','continue','gold-button')}${rotationHint()}</main>`;}
-function endView(s){return `<main class="screen-panel end-screen"><h1>${s.outcome==='victory'?'اكتملت اختبارات التوليفات':s.outcome==='exhausted'?'نفدت الخيارات':'انتهت المواجهة'}</h1><p>${s.outcome==='victory'?'جرّب ترتيبًا آخر وقارن قرارات الهجوم والحماية.':s.outcome==='exhausted'?'لم تبق بطاقة قابلة للعب أو وسيلة لهزيمة الأعداء.':`سقطت في «${esc(ENCOUNTERS[s.encounter-1]?.name??'')}». ${esc(ENCOUNTERS[s.encounter-1]?.lesson??'')}`}</p>${s.outcome==='defeat'?button('أعد هذه المواجهة','retry','gold-button'):''}${button('اختبار جديد','restart',s.outcome==='defeat'?'':'gold-button')}${rotationHint()}</main>`;}
+const cardChoice = (type, s, action, extra = '') => { const uid = `${type}.x`, c = def(uid, s); return `<button class="choice-card" data-action="${action}" ${extra} aria-label="${esc(c.name)}: ${esc(c.text)}"><span class="choice-art" aria-hidden="true">${icon(c.icon)}</span><strong>${esc(c.name)}${c.vanish ? '<span class="vanish-badge">⏳ تزول</span>' : ''}</strong><span class="choice-effect">${effectFormula(uid, s)}</span><small>${esc(c.text)}</small></button>`; };
+function relicView(s){return `<main class="screen-panel choice-screen"><h1>اختر ريلكسًا</h1><p>يغيّر قاعدة واحدة طوال الرحلة. اختيار واحد.</p><div class="choice-row">${s.relicOffer.map(id=>`<button class="choice-card relic-card" data-action="relic" data-id="${id}" aria-label="${esc(RELICS[id].name)}: ${esc(RELICS[id].text)}"><span class="choice-art" aria-hidden="true">${icon(RELICS[id].icon)}</span><strong>${esc(RELICS[id].name)}</strong><small>${esc(RELICS[id].text)}</small></button>`).join('')}</div>${rotationHint()}</main>`;}
+function rewardView(s){return `<main class="screen-panel choice-screen"><h1>اكتمل الاختبار ${num(s.encounter)}</h1><p class="recap-line">أنهيت الاختبار في ${turnsText(Math.max(1,s.phaseTurn-1))} · صحتك ${ratio(s.hp,s.maxHp)}</p><p>اختر بطاقة واحدة تنضم إلى رزمتك:</p><div class="choice-row">${s.rewardOffer.map(type=>cardChoice(type,s,'pick',`data-type="${type}"`)).join('')}</div><p class="choice-next">المواجهة التالية: ${esc(ENCOUNTERS[s.encounter]?.name??'')} · ${esc(ENCOUNTERS[s.encounter]?.lesson??'')}</p>${rotationHint()}</main>`;}
+function endView(s){return `<main class="screen-panel end-screen"><h1>${s.outcome==='victory'?'اكتملت اختبارات التوليفات':s.outcome==='exhausted'?'نفدت الخيارات':'انتهت المواجهة'}</h1><p>${s.outcome==='victory'?'جرّب ترتيبًا آخر وقارن قرارات الهجوم والحماية.':s.outcome==='exhausted'?'لم تبق بطاقة قابلة للعب أو وسيلة لهزيمة الأعداء.':`سقطت في «${esc(ENCOUNTERS[s.encounter-1]?.name??'')}». ${esc(ENCOUNTERS[s.encounter-1]?.lesson??'')}`}</p>${s.outcome==='defeat'||s.outcome==='exhausted'?button('أعد هذه المواجهة','retry','gold-button'):''}${button('اختبار جديد','restart',(s.outcome==='defeat'||s.outcome==='exhausted')?'':'gold-button')}${rotationHint()}</main>`;}
 function combatRecap(summary) {
   const items = [[summary.hits,'swords','ألحقت','dealt'],[summary.block,'shield','اكتسبت درع','guard'],[summary.prevented??0,'shield','مُنِع','prevented'],[summary.enemyDamage,'heart','خسرت صحة','taken']];
   return `<div class="battle-result" role="status" aria-label="نتيجة الدور">${items.map(([value,ico,label,kind])=>`<span class="recap-item recap-${kind}" data-recap="${kind}" data-value="${value}"><span>${icon(ico)}<b>${num(value)}</b></span><small>${label}</small></span>`).join('')}</div>`;
@@ -763,7 +798,7 @@ let cancelCombat=null,resolving=null;
 try {
   const saved=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(saved?.state?.version===VERSION){
-    if(saved.state.ruleset!==35)localStorage.setItem(SAVE_KEY+'-before-v35',JSON.stringify(saved));
+    if(saved.state.ruleset!==36)localStorage.setItem(SAVE_KEY+'-before-v36',JSON.stringify(saved));
     s=migrateSave(saved.state);report=restore(saved.report,s);
   }
 }catch{}
@@ -771,7 +806,7 @@ function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({state:s,report
 let announcedDraw=null;
 // A newly drawn card slides in once, not again on every later re-render.
 function freshDraw(){const d=s.last?.kind==='turn'?s.last.drawn:null;if(d&&d!==announcedDraw){announcedDraw=d;return d;}return null;}
-function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving,resolving?null:freshDraw());}
+function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='relic'?relicView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving,resolving?null:freshDraw());}
 function syncFullscreenControls() {
   const template = document.createElement('template');
   template.innerHTML = fullscreenButton();
@@ -796,7 +831,7 @@ function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2
 function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
 function help(){show('مختبر التوليفات','<ol><li>اسحب بطاقة إلى خانة فارغة (أو اضغط البطاقة ثم الخانة). اضغط الخانة المختارة مرة أخرى لتبديل التفعيل بين صف وعمود؛ ويتذكر اللعب آخر اتجاه استخدمته. مفتاح X يبدّل أيضًا.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
 let beatTimer=null;
-function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
+function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=startRun(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
 function commit(a){
   if(resolving)return;
   const before=s,result=activate(before,a);if(!result.valid)return;
@@ -827,12 +862,13 @@ function action(name){
   if(name==='audio'){toggleMute();menu.close();return;}
   if(name==='export'){const url=URL.createObjectURL(new Blob([textReport(report)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='shanfara-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;}
   if(resolving)return;
-  if(name==='start'){requestFullscreenFromGesture();s=start(s);report=begin(s);save();render();playSfx('select');}
-  else if(name==='continue')commit({kind:'continue'});
+  if(name==='start'){requestFullscreenFromGesture();s=startRun(s);report=begin(s);save();render();playSfx('select');}
   else if(name==='confirm-play')commit({card:selection.card,cell:selection.cell,axis:selection.axis,face:0,target:targetForAction(s,selection)});
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;
+  if(b.dataset.action==='relic'){if(!resolving)commit({kind:'relic',id:b.dataset.id});return;}
+  if(b.dataset.action==='pick'){if(!resolving)commit({kind:'pick',type:b.dataset.type});return;}
   if(b.dataset.action){action(b.dataset.action);return;}
   if(resolving||s.screen!=='play')return;
   if(b.dataset.info){details(b.dataset.info);return;}

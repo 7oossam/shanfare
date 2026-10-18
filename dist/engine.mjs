@@ -1,5 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
-export const RULESET = 35;
+export const RULESET = 36;
 export const HAND_SIZE = 3;
 export const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 export const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -24,14 +24,20 @@ export const cards = {
 };
 export const alternates = {}, rewards = [];
 export const STARTER_TYPES = ['strike', 'shelter', 'advance'];
-export const DECK_RECIPE = [
-  'strike', 'shelter', 'advance',
-  'strike', 'shelter', 'advance',
-  'cross', 'scout', 'haven',
-  'anvil', 'scorch', 'disrupt',
-  'slam', 'raid', 'rampart', 'assault',
-  'sandstorm'
-];
+// The run starts with the basic cards only; every other card is earned (one of three offers after each encounter).
+export const STARTER_RECIPE = ['strike','shelter','advance','strike','shelter','advance','strike','shelter','advance'];
+export const DECK_RECIPE = STARTER_RECIPE;
+export const REWARD_POOL = ['cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
+// Every card at once: for tests, simulations and balance experiments.
+export const FULL_RECIPE = [...STARTER_RECIPE.slice(0,6),'cross','scout','haven','anvil','scorch','disrupt','slam','raid','rampart','assault','sandstorm'];
+// Relics change a rule instead of adding a card. One is chosen at the start of a run.
+export const RELICS = {
+  turfseal: {name:'ختم المرقب',icon:'stone',text:'الأرض المشتعلة والمحصنة لا تعود طبيعية عند اكتمال الخط.'},
+  falcon: {name:'ريشة الصقر',icon:'bow',text:'كل بطاقة تزول تمنحك ١ درع عند زوالها.'},
+  patience: {name:'قربة الصبر',icon:'waterskin',text:'ما يتبقى من درعك بعد رد الأعداء (حتى ٣) يبقى للدور التالي.'}
+};
+export const RELIC_IDS = Object.keys(RELICS);
+export const CARRY_CAP = 3;
 export const isReward = () => false;
 export const maneuverOptions = () => [];
 const enemy = (id,name,hp,pattern,role='') => {
@@ -59,21 +65,21 @@ export function draw(s) {
 }
 export function setupEncounter(s,index) {
   if(!ENCOUNTERS[index-1]) throw Error('Unknown encounter');
-  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.gridLevel=Array(9).fill(0);s.faces={};s.discard=[];s.hand=[];
+  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.gridLevel=Array(9).fill(0);s.faces={};s.discard=[];s.hand=[];s.carryBlock=0;s.rewardOffer=[];
   s.hand=STARTER_TYPES.map(type=>s.deck.find(uid=>cardType(uid)===type));
   s.draw=shuffle(s,s.deck.filter(uid=>!s.hand.includes(uid)));s.enemies=structuredClone(ENCOUNTERS[index-1].enemies);
   for(const e of s.enemies) e.attack = getEnemyIntent(e, 1).damage;
   s.screen='play';s.outcome=null;s.last=null;
 }
-export function fresh(seed=20261017) {
+export function fresh(seed=20261017, recipe=STARTER_RECIPE) {
   const counts = {};
-  const deck = DECK_RECIPE.map(type => {
+  const deck = recipe.map(type => {
     counts[type] = (counts[type] || 0);
     const uid = `${type}.${counts[type]}`;
     counts[type]++;
     return uid;
   });
-  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),gridLevel:Array(9).fill(0),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
+  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),gridLevel:Array(9).fill(0),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null,relic:null,relicOffer:[...RELIC_IDS],rewardOffer:[],carryBlock:0};
   setupEncounter(s,1);s.screen='title';return s;
 }
 export function migrateSave(before) {
@@ -81,6 +87,8 @@ export function migrateSave(before) {
   const s=structuredClone(before);assertState(s);return s;
 }
 export const start = s => s.screen==='title'?{...structuredClone(s),screen:'play'}:s;
+// The real game: the title leads to the relic choice before the first encounter.
+export const startRun = s => s.screen==='title'?{...structuredClone(s),screen:'relic'}:s;
 export const attackTargets = s => s.enemies.filter(e=>e.hp>0);
 export function targetForAction(s,a={}) { const alive=attackTargets(s);return alive.find(e=>e.id===a.target)?.id??alive[0]?.id??null; }
 export function getEnemyIntent(e, arg1 = 1, arg2) {
@@ -96,7 +104,8 @@ export function perpendicularLine(cell,axis) { return axis==='row'?selectedLine(
 export function completedLines(grid,cell,axis) { const lines=axis?[selectedLine(cell,axis)].filter(Boolean):LINES.filter(line=>line.includes(cell));return lines.filter(line=>line.every(i=>grid[i])); }
 export const placePreview = (s,a) => activate(s,a);
 export function actions(s) {
-  if(s.screen==='reward')return [{kind:'continue'}];
+  if(s.screen==='relic')return s.relicOffer.map(id=>({kind:'relic',id}));
+  if(s.screen==='reward')return s.rewardOffer.map(type=>({kind:'pick',type}));
   if(s.screen!=='play')return [];
   const out=[];
   for(const card of s.hand)for(let cell=0;cell<9;cell++)if(!s.grid[cell])for(const axis of ['row','column'])for(const target of attackTargets(s))out.push({card,cell,axis,face:0,target:target.id});
@@ -107,12 +116,19 @@ export function activate(before,a) {
   if(!a || before?.version!==VERSION || before.ruleset!==RULESET)return invalid();
   if(before.screen==='end'){
     // After a defeat the same encounter can be retried with full health; the campaign is not lost.
-    if((a.kind??a.type)!=='retry'||before.outcome!=='defeat')return invalid();
+    if((a.kind??a.type)!=='retry'||!['defeat','exhausted'].includes(before.outcome))return invalid();
     const s=structuredClone(before);setupEncounter(s,s.encounter);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
   }
+  if(before.screen==='relic'){
+    if((a.kind??a.type)!=='relic'||!before.relicOffer.includes(a.id)||!RELICS[a.id])return invalid();
+    const s=structuredClone(before);s.relic=a.id;s.screen='play';s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
+  }
   if(before.screen==='reward'){
-    if((a.kind??a.type)!=='continue' || before.encounter>=ENCOUNTERS.length)return invalid();
-    const s=structuredClone(before);setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
+    // One of the three offered cards joins the deck, then the next encounter begins.
+    if((a.kind??a.type)!=='pick'||before.encounter>=ENCOUNTERS.length||!before.rewardOffer.includes(a.type)||!cards[a.type])return invalid();
+    const s=structuredClone(before);
+    s.deck.push(`${a.type}.${s.deck.filter(uid=>cardType(uid)===a.type).length}`);
+    setupEncounter(s,s.encounter+1);s.last={kind:'transition',action:structuredClone(a)};assertState(s);return {valid:true,state:s,summary:s.last};
   }
   if(before.screen!=='play'||!before.hand.includes(a.card)||!Number.isInteger(a.cell)||a.cell<0||a.cell>=9||before.grid[a.cell]||!['row','column'].includes(a.axis)||(a.face!==undefined&&a.face!==0)||(a.target!==undefined&&!attackTargets(before).some(e=>e.id===a.target)))return invalid();
   const s=structuredClone(before);
@@ -125,6 +141,9 @@ export function activate(before,a) {
     complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0,reductions:{},targetHits:0};
   let extraDraws=0;const ignitions=[],vanishing=[];
+  // «قربة الصبر»: the shield kept from the previous turn is available again.
+  if(s.carryBlock>0){summary.block=s.carryBlock;summary.events.push({type:'shield',cell:a.cell,amount:s.carryBlock,value:summary.block,source:'relic-carry',target:'hero'});}
+  s.carryBlock=0;
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
@@ -159,7 +178,11 @@ export function activate(before,a) {
         }
       }
     }
-    if(d.vanish)summary.events.push({type:'vanish',cell,card:uid});
+    if(d.vanish){
+      summary.events.push({type:'vanish',cell,card:uid});
+      // «ريشة الصقر»: every card that vanishes leaves one shield behind.
+      if(s.relic==='falcon'){summary.block+=1;summary.events.push({type:'shield',cell,amount:1,value:summary.block,source:'relic-falcon',target:'hero'});}
+    }
     if(heat){
       const target=s.enemies.find(e=>e.id===action.target);
       if(target&&target.hp>0){
@@ -179,7 +202,8 @@ export function activate(before,a) {
   for(const cell of line){
     if(!leaving.has(cell)||!s.grid[cell])continue;
     const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
-    if(complete&&s.gridTurf[cell]){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
+    // «ختم المرقب» keeps the ground; otherwise a cleared line returns its cells to normal.
+    if(complete&&s.gridTurf[cell]&&s.relic!=='turfseal'){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
   }
   for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;
@@ -191,20 +215,29 @@ export function activate(before,a) {
     summary.events.push({type:'enemy-attack',source:e.id,amount:damage,rawDamage,blocked,damage:lost,hp:s.hp,shield});
   }
   summary.unusedBlock=shield;
+  if(s.relic==='patience')s.carryBlock=Math.min(CARRY_CAP,shield);
   summary.drawn=draw(s);
   if(extraDraws) draw(s);
   s.turn++;s.phaseTurn++;
   for(const e of s.enemies) e.attack = getEnemyIntent(e, s.phaseTurn).damage;
   if(s.hp<=0){s.screen='end';s.outcome='defeat';}
-  else if(!attackTargets(s).length){s.screen=s.encounter===ENCOUNTERS.length?'end':'reward';s.outcome=s.screen==='end'?'victory':null;}
+  else if(!attackTargets(s).length){s.screen=s.encounter===ENCOUNTERS.length?'end':'reward';s.outcome=s.screen==='end'?'victory':null;if(s.screen==='reward')s.rewardOffer=offerCards(s);}
+  else if(!s.hand.length){s.screen='end';s.outcome='exhausted';}
   summary.log=[`ضرر ${summary.hits} · حماية ${summary.block} · خسارة صحة ${summary.enemyDamage}`];s.last=summary;assertState(s);return {valid:true,state:s,summary};
+}
+// Three different cards the deck does not hold yet; drawn from the seeded generator so replays agree.
+function offerCards(s) {
+  const owned=new Set(s.deck.map(cardType));
+  return shuffle(s,REWARD_POOL.filter(type=>!owned.has(type))).slice(0,3);
 }
 export function assertState(s) {
   if(s.version!==VERSION||s.ruleset!==RULESET)throw Error('Invalid ruleset');
   if(!Array.isArray(s.grid)||s.grid.length!==9)throw Error('Invalid grid');
   if(!Number.isInteger(s.hp)||s.hp<0||s.hp>s.maxHp)throw Error('Invalid health');
-  if(!['title','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
-  if(s.deck.length!==DECK_RECIPE.length||new Set(s.deck).size!==s.deck.length||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
+  if(!['title','relic','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
+  if(new Set(s.deck).size!==s.deck.length||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
+  if(s.relic!==null&&s.relic!==undefined&&!RELICS[s.relic])throw Error('Invalid relic');
+  if(!Number.isInteger(s.carryBlock??0)||(s.carryBlock??0)<0||(s.carryBlock??0)>CARRY_CAP)throw Error('Invalid carried shield');
   const zones=[...s.hand,...s.draw,...s.discard,...s.grid.filter(Boolean)];
   if(zones.length!==s.deck.length||new Set(zones).size!==zones.length||zones.some(uid=>!s.deck.includes(uid)||!def(uid)))throw Error('Invalid card zones');
   if(Object.values(s.faces).some(face=>face!==0))throw Error('Alternate faces removed');

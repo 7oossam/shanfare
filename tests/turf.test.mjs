@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fresh,start,activate,assertState} from '../dist/engine.mjs';
+import {fresh,start,activate,assertState,FULL_RECIPE} from '../dist/engine.mjs';
 function fixture(grid={},hand=['scorch'],enemyHp=100){
-  const s=start(fresh());const pool=[...s.deck];const take=type=>pool.splice(pool.findIndex(uid=>uid.startsWith(type+'.')),1)[0];
+  const s=start(fresh(20261017,FULL_RECIPE));const pool=[...s.deck];const take=type=>pool.splice(pool.findIndex(uid=>uid.startsWith(type+'.')),1)[0];
   s.grid=Array(9).fill(null);s.faces={};for(const [i,type]of Object.entries(grid)){s.grid[i]=take(type);s.faces[s.grid[i]]=0;}
   s.hand=hand.map(take);s.draw=pool;s.discard=[];s.enemies=[{id:'dummy',name:'هدف اختبار',hp:enemyHp,maxHp:enemyHp,attack:0,shield:0}];return s;
 }
@@ -93,4 +93,25 @@ test('sandstorm with a single enemy is a plain visiting ⚔️2; scorched turf b
   const s=fixture({},['sandstorm']);s.enemies=crowd([9,9]);s.gridTurf[4]='scorched';s.gridLevel[4]=1;
   const r=activate(s,{card:s.hand[0],cell:4,axis:'row',target:'e0'});
   assert.deepEqual(r.state.enemies.map(e=>e.hp),[6,7],'target takes 2+1 from turf, the other only 2');
+});
+
+test('relic «ختم المرقب»: a cleared line leaves the ground burning',()=>{
+  const mk=relic=>{const s=fixture({0:'strike',1:'shelter'},['advance']);s.relic=relic;s.gridTurf[2]='scorched';s.gridLevel[2]=1;return s;};
+  assert.equal(place(mk(null),2,'row').state.gridTurf[2],null,'without the relic the ground resets');
+  const r=place(mk('turfseal'),2,'row');assert.equal(r.summary.lines.length,1);assert.equal(r.state.gridTurf[2],'scorched');assert.equal(r.state.gridLevel[2],1);
+});
+test('relic «ريشة الصقر»: each vanishing card leaves one shield',()=>{
+  const s=fixture({},['raid']);s.relic='falcon';const r=place(s,4);
+  assert.equal(r.summary.block,1);assert.ok(r.summary.events.some(e=>e.type==='shield'&&e.source==='relic-falcon'));
+  const plain=fixture({},['raid']);assert.equal(place(plain,4).summary.block,0);
+  const sc=fixture({},['scorch']);sc.relic='falcon';assert.equal(place(sc,4).summary.block,1,'turf cards vanish too');
+  const keep=fixture({},['strike']);keep.relic='falcon';assert.equal(place(keep,4).summary.block,0,'a card that stays gives nothing');
+});
+test('relic «قربة الصبر»: up to three unused shield carries to the next turn',()=>{
+  const s=fixture({},['rampart','shelter','strike']);s.relic='patience';s.enemies[0].attack=0;s.enemies[0].pattern=[0];
+  const t1=place(s,4,'row',s.hand[0]);assert.equal(t1.state.carryBlock,3,'3 unused shield is kept');
+  const shelter=t1.state.hand.find(u=>u.startsWith('shelter.'));const t2=place(t1.state,0,'row',shelter);
+  assert.equal(t2.summary.block,5,'the 2 from the card plus the 3 carried');assert.equal(t2.state.carryBlock,3,'capped at 3');
+  assert.ok(t2.summary.events.some(e=>e.type==='shield'&&e.source==='relic-carry'));
+  const none=fixture({},['rampart']);none.enemies[0].attack=0;none.enemies[0].pattern=[0];assert.equal(place(none,4).state.carryBlock||0,0,'no relic, nothing carried');
 });

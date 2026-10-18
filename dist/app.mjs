@@ -1,6 +1,6 @@
-import { VERSION, migrateSave, fresh, start, activate, def, targetForAction } from './engine.mjs?v=32';
+import { VERSION, migrateSave, fresh, start, startRun, activate, def, targetForAction } from './engine.mjs?v=32';
 import { begin, record, restore, textReport } from './report.mjs?v=9';
-import { gameView, titleView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=32';
+import { gameView, titleView, relicView, rewardView, endView, button, esc, num, effectFormula, fullscreenButton } from './view.mjs?v=32';
 import { playSfx, toggleMute, isMuted, haptic } from './audio.mjs?v=9';
 import { fullscreenActive, enterGameFullscreen, exitGameFullscreen, releaseLandscapeLock } from './fullscreen.mjs?v=9';
 import { playCombatFeedback } from './combat-feedback.mjs?v=9';
@@ -16,7 +16,7 @@ let cancelCombat=null,resolving=null;
 try {
   const saved=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(saved?.state?.version===VERSION){
-    if(saved.state.ruleset!==35)localStorage.setItem(SAVE_KEY+'-before-v35',JSON.stringify(saved));
+    if(saved.state.ruleset!==36)localStorage.setItem(SAVE_KEY+'-before-v36',JSON.stringify(saved));
     s=migrateSave(saved.state);report=restore(saved.report,s);
   }
 }catch{}
@@ -24,7 +24,7 @@ function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({state:s,report
 let announcedDraw=null;
 // A newly drawn card slides in once, not again on every later re-render.
 function freshDraw(){const d=s.last?.kind==='turn'?s.last.drawn:null;if(d&&d!==announcedDraw){announcedDraw=d;return d;}return null;}
-function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving,resolving?null:freshDraw());}
+function render(){root.innerHTML=s.screen==='title'?titleView(s):s.screen==='relic'?relicView(s):s.screen==='reward'?rewardView(s):s.screen==='end'?endView(s):gameView(s,selection,resolving,resolving?null:freshDraw());}
 function syncFullscreenControls() {
   const template = document.createElement('template');
   template.innerHTML = fullscreenButton();
@@ -49,7 +49,7 @@ function show(title, body) { menu.innerHTML = `<header class="dialog-header"><h2
 function details(uid){const c=def(uid,s);show(esc(c.name),`<div class="prototype-details"><div>${effectFormula(uid,s)}</div><p>${esc(c.text)}</p><p>تتفعّل مرة عند اختيار خطها. تبقى في الشبكة حتى اكتمال الخط المختار وتفريغه.</p></div>`);}
 function help(){show('مختبر التوليفات','<ol><li>اسحب بطاقة إلى خانة فارغة (أو اضغط البطاقة ثم الخانة). اضغط الخانة المختارة مرة أخرى لتبديل التفعيل بين صف وعمود؛ ويتذكر اللعب آخر اتجاه استخدمته. مفتاح X يبدّل أيضًا.</li><li>راجع المعاينة ثم اضغط «نفّذ التوليفة». تتفعّل البطاقة الجديدة وكل بطاقات الخط المختار حتى لو كان ناقصًا.</li><li>الصف من اليمين لليسار، والعمود من الأعلى للأسفل. الأرقام على الشبكة توضح الترتيب.</li><li>الخط المكتمل المختار يُفرّغ بعد التفعيل. غير المختار يبقى حتى لو اكتمل. بطاقة «⏳ تزول» تُفعَّل مع الخط ثم تغادر ولا تُكمله، فتبقى بقية بطاقاته.</li><li>الأوراق المفرّغة تذهب للمستهلك، ويُعاد خلطه عند نفاد رزمة السحب.</li><li>بطاقة واحدة في الدور، ثم يرد الأعداء الأحياء. الحماية للرد الحالي فقط، وتسحب بطاقة بعد الحسم.</li><li>كل هجمات التوليفة تستهدف العدو المختار. إن مات، لا ينتقل الضرر لعدو آخر؛ الحماية تظل تعمل.</li><li>تحصين المرقبة: يعمل كالإشعال لكن بالدرع؛ تصير خانته خضراء وأي بطاقة تُفعَّل فيها تمنح درعًا إضافيًا.</li><li>إشعال النار: تتفعّل ثم تُفرَّغ فورًا وتصير خانتها حمراء؛ أي بطاقة تُفعَّل فيها تلحق ضررًا إضافيًا، والإشعال المتكرر يتراكم. تعود الخانة طبيعية حين يكتمل خطها.</li><li>تقدّم محمي: ضرر واحد وحماية واحدة، ويصبح الضرر اثنين إذا اكتمل الخط المختار.</li></ol>');}
 let beatTimer=null;
-function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=start(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
+function newGame(){clearTimeout(beatTimer);beatTimer=null;cancelCombat?.();cancelCombat=null;resolving=null;s=startRun(fresh());report=begin(s);selection=emptySelection();if(menu.open)menu.close();save();render();}
 function commit(a){
   if(resolving)return;
   const before=s,result=activate(before,a);if(!result.valid)return;
@@ -80,12 +80,13 @@ function action(name){
   if(name==='audio'){toggleMute();menu.close();return;}
   if(name==='export'){const url=URL.createObjectURL(new Blob([textReport(report)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='shanfara-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;}
   if(resolving)return;
-  if(name==='start'){requestFullscreenFromGesture();s=start(s);report=begin(s);save();render();playSfx('select');}
-  else if(name==='continue')commit({kind:'continue'});
+  if(name==='start'){requestFullscreenFromGesture();s=startRun(s);report=begin(s);save();render();playSfx('select');}
   else if(name==='confirm-play')commit({card:selection.card,cell:selection.cell,axis:selection.axis,face:0,target:targetForAction(s,selection)});
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;
+  if(b.dataset.action==='relic'){if(!resolving)commit({kind:'relic',id:b.dataset.id});return;}
+  if(b.dataset.action==='pick'){if(!resolving)commit({kind:'pick',type:b.dataset.type});return;}
   if(b.dataset.action){action(b.dataset.action);return;}
   if(resolving||s.screen!=='play')return;
   if(b.dataset.info){details(b.dataset.info);return;}

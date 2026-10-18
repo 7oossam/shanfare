@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fresh,start,activate,actions,cards,ENCOUNTERS,assertState,migrateSave,draw,snapshot,selectedLine} from '../dist/engine.mjs';
+import {fresh,start,startRun,activate,actions,cards,ENCOUNTERS,assertState,migrateSave,draw,snapshot,selectedLine,RELIC_IDS,FULL_RECIPE} from '../dist/engine.mjs';
 function fixture(grid={},hand=['strike'],enemyHp=100){
-  const s=start(fresh());const pool=[...s.deck];const take=type=>pool.splice(pool.findIndex(uid=>uid.startsWith(type+'.')),1)[0];
+  const s=start(fresh(20261017,FULL_RECIPE));const pool=[...s.deck];const take=type=>pool.splice(pool.findIndex(uid=>uid.startsWith(type+'.')),1)[0];
   s.grid=Array(9).fill(null);s.faces={};for(const [i,type]of Object.entries(grid)){s.grid[i]=take(type);s.faces[s.grid[i]]=0;}
   s.hand=hand.map(take);s.draw=pool;s.discard=[];s.enemies=[{id:'dummy',name:'هدف اختبار',hp:enemyHp,maxHp:enemyHp,attack:0,shield:0}];return s;
 }
 const place=(s,cell,axis='row',card=s.hand[0])=>activate(s,{card,cell,axis,target:s.enemies[0].id});
-test('seventeen physical cards, declared laboratory enemies and valid roster',()=>{
-  const s=fresh();assert.equal(s.deck.length,17);assert.equal(s.hand.length,3);assert.equal(s.draw.length,14);assert.equal(ENCOUNTERS.length,5);assert.deepEqual(ENCOUNTERS.map(e=>e.enemies.length),[1,2,1,1,3]);assert.ok(ENCOUNTERS.every(e=>e.lesson&&e.enemies.every(x=>x.pattern.length&&x.hp>0)));assertState(s);
+test('the run starts with nine basic cards, declared enemies and a valid roster',()=>{
+  const s=fresh();assert.equal(s.deck.length,9);assert.deepEqual([...new Set(s.deck.map(u=>u.split('.')[0]))].sort(),['advance','shelter','strike']);assert.equal(s.hand.length,3);assert.equal(s.draw.length,6);assert.equal(ENCOUNTERS.length,5);assert.deepEqual(ENCOUNTERS.map(e=>e.enemies.length),[1,2,1,1,3]);assert.ok(ENCOUNTERS.every(e=>e.lesson&&e.enemies.every(x=>x.pattern.length&&x.hp>0)));assertState(s);
 });
 test('axis is required and face one/invalid targets are rejected without mutation',()=>{
   const s=start(fresh()),before=snapshot(s);const a={card:s.hand[0],cell:0};
@@ -45,11 +45,27 @@ test('all seventeen cards circulate without a dead hand for a sustained sequence
   for(let i=0;i<200;i++){assert.ok(s.hand.length);const a=actions(s)[i%actions(s).length];const r=activate(s,a);assert.ok(r.valid);s=r.state;assertState(s);}
 });
 test('old saves explicitly reset, current saves retain deterministic replay',()=>{
-  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,35);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
+  const old={...fresh(123),ruleset:31,hand:['arrow.0']};const s=migrateSave(old);assert.equal(s.ruleset,36);assert.equal(s.screen,'title');assert.match(s.migrationNotice,/الحفظ السابق/);assert.ok(s.hand.every(uid=>!uid.startsWith('arrow.')));
   const state=start(fresh(123)),a=actions(state)[0],r=activate(state,a);assert.deepEqual(snapshot(activate(migrateSave(state),a).state),snapshot(r.state));
 });
-test('laboratory progression restores full health with no card reward or terrain',()=>{
-  let s=fixture({},['strike'],1);s.hp=7;const r=place(s,0);assert.equal(r.state.screen,'reward');assert.deepEqual(actions(r.state),[{kind:'continue'}]);s=activate(r.state,{kind:'continue'}).state;assert.equal(s.hp,24);assert.equal(s.encounter,2);assert.equal(s.screen,'play');assert.equal(s.hand.length,3);assert.equal(s.deck.length,17);assert.equal(s.grid.filter(Boolean).length,0);
+test('a victory offers three new cards; picking one grows the deck and restores health',()=>{
+  let s=start(fresh());s.enemies=[{id:'dummy',name:'d',hp:1,maxHp:1,attack:0,pattern:[0],shield:0}];s.hp=7;const r=place(s,0);assert.equal(r.state.screen,'reward');
+  const offer=r.state.rewardOffer;assert.equal(offer.length,3);assert.equal(new Set(offer).size,3);assert.ok(offer.every(t=>!r.state.deck.some(u=>u.startsWith(t+'.'))),'only cards the deck does not hold');
+  assert.deepEqual(actions(r.state),offer.map(type=>({kind:'pick',type})));
+  assert.equal(activate(r.state,{kind:'continue'}).valid,false,'a card must be chosen');assert.equal(activate(r.state,{kind:'pick',type:'strike'}).valid,false,'a card outside the offer is refused');
+  const before=r.state.deck.length;s=activate(r.state,{kind:'pick',type:offer[1]}).state;
+  assert.equal(s.hp,24);assert.equal(s.encounter,2);assert.equal(s.screen,'play');assert.equal(s.hand.length,3);assert.equal(s.deck.length,before+1);assert.ok(s.deck.includes(offer[1]+'.0'));assert.equal(s.grid.filter(Boolean).length,0);assertState(s);
+});
+test('a run needs a relic choice; each relic is valid once, and exhausting the deck ends the encounter',()=>{
+  const s=startRun(fresh());assert.equal(s.screen,'relic');assert.deepEqual(actions(s).map(a=>a.id),RELIC_IDS);
+  assert.equal(activate(s,{kind:'relic',id:'nope'}).valid,false);
+  const r=activate(s,{kind:'relic',id:'patience'});assert.ok(r.valid);assert.equal(r.state.relic,'patience');assert.equal(r.state.screen,'play');assert.equal(activate(r.state,{kind:'relic',id:'falcon'}).valid,false,'the relic is chosen once');
+  const e=fresh();e.screen='play';e.hand=[e.hand[0]];e.draw=[];e.discard=[];e.grid=Array(9).fill(null);e.grid[3]=e.deck.find(u=>!e.hand.includes(u));
+  for(const u of e.deck)if(!e.hand.includes(u)&&u!==e.grid[3]){const c=[...e.grid.keys()].find(i=>!e.grid[i]&&i!==0);e.grid[c]=u;}
+  e.enemies=[{id:'x',name:'x',hp:99,maxHp:99,attack:0,pattern:[0],shield:0}];e.faces={};
+  const spent=activate(e,{card:e.hand[0],cell:0,axis:'column'});
+  assert.ok(spent.valid);
+  if(spent.state.screen==='end')assert.equal(spent.state.outcome,'exhausted');
 });
 test('last laboratory victory ends campaign; loss is resolved after enemy attack',()=>{
   const s=fixture({},['strike'],1);s.encounter=ENCOUNTERS.length;const win=place(s,0);assert.equal(win.state.screen,'end');assert.equal(win.state.outcome,'victory');assert.equal(activate(win.state,{kind:'continue'}).valid,false);
