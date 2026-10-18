@@ -11,8 +11,8 @@ export const cards = {
   cross: {name:'ضربة العارض',icon:'swords',kind:'attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. يصبح الضرر ٣ إذا كان المحور المتعامد يحتوي على ورقة أخرى على الأقل.'},
   scout: {name:'استطلاع الأثر',icon:'arrow',kind:'utility-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. إذا اكتمل الخط المختار وفُرّغ، اسحب ورقة إضافية.'},
   haven: {name:'عياذ الصخر',icon:'stone',kind:'defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد لرد الأعداء الحالي. إذا اكتمل الخط المختار وفُرّغ، يصبح الدرع ٣.'},
-  anvil: {name:'تحصين المرقبة',icon:'stone',kind:'terrain-defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد ثم تُفرَّغ فورًا وتبقى خانتها محصنة؛ أي ورقة تُفعَّل فيها تمنحك درعًا إضافيًا حتى يكتمل خطها. التحصين المتكرر يتراكم.'},
-  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا ثم تُفرَّغ فورًا وتبقى خانتها مشتعلة؛ أي ورقة تُفعَّل فيها تلحق ضررًا إضافيًا حتى يكتمل خطها. الإشعال المتكرر يتراكم.'},
+  anvil: {name:'تحصين المرقبة',icon:'stone',kind:'terrain-defense',vanish:true,effects:[{op:'block',n:1}],text:'احصل على درع واحد ثم تُفرَّغ فورًا وتبقى خانتها محصنة؛ أي ورقة تُفعَّل فيها تمنحك درعًا إضافيًا حتى يكتمل خطها. التحصين المتكرر يتراكم.'},
+  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',vanish:true,effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا ثم تُفرَّغ فورًا وتبقى خانتها مشتعلة؛ أي ورقة تُفعَّل فيها تلحق ضررًا إضافيًا حتى يكتمل خطها. الإشعال المتكرر يتراكم.'},
   aegis: {name:'جلاد الصبر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي. يتضاعف الدرع إلى ٤ إذا كانت صحتك ١٢ أو أقل.'},
   disrupt: {name:'إضعاف البأس',icon:'swords',kind:'disrupt-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا بعدو تختاره، وخفّض هجومه المعلن لهذا الدور بمقدار ١.'},
   slam: {name:'ارتطام الترس',icon:'shield',kind:'slam-attack',effects:[{op:'hit',n:0}],text:'ألحق ضررًا بعدد دِرْعك الحالي. الدرع يبقى. الترتيب مهم: يُحسب ما سبقه في الخط.'},
@@ -107,12 +107,15 @@ export function activate(before,a) {
   const action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
   if(!action.target)return invalid();
   s.hand.splice(s.hand.indexOf(a.card),1);s.grid[a.cell]=a.card;s.faces[a.card]=0;s.placements++;
-  const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),complete=cells.length===3;
+  const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),
+    // A vanishing (⏳) card passes through: it fires with the line, leaves, and never completes it.
+    complete=cells.length===3&&!cells.some(c=>def(s.grid[c]).vanish);
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0};
-  let extraDraws=0;const ignitions=[];
+  let extraDraws=0;const ignitions=[],vanishing=[];
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
+    if(d.vanish)vanishing.push(cell);
     const turf=s.gridTurf[cell],level=turf?(s.gridLevel[cell]||1):0,heat=turf==='scorched'?level:0;
     if(turf==='fortified'){
       summary.block+=level;summary.events.push({type:'shield',cell,amount:level,value:summary.block,source:'turf-fortified',target:'hero'});
@@ -153,13 +156,13 @@ export function activate(before,a) {
   if(hasStagger&&summary.hits>=4){
     summary.enemyAttackReduction+=2;summary.events.push({type:'stagger',amount:2});
   }
-  // A scorch or anvil card is spent as soon as it fires; a completed selected line is spent too.
-  const leaving=new Set(ignitions.map(i=>i.cell));
+  // A vanishing card is spent as soon as it fires; a completed selected line is spent too.
+  const leaving=new Set(vanishing);
   if(complete)for(const cell of line)leaving.add(cell);
   for(const cell of line){
     if(!leaving.has(cell)||!s.grid[cell])continue;
     const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
-    if(!ignitions.some(i=>i.cell===cell)&&s.gridTurf[cell]){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
+    if(complete&&s.gridTurf[cell]){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
   }
   for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;

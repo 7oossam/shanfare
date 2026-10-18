@@ -25,7 +25,7 @@ test('scorch on an already scorched cell stacks to +2 and takes the old bonus it
   const shelter=r2.state.hand.find(u=>u.startsWith('shelter.'));const r3=place(r2.state,4,'row',shelter);
   assert.equal(r3.summary.hits,2,'a plain shield now adds the stacked +2');
 });
-test('completing the line returns a scorched cell to normal; stacking survives a completing scorch',()=>{
+test('completing the line returns a scorched cell to normal; a visiting scorch stacks without completing',()=>{
   const s=fixture({0:'strike',1:'shelter'},['scorch','advance']);s.gridTurf[2]='scorched';s.gridLevel[2]=1;
   const lit=place(s,5,'row',s.hand[0]);assert.equal(lit.state.gridTurf[5],'scorched');
   const t=fixture({0:'strike',1:'shelter'},['advance']);t.gridTurf[2]='scorched';t.gridLevel[2]=1;
@@ -33,7 +33,7 @@ test('completing the line returns a scorched cell to normal; stacking survives a
   assert.equal(r.summary.hits,2+2+1,'strike 2 + advance completed 2 + heat bonus 1');assert.deepEqual(r.summary.clearedCells.sort(),[0,1,2]);
   assert.equal(r.state.gridTurf[2],null);assert.equal(r.state.gridLevel[2],0);
   const u=fixture({0:'strike',1:'shelter'},['scorch']);u.gridTurf[2]='scorched';u.gridLevel[2]=1;
-  const q=place(u,2,'row');assert.equal(q.state.gridLevel[2],2);assert.equal(q.state.gridTurf[2],'scorched');assert.equal(q.state.grid[0],null);
+  const q=place(u,2,'row');assert.equal(q.state.gridLevel[2],2);assert.equal(q.state.gridTurf[2],'scorched');assert.ok(q.state.grid[0]&&q.state.grid[1],'the two persistent cards survive a visiting scorch');assert.equal(q.summary.lines.length,0);
 });
 test('incomplete line keeps the bonus cell lit and the card on it',()=>{
   const s=fixture({},['shelter']);s.gridTurf[4]='scorched';s.gridLevel[4]=1;
@@ -60,4 +60,15 @@ test('slam (ارتطام الترس) hits for the block gathered earlier in the 
 test('slam counts fortified-turf block gained in its own cell',()=>{
   const s=fixture({2:'shelter'},['slam']);s.gridTurf[1]='fortified';s.gridLevel[1]=1;
   assert.equal(place(s,1,'row').summary.hits,3,'shelter 2 + turf 1 before the hit');
+});
+
+test('a vanishing card fires with a two-card line, leaves, and never completes it',()=>{
+  const s=fixture({0:'strike',1:'shelter'},['anvil']);const r=place(s,2,'row');
+  assert.deepEqual(r.summary.cells,[2,1,0],'all three fire');assert.equal(r.summary.hits,2);assert.equal(r.summary.block,3,'shelter 2 + anvil 1');
+  assert.deepEqual(r.summary.clearedCells,[2]);assert.equal(r.summary.lines.length,0);assert.ok(r.state.grid[0]&&r.state.grid[1]);assert.equal(r.state.grid[2],null);
+});
+test('line completion bonuses do not trigger when a vanishing card fills the line',()=>{
+  const s=fixture({0:'strike',1:'shelter'},['scorch','advance']);
+  assert.equal(place(s,2,'row',s.hand[0]).summary.lines.length,0);
+  const t=fixture({0:'strike',1:'shelter'},['advance']);assert.equal(place(t,2,'row').summary.lines.length,1,'a persistent third card still completes');
 });
