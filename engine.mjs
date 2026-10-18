@@ -1,5 +1,5 @@
 export const VERSION = 'shanfara-duel-v9';
-export const RULESET = 32;
+export const RULESET = 33;
 export const HAND_SIZE = 3;
 export const GRID_ROWS = 3, GRID_COLUMNS = 3, GRID_SIZE = 9;
 export const LINES = [[2,1,0],[5,4,3],[8,7,6],[0,3,6],[1,4,7],[2,5,8]];
@@ -11,10 +11,11 @@ export const cards = {
   cross: {name:'ضربة العارض',icon:'swords',kind:'attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. يصبح الضرر ٣ إذا كان المحور المتعامد يحتوي على ورقة أخرى على الأقل.'},
   scout: {name:'استطلاع الأثر',icon:'arrow',kind:'utility-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا بعدو تختاره. إذا اكتمل الخط المختار وفُرّغ، اسحب ورقة إضافية.'},
   haven: {name:'عياذ الصخر',icon:'stone',kind:'defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد لرد الأعداء الحالي. إذا اكتمل الخط المختار وفُرّغ، يصبح الدرع ٣.'},
-  anvil: {name:'تحصين المرقبة',icon:'stone',kind:'terrain-defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد. تصبح هذه الخانة موضعًا محصنًا؛ أي ورقة تُفعل فيها لاحقًا تمنح درعًا إضافيًا.'},
-  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا. تصبح هذه الخانة مشتعلة؛ أي ورقة هجومية تُفعل فيها لاحقًا تلحق ضررًا إضافيًا.'},
+  anvil: {name:'تحصين المرقبة',icon:'stone',kind:'terrain-defense',effects:[{op:'block',n:1}],text:'احصل على درع واحد ثم تُفرَّغ فورًا وتبقى خانتها محصنة؛ أي ورقة تُفعَّل فيها تمنحك درعًا إضافيًا حتى يكتمل خطها. التحصين المتكرر يتراكم.'},
+  scorch: {name:'إشعال النار',icon:'fire',kind:'terrain-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا ثم تُفرَّغ فورًا وتبقى خانتها مشتعلة؛ أي ورقة تُفعَّل فيها تلحق ضررًا إضافيًا حتى يكتمل خطها. الإشعال المتكرر يتراكم.'},
   aegis: {name:'جلاد الصبر',icon:'shield',kind:'defense',effects:[{op:'block',n:2}],text:'احصل على درعين لرد الأعداء الحالي. يتضاعف الدرع إلى ٤ إذا كانت صحتك ١٢ أو أقل.'},
   disrupt: {name:'إضعاف البأس',icon:'swords',kind:'disrupt-attack',effects:[{op:'hit',n:1}],text:'ألحق ضررًا واحدًا بعدو تختاره، وخفّض هجومه المعلن لهذا الدور بمقدار ١.'},
+  slam: {name:'ارتطام الترس',icon:'shield',kind:'slam-attack',effects:[{op:'hit',n:0}],text:'ألحق ضررًا بعدد دِرْعك الحالي. الدرع يبقى. الترتيب مهم: يُحسب ما سبقه في الخط.'},
   stagger: {name:'قاصمة التوازن',icon:'spark',kind:'heavy-attack',effects:[{op:'hit',n:2}],text:'ألحق ضررين بعدو تختاره. إذا ألحق هذا الخط ٤ أضرار أو أكثر في هذا الدور، يتراجع هجوم العدو بمقدار ٢.'}
 };
 export const alternates = {}, rewards = [];
@@ -23,7 +24,8 @@ export const DECK_RECIPE = [
   'strike', 'shelter', 'advance',
   'strike', 'shelter', 'advance',
   'cross', 'scout', 'haven',
-  'anvil', 'scorch', 'disrupt'
+  'anvil', 'scorch', 'disrupt',
+  'slam'
 ];
 export const isReward = () => false;
 export const maneuverOptions = () => [];
@@ -49,7 +51,7 @@ export function draw(s) {
 }
 export function setupEncounter(s,index) {
   if(!ENCOUNTERS[index-1]) throw Error('Unknown encounter');
-  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.faces={};s.discard=[];s.hand=[];
+  s.encounter=index;s.phaseTurn=1;s.hp=s.maxHp;s.grid=Array(9).fill(null);s.gridTurf=Array(9).fill(null);s.gridLevel=Array(9).fill(0);s.faces={};s.discard=[];s.hand=[];
   s.hand=STARTER_TYPES.map(type=>s.deck.find(uid=>cardType(uid)===type));
   s.draw=shuffle(s,s.deck.filter(uid=>!s.hand.includes(uid)));s.enemies=structuredClone(ENCOUNTERS[index-1].enemies);
   for(const e of s.enemies) e.attack = getEnemyIntent(e, 1).damage;
@@ -63,7 +65,7 @@ export function fresh(seed=20261017) {
     counts[type]++;
     return uid;
   });
-  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
+  const s={version:VERSION,ruleset:RULESET,seed:seed>>>0,rng:seed>>>0,deck,draw:[],discard:[],hand:[],grid:Array(9).fill(null),gridTurf:Array(9).fill(null),gridLevel:Array(9).fill(0),faces:{},enemies:[],encounter:1,turn:1,phaseTurn:1,placements:0,hp:24,maxHp:24,screen:'title',outcome:null,last:null};
   setupEncounter(s,1);s.screen='title';return s;
 }
 export function migrateSave(before) {
@@ -101,25 +103,22 @@ export function activate(before,a) {
   }
   if(before.screen!=='play'||!before.hand.includes(a.card)||!Number.isInteger(a.cell)||a.cell<0||a.cell>=9||before.grid[a.cell]||!['row','column'].includes(a.axis)||(a.face!==undefined&&a.face!==0)||(a.target!==undefined&&!attackTargets(before).some(e=>e.id===a.target)))return invalid();
   const s=structuredClone(before);
-  s.gridTurf=s.gridTurf||Array(9).fill(null);
+  s.gridTurf=s.gridTurf||Array(9).fill(null);s.gridLevel=s.gridLevel||Array(9).fill(0);
   const action={card:a.card,cell:a.cell,axis:a.axis,face:0,target:targetForAction(s,a)};
   if(!action.target)return invalid();
   s.hand.splice(s.hand.indexOf(a.card),1);s.grid[a.cell]=a.card;s.faces[a.card]=0;s.placements++;
   const line=selectedLine(a.cell,a.axis),cells=line.filter(i=>s.grid[i]),complete=cells.length===3;
   const summary={kind:'turn',action,cells,lines:complete?[line]:[],clearedCells:[],events:[],effects:[],cleared:[],hits:0,block:0,incoming:0,prevented:0,unusedBlock:0,enemyDamage:0,log:[],drawn:null,enemyAttackReduction:0};
-  let extraDraws=0;
+  let extraDraws=0;const ignitions=[];
   for(const cell of cells){
     const uid=s.grid[cell],d=def(uid),qualified=complete,type=cardType(uid);
     summary.events.push({type:'activate',cell,card:uid});
-    if(s.gridTurf[cell]==='fortified'){
-      summary.block+=1;summary.events.push({type:'shield',cell,amount:1,value:summary.block,source:'turf-fortified',target:'hero'});
+    const turf=s.gridTurf[cell],level=turf?(s.gridLevel[cell]||1):0,heat=turf==='scorched'?level:0;
+    if(turf==='fortified'){
+      summary.block+=level;summary.events.push({type:'shield',cell,amount:level,value:summary.block,source:'turf-fortified',target:'hero'});
     }
-    let extraHit=0;
-    if(s.gridTurf[cell]==='scorched'&&['attack','mixed','terrain-attack','disrupt-attack','heavy-attack'].includes(d.kind)){
-      extraHit=1;
-    }
-    if(type==='anvil') s.gridTurf[cell]='fortified';
-    else if(type==='scorch') s.gridTurf[cell]='scorched';
+    if(type==='anvil')ignitions.push({cell,turf:'fortified',level:(turf==='fortified'?level:0)+1});
+    else if(type==='scorch')ignitions.push({cell,turf:'scorched',level:(turf==='scorched'?level:0)+1});
     for(const effect of d.effects){
       let n=effect.n;
       if(type==='advance'&&effect.op==='hit'&&qualified) n=2;
@@ -128,10 +127,10 @@ export function activate(before,a) {
         n=perp.some(idx=>idx!==cell&&s.grid[idx])?3:1;
       }
       else if(type==='haven'&&effect.op==='block'&&qualified) n=3;
+      else if(type==='slam'&&effect.op==='hit') n=summary.block;
       else if(type==='scout'&&qualified) extraDraws++;
       else if(type==='aegis'&&effect.op==='block') n=s.hp<=12?4:2;
       else if(type==='disrupt') summary.enemyAttackReduction+=1;
-      if(effect.op==='hit') n+=extraHit;
       summary.effects.push({uid,card:uid,cell,op:effect.op,n,amount:n,target:effect.op==='hit'?action.target:'hero'});
       if(effect.op==='block'){summary.block+=n;summary.events.push({type:'shield',cell,amount:n,value:summary.block,target:'hero'});}
       else {
@@ -141,12 +140,28 @@ export function activate(before,a) {
         summary.events.push({type:'damage',cell,source:uid,target:target.id,amount,hp:target.hp,fatal:target.hp===0});
       }
     }
+    if(heat){
+      const target=s.enemies.find(e=>e.id===action.target);
+      if(target&&target.hp>0){
+        const amount=Math.min(target.hp,heat);target.hp-=amount;summary.hits+=amount;
+        summary.effects.push({uid,card:uid,cell,op:'hit',n:heat,amount,target:action.target,source:'turf-scorched'});
+        summary.events.push({type:'damage',cell,source:'turf-scorched',target:target.id,amount,hp:target.hp,fatal:target.hp===0});
+      }
+    }
   }
   const hasStagger=cells.some(c=>cardType(s.grid[c])==='stagger');
   if(hasStagger&&summary.hits>=4){
     summary.enemyAttackReduction+=2;summary.events.push({type:'stagger',amount:2});
   }
-  if(complete)for(const cell of line){const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];}
+  // A scorch or anvil card is spent as soon as it fires; a completed selected line is spent too.
+  const leaving=new Set(ignitions.map(i=>i.cell));
+  if(complete)for(const cell of line)leaving.add(cell);
+  for(const cell of line){
+    if(!leaving.has(cell)||!s.grid[cell])continue;
+    const uid=s.grid[cell];summary.cleared.push(uid);summary.clearedCells.push(cell);s.discard.push(uid);s.grid[cell]=null;delete s.faces[uid];
+    if(!ignitions.some(i=>i.cell===cell)&&s.gridTurf[cell]){s.gridTurf[cell]=null;s.gridLevel[cell]=0;}
+  }
+  for(const {cell,turf,level} of ignitions){s.gridTurf[cell]=turf;s.gridLevel[cell]=level;summary.events.push({type:turf==='scorched'?'ignite':'fortify',cell,level});}
   let shield=summary.block;
   const attackReduction=summary.enemyAttackReduction||0;
   for(const e of attackTargets(s)){
@@ -170,7 +185,7 @@ export function assertState(s) {
   if(!Array.isArray(s.grid)||s.grid.length!==9)throw Error('Invalid grid');
   if(!Number.isInteger(s.hp)||s.hp<0||s.hp>s.maxHp)throw Error('Invalid health');
   if(!['title','play','reward','end'].includes(s.screen)||!ENCOUNTERS[s.encounter-1])throw Error('Invalid screen or encounter');
-  if(s.deck.length!==12||new Set(s.deck).size!==12||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
+  if(s.deck.length!==DECK_RECIPE.length||new Set(s.deck).size!==s.deck.length||s.deck.some(uid=>!def(uid)))throw Error('Invalid roster');
   const zones=[...s.hand,...s.draw,...s.discard,...s.grid.filter(Boolean)];
   if(zones.length!==s.deck.length||new Set(zones).size!==zones.length||zones.some(uid=>!s.deck.includes(uid)||!def(uid)))throw Error('Invalid card zones');
   if(Object.values(s.faces).some(face=>face!==0))throw Error('Alternate faces removed');
